@@ -54,4 +54,12 @@ class AuthService {
     await user.updatePassword(newPassword);
     await user.reload();
   }
+
+  // Update user display name
+  Future<void> updateDisplayName(String displayName) async {
+    final user = _auth.currentUser;
+    if (user == null) throw FirebaseAuthException(code: 'no-user');
+    await user.updateDisplayName(displayName);
+    await user.reload();
+  }
 }

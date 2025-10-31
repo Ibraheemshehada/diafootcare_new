@@ -43,10 +43,42 @@ class LoginViewModel extends ChangeNotifier {
 
     try {
       // Sign in with email and password
-      await FirebaseAuth.instance.signInWithEmailAndPassword(
+      final userCredential = await FirebaseAuth.instance.signInWithEmailAndPassword(
         email: emailController.text.trim(),
         password: passwordController.text,
       );
+
+      final user = userCredential.user;
+      
+      // ✅ Save user data locally if not already saved
+      if (user != null) {
+        final prefs = await SharedPreferences.getInstance();
+        final savedFirstName = prefs.getString('user_firstName');
+        
+        // If no local data, try to get from Firebase
+        if (savedFirstName == null || savedFirstName.isEmpty) {
+          final displayName = user.displayName;
+          final email = user.email ?? emailController.text.trim();
+          
+          if (displayName != null && displayName.isNotEmpty) {
+            final parts = displayName.split(' ');
+            final firstName = parts.first;
+            final lastName = parts.length > 1 ? parts.sublist(1).join(' ') : '';
+            
+            await prefs.setString('user_firstName', firstName);
+            await prefs.setString('user_lastName', lastName);
+            await prefs.setString('user_email', email);
+            await prefs.setString('user_fullName', displayName);
+            debugPrint('💾 User data loaded from Firebase and saved locally: $displayName ($email)');
+          } else {
+            // If no display name, save at least email
+            await prefs.setString('user_email', email);
+            await prefs.setString('user_firstName', 'User');
+            await prefs.setString('user_lastName', '');
+            debugPrint('💾 User email saved: $email');
+          }
+        }
+      }
 
       // ✅ Save "Remember Me" preference
       final prefs = await SharedPreferences.getInstance();

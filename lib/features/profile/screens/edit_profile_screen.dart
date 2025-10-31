@@ -50,11 +50,11 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
               children: [
                 CircleAvatar(
                   radius: 48.r,
-                  backgroundImage: vm.avatarAsset != null ? AssetImage(vm.avatarAsset!) : null,
-                  child: vm.avatarAsset == null ? const Icon(Icons.person, size: 32) : null,
+                  backgroundImage: vm.avatarImageProvider,
+                  child: vm.hasPhoto ? null : const Icon(Icons.person, size: 32),
                 ),
                 InkWell(
-                  onTap: () => vm.pickNewPhoto(),
+                  onTap: () => vm.pickPhotoWithSource(context),
                   child: Container(
                     padding: EdgeInsets.all(6.w),
                     decoration: BoxDecoration(color: t.colorScheme.primary, shape: BoxShape.circle),
@@ -66,7 +66,10 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
           ),
           SizedBox(height: 6.h),
           Center(
-            child: TextButton(onPressed: () => vm.pickNewPhoto(), child: Text('update_photo'.tr())),
+            child: TextButton(
+              onPressed: () => vm.pickPhotoWithSource(context),
+              child: Text('update_photo'.tr()),
+            ),
           ),
 
           Form(

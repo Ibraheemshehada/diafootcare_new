@@ -1,6 +1,8 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:provider/provider.dart';
+import '../../profile/viewmodel/profile_viewmodel.dart';
 
 class HomeHeader extends StatelessWidget {
   final String userFirstName;
@@ -8,12 +10,14 @@ class HomeHeader extends StatelessWidget {
   const HomeHeader({super.key, required this.userFirstName, required this.onNotifications});
 
   String _greeting(BuildContext context, String name) {
+    // Use a default name if empty
+    final displayName = name.isEmpty || name.trim() == 'User' ? 'there' : name;
     final h = TimeOfDay.now().hour;
     final part = h < 12
         ? 'morning'
         : (h < 17 ? 'afternoon' : (h < 21 ? 'evening' : 'night'));
     // e.g. "greeting.morning"
-    return 'greeting.$part'.tr(namedArgs: {'name': name});
+    return 'greeting.$part'.tr(namedArgs: {'name': displayName});
   }
 
   @override
@@ -23,9 +27,14 @@ class HomeHeader extends StatelessWidget {
       padding: EdgeInsets.fromLTRB(16.w, 8.h, 16.w, 0),
       child: Row(
         children: [
-          CircleAvatar(
-            radius: 22.r,
-            backgroundImage: const AssetImage("assets/images/avatar_placeholder.png"),
+          Consumer<ProfileViewModel>(
+            builder: (context, profile, _) {
+              return CircleAvatar(
+                radius: 22.r,
+                backgroundImage: profile.avatarImageProvider,
+                child: profile.hasPhoto ? null : const Icon(Icons.person),
+              );
+            },
           ),
           SizedBox(width: 12.w),
           Expanded(

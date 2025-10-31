@@ -1,11 +1,62 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import '../../../data/models/note.dart';
 import '../../../data/models/service_item.dart';
 
 class HomeViewModel extends ChangeNotifier {
-  String userFirstName = "Ahmed";
+  String userFirstName = "";
   TimeOfDay nextReminder = const TimeOfDay(hour: 15, minute: 0);
   int weeklyProgressPercent = 12;
+
+  HomeViewModel() {
+    _loadUserData();
+  }
+
+  // Load user first name from SharedPreferences
+  Future<void> _loadUserData() async {
+    await refreshUserData();
+  }
+  
+  // Public method to refresh user data (can be called after signup/login)
+  Future<void> refreshUserData() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      userFirstName = prefs.getString('user_firstName') ?? '';
+
+      // If no local data, try to get from Firebase
+      if (userFirstName.isEmpty) {
+        final firebaseUser = FirebaseAuth.instance.currentUser;
+        if (firebaseUser != null) {
+          final displayName = firebaseUser.displayName;
+          if (displayName != null && displayName.isNotEmpty) {
+            userFirstName = displayName.split(' ').first;
+            
+            // Save back to SharedPreferences if we got it from Firebase
+            final parts = displayName.split(' ');
+            final firstName = parts.first;
+            final lastName = parts.length > 1 ? parts.sublist(1).join(' ') : '';
+            await prefs.setString('user_firstName', firstName);
+            await prefs.setString('user_lastName', lastName);
+            await prefs.setString('user_email', firebaseUser.email ?? '');
+            await prefs.setString('user_fullName', displayName);
+          }
+        }
+      }
+
+      // Fallback if still empty
+      if (userFirstName.isEmpty) {
+        userFirstName = 'User'; // Default fallback
+      }
+
+      notifyListeners();
+      debugPrint('🏠 Home: User first name loaded: $userFirstName');
+    } catch (e) {
+      debugPrint('❌ Error loading user data for home: $e');
+      userFirstName = 'User'; // Fallback
+      notifyListeners();
+    }
+  }
 
   final List<Note> recentNotes = [
     Note(

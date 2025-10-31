@@ -38,8 +38,8 @@ class ProfileScreen extends StatelessWidget {
                 children: [
                   CircleAvatar(
                     radius: 28.r,
-                    backgroundImage: profile.avatarAsset != null ? AssetImage(profile.avatarAsset!) : null,
-                    child: profile.avatarAsset == null ? const Icon(Icons.person) : null,
+                    backgroundImage: profile.avatarImageProvider,
+                    child: profile.hasPhoto ? null : const Icon(Icons.person),
                   ),
                   SizedBox(width: 12.w),
                   Expanded(
