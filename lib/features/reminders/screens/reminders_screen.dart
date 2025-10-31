@@ -36,7 +36,7 @@ class RemindersScreen extends StatelessWidget {
             MaterialPageRoute(builder: (_) => const AddReminderScreen()),
           );
           if (r != null && r is Reminder) {
-            context.read<RemindersViewModel>().add(r);
+            await context.read<RemindersViewModel>().add(r);
           }
         },
         child: const Icon(Icons.add),

@@ -1,5 +1,6 @@
+import 'dart:async';
 import 'dart:io' show Platform;
-import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter/foundation.dart' show kIsWeb, debugPrint;
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:timezone/data/latest_all.dart' as tz;
 import 'package:timezone/timezone.dart' as tz;
@@ -35,6 +36,7 @@ class NotificationService {
 
   final _plugin = FlutterLocalNotificationsPlugin();
   bool _ready = false;
+  final Map<int, Timer> _backupTimers = {}; // Track backup timers for scheduled notifications
 
   /// MUST be called once (e.g., in main()).
   Future<void> init() async {
@@ -59,24 +61,45 @@ class NotificationService {
       requestSoundPermission: true,
     );
 
-    await _plugin.initialize(
-      const InitializationSettings(android: androidInit, iOS: iosInit),
+    final initSettings = InitializationSettings(
+      android: androidInit,
+      iOS: iosInit,
     );
 
+    final bool? initialized = await _plugin.initialize(initSettings);
+    debugPrint('🔔 Notification plugin initialized: $initialized');
+
     if (!kIsWeb && Platform.isAndroid) {
-      const AndroidNotificationChannel ch = AndroidNotificationChannel(
-        'reminders_channel',
-        'Reminders',
-        description: 'DiaFootCare reminders',
-        importance: Importance.max,
-      );
-      await _plugin
-          .resolvePlatformSpecificImplementation<
-          AndroidFlutterLocalNotificationsPlugin>()
-          ?.createNotificationChannel(ch);
+      final androidPlugin = _plugin.resolvePlatformSpecificImplementation<
+          AndroidFlutterLocalNotificationsPlugin>();
+      
+      if (androidPlugin != null) {
+        // Request notification permission explicitly (Android 13+)
+        final bool? granted = await androidPlugin.requestNotificationsPermission();
+        debugPrint('🔔 Android notification permission: $granted');
+        
+        // Request exact alarm permission if needed
+        final bool? exactAlarmGranted = await androidPlugin.requestExactAlarmsPermission();
+        debugPrint('🔔 Android exact alarm permission: $exactAlarmGranted');
+        
+        // Create notification channel with proper settings
+        const AndroidNotificationChannel ch = AndroidNotificationChannel(
+          'reminders_channel',
+          'Reminders',
+          description: 'DiaFootCare reminders',
+          importance: Importance.max,
+          showBadge: true,
+          playSound: true,
+          enableVibration: true,
+        );
+        
+        await androidPlugin.createNotificationChannel(ch);
+        debugPrint('✅ Notification channel created');
+      }
     }
 
     _ready = true;
+    debugPrint('✅ NotificationService ready');
   }
 
   /// Map your string id to a stable int for the system.
@@ -84,11 +107,19 @@ class NotificationService {
 
   Future<void> cancel(int id) async {
     if (!_ready) return;
+    // Cancel backup timer if exists
+    _backupTimers[id]?.cancel();
+    _backupTimers.remove(id);
     await _plugin.cancel(id);
   }
 
   Future<void> cancelAll() async {
     if (!_ready) return;
+    // Cancel all backup timers
+    for (var timer in _backupTimers.values) {
+      timer.cancel();
+    }
+    _backupTimers.clear();
     await _plugin.cancelAll();
   }
 
@@ -99,31 +130,124 @@ class NotificationService {
     required String body,
     required DateTime whenLocal,
   }) async {
-    if (!_ready) return;
-    final zdt = tz.TZDateTime.from(whenLocal, tz.local);
-    if (zdt.isBefore(tz.TZDateTime.now(tz.local))) return; // don’t schedule past
+    if (!_ready) {
+      debugPrint('❌ NotificationService not ready!');
+      return;
+    }
+    
+    debugPrint('📅 scheduleOneOff: id=$id, title=$title, when=$whenLocal');
+    
+    // Create TZDateTime directly from local DateTime components
+    // This ensures we're using the correct local timezone without conversion issues
+    final zdt = tz.TZDateTime(
+      tz.local,
+      whenLocal.year,
+      whenLocal.month,
+      whenLocal.day,
+      whenLocal.hour,
+      whenLocal.minute,
+      whenLocal.second,
+    );
+    final now = tz.TZDateTime.now(tz.local);
+    
+    debugPrint('📅 Created TZDateTime: $zdt (now: $now)');
+    
+    if (zdt.isBefore(now)) {
+      debugPrint('⚠️ Cannot schedule notification in the past: $zdt (current: $now)');
+      return; // don't schedule past
+    }
 
     final details = NotificationDetails(
-      android: const AndroidNotificationDetails(
+      android: AndroidNotificationDetails(
         'reminders_channel',
         'Reminders',
-        priority: Priority.max,
+        channelDescription: 'DiaFootCare reminders',
         importance: Importance.max,
+        priority: Priority.max,
+        showWhen: true,
+        enableVibration: true,
+        playSound: true,
+        icon: '@mipmap/ic_launcher',
       ),
-      iOS: const DarwinNotificationDetails(),
+      iOS: const DarwinNotificationDetails(
+        presentAlert: true,
+        presentBadge: true,
+        presentSound: true,
+      ),
     );
 
-    await _plugin.zonedSchedule(
-      id,
-      title,
-      body,
-      zdt,
-      details,
-      androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
-      uiLocalNotificationDateInterpretation:
-      UILocalNotificationDateInterpretation.absoluteTime,
-      payload: 'reminder:$id',
-    );
+    try {
+      // Calculate time until notification
+      final secondsUntil = zdt.difference(now).inSeconds;
+      
+      // For notifications less than 5 minutes away, ALWAYS use a backup timer
+      // Android scheduled notifications can be unreliable, especially on emulators
+      if (secondsUntil <= 300 && secondsUntil > 0) {
+        debugPrint('⚠️ Notification is scheduled for ${secondsUntil}s from now');
+        debugPrint('   Setting up backup timer to ensure notification shows...');
+        
+        // Cancel any existing backup timer for this ID
+        _backupTimers[id]?.cancel();
+        
+        // Backup: Use a timer to ensure notification shows (with 1 second buffer)
+        _backupTimers[id] = Timer(Duration(seconds: secondsUntil + 1), () async {
+          debugPrint('🔔 Backup timer fired for notification ID: $id');
+          debugPrint('   Showing notification now as backup...');
+          try {
+            await _plugin.show(
+              id,
+              title,
+              body,
+              details,
+            );
+            debugPrint('✅ Backup notification shown successfully');
+            _backupTimers.remove(id);
+          } catch (e) {
+            debugPrint('❌ Backup notification failed: $e');
+          }
+        });
+      }
+      
+      // Schedule the notification
+      await _plugin.zonedSchedule(
+        id,
+        title,
+        body,
+        zdt,
+        details,
+        androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+        uiLocalNotificationDateInterpretation:
+        UILocalNotificationDateInterpretation.absoluteTime,
+        payload: 'reminder:$id',
+      );
+      
+      debugPrint('✅ One-off notification scheduled successfully for: $zdt');
+      debugPrint('⏰ Notification will fire in: ${zdt.difference(now).inMinutes} minutes');
+      
+      if (secondsUntil <= 300 && secondsUntil > 0) {
+        debugPrint('🔄 Backup timer active - notification will show via timer if scheduled one fails');
+      }
+      
+      // Verify notification is pending (Android only)
+      if (!kIsWeb && Platform.isAndroid) {
+        final androidPlugin = _plugin.resolvePlatformSpecificImplementation<
+            AndroidFlutterLocalNotificationsPlugin>();
+        if (androidPlugin != null) {
+          try {
+            final activeNotifications = await androidPlugin.getActiveNotifications();
+            debugPrint('📋 Active notifications count: ${activeNotifications.length}');
+          } catch (e) {
+            debugPrint('⚠️ Could not check active notifications: $e');
+          }
+        }
+      }
+      
+      return;
+    } catch (e, stackTrace) {
+      debugPrint('❌ Error scheduling one-off notification: $e');
+      debugPrint('Stack trace: $stackTrace');
+      rethrow;
+    }
   }
 
   /// Schedule a **daily** notification at [hour:minute] local.
@@ -134,30 +258,60 @@ class NotificationService {
     required int hour,
     required int minute,
   }) async {
-    if (!_ready) return;
+    if (!_ready) {
+      debugPrint('❌ NotificationService not ready!');
+      return;
+    }
+    
+    debugPrint('📅 scheduleDaily: id=$id, title=$title, time=$hour:$minute');
+    
     final details = NotificationDetails(
-      android: const AndroidNotificationDetails(
-          'reminders_channel', 'Reminders',
-          priority: Priority.max, importance: Importance.max),
-      iOS: const DarwinNotificationDetails(),
+      android: AndroidNotificationDetails(
+        'reminders_channel',
+        'Reminders',
+        channelDescription: 'DiaFootCare reminders',
+        importance: Importance.max,
+        priority: Priority.max,
+        showWhen: true,
+        enableVibration: true,
+        playSound: true,
+        icon: '@mipmap/ic_launcher',
+      ),
+      iOS: const DarwinNotificationDetails(
+        presentAlert: true,
+        presentBadge: true,
+        presentSound: true,
+      ),
     );
 
     final now = tz.TZDateTime.now(tz.local);
     var next = tz.TZDateTime(tz.local, now.year, now.month, now.day, hour, minute);
-    if (next.isBefore(now)) next = next.add(const Duration(days: 1));
+    if (next.isBefore(now)) {
+      debugPrint('⏰ Scheduled time is in the past, scheduling for tomorrow');
+      next = next.add(const Duration(days: 1));
+    }
+    
+    debugPrint('⏰ Next notification will fire at: ${next.toString()}');
 
-    await _plugin.zonedSchedule(
-      id,
-      title,
-      body,
-      next,
-      details,
-      androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
-      matchDateTimeComponents: DateTimeComponents.time, // daily at time
-      uiLocalNotificationDateInterpretation:
-      UILocalNotificationDateInterpretation.absoluteTime,
-      payload: 'reminder:$id',
-    );
+    try {
+      await _plugin.zonedSchedule(
+        id,
+        title,
+        body,
+        next,
+        details,
+        androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+        matchDateTimeComponents: DateTimeComponents.time, // daily at time
+        uiLocalNotificationDateInterpretation:
+        UILocalNotificationDateInterpretation.absoluteTime,
+        payload: 'reminder:$id',
+      );
+      debugPrint('✅ Daily notification scheduled successfully');
+    } catch (e, stackTrace) {
+      debugPrint('❌ Error in zonedSchedule: $e');
+      debugPrint('Stack trace: $stackTrace');
+      rethrow;
+    }
   }
 
   /// Schedule multiple **weekly** notifications on given weekdays (1=Mon..7=Sun)
@@ -175,10 +329,22 @@ class NotificationService {
       await cancel(id); // replace if existed
 
       final details = NotificationDetails(
-        android: const AndroidNotificationDetails(
-            'reminders_channel', 'Reminders',
-            priority: Priority.max, importance: Importance.max),
-        iOS: const DarwinNotificationDetails(),
+        android: AndroidNotificationDetails(
+          'reminders_channel',
+          'Reminders',
+          channelDescription: 'DiaFootCare reminders',
+          importance: Importance.max,
+          priority: Priority.max,
+          showWhen: true,
+          enableVibration: true,
+          playSound: true,
+          icon: '@mipmap/ic_launcher',
+        ),
+        iOS: const DarwinNotificationDetails(
+          presentAlert: true,
+          presentBadge: true,
+          presentSound: true,
+        ),
       );
 
       final now = tz.TZDateTime.now(tz.local);
@@ -216,6 +382,117 @@ class NotificationService {
   }
 
   int _weekdayIso(int dartWeekday) => dartWeekday; // already ISO 1..7
+
+  /// Test notification - shows immediately for debugging
+  Future<void> testNotification() async {
+    if (!_ready) {
+      debugPrint('❌ NotificationService not ready!');
+      return;
+    }
+    
+    debugPrint('🧪 Testing immediate notification...');
+    
+    // Check permissions first
+    if (!kIsWeb && Platform.isAndroid) {
+      final androidPlugin = _plugin.resolvePlatformSpecificImplementation<
+          AndroidFlutterLocalNotificationsPlugin>();
+      if (androidPlugin != null) {
+        final bool? granted = await androidPlugin.requestNotificationsPermission();
+        debugPrint('🧪 Test notification permission: $granted');
+        if (granted != true) {
+          debugPrint('❌ Notification permission not granted!');
+          return;
+        }
+      }
+    }
+    
+    final android = AndroidNotificationDetails(
+      'reminders_channel',
+      'Reminders',
+      channelDescription: 'DiaFootCare reminders',
+      importance: Importance.max,
+      priority: Priority.max,
+      showWhen: true,
+      enableVibration: true,
+      playSound: true,
+      icon: '@mipmap/ic_launcher',
+    );
+    const iOS = DarwinNotificationDetails(
+      presentAlert: true,
+      presentBadge: true,
+      presentSound: true,
+    );
+    
+    try {
+      await _plugin.show(
+        999,
+        '🧪 Test Reminder',
+        'This is a test notification. If you see this, notifications are working!',
+        NotificationDetails(android: android, iOS: iOS),
+      );
+      debugPrint('✅ Test notification shown successfully');
+    } catch (e, stackTrace) {
+      debugPrint('❌ Error showing test notification: $e');
+      debugPrint('Stack trace: $stackTrace');
+    }
+  }
+  
+  /// Schedule a test notification for 5 seconds from now
+  Future<void> scheduleTestNotificationIn5Seconds() async {
+    if (!_ready) {
+      debugPrint('❌ NotificationService not ready!');
+      return;
+    }
+    
+    final now = tz.TZDateTime.now(tz.local);
+    final in5Seconds = now.add(const Duration(seconds: 5));
+    
+    debugPrint('🧪 Scheduling test notification for: $in5Seconds (5 seconds from now)');
+    
+    await scheduleOneOff(
+      id: 999,
+      title: '🧪 Test Reminder',
+      body: 'This is a scheduled test notification. If you see this, scheduling works!',
+      whenLocal: DateTime(
+        in5Seconds.year,
+        in5Seconds.month,
+        in5Seconds.day,
+        in5Seconds.hour,
+        in5Seconds.minute,
+        in5Seconds.second,
+      ),
+    );
+  }
+  
+  /// Check if notification permissions are granted
+  Future<bool> areNotificationsEnabled() async {
+    if (!_ready) return false;
+    
+    if (!kIsWeb && Platform.isAndroid) {
+      final androidPlugin = _plugin.resolvePlatformSpecificImplementation<
+          AndroidFlutterLocalNotificationsPlugin>();
+      if (androidPlugin != null) {
+        final bool? granted = await androidPlugin.areNotificationsEnabled();
+        return granted ?? false;
+      }
+    }
+    return false;
+  }
+  
+  /// Request notification permissions (Android 13+)
+  Future<bool> requestNotificationPermission() async {
+    if (!_ready) return false;
+    
+    if (!kIsWeb && Platform.isAndroid) {
+      final androidPlugin = _plugin.resolvePlatformSpecificImplementation<
+          AndroidFlutterLocalNotificationsPlugin>();
+      if (androidPlugin != null) {
+        final bool? granted = await androidPlugin.requestNotificationsPermission();
+        return granted ?? false;
+      }
+    }
+    return false;
+  }
 }
 
 

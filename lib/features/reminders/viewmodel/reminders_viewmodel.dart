@@ -75,52 +75,84 @@
 import 'package:flutter/material.dart';
 
 import '../../../data/models/reminder.dart';
-
+import '../../../data/repositories/reminders_repo.dart';
 
 class RemindersViewModel extends ChangeNotifier {
   DateTime _selectedDay = DateTime.now();
-  final List<Reminder> _items = [
-    Reminder(
-      id: 'r2',
-      time: const TimeOfDay(hour: 13, minute: 0),
-      title: 'Wound Care',
-      note: 'Care',
-      weekdays: const [
-        DateTime.monday,
-        DateTime.tuesday,
-        DateTime.wednesday,
-        DateTime.thursday,
-        DateTime.friday,
-        DateTime.saturday,
-        DateTime.sunday,
-      ],
-    ),
-  ];
+  List<Reminder> _items = [];
+  final RemindersRepo _repo = RemindersRepo();
+  bool _isLoading = false;
+
+  RemindersViewModel() {
+    _loadReminders();
+  }
 
   DateTime get selectedDay => _selectedDay;
   List<Reminder> get items => List.unmodifiable(_items);
+  bool get isLoading => _isLoading;
+
+  Future<void> _loadReminders() async {
+    _isLoading = true;
+    notifyListeners();
+    try {
+      _items = await _repo.load();
+      // Reschedule all enabled reminders
+      await _repo.rescheduleAll(_items);
+    } catch (e) {
+      debugPrint('Error loading reminders: $e');
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
+  }
 
   void selectDay(DateTime d) {
     _selectedDay = DateTime(d.year, d.month, d.day);
     notifyListeners();
   }
 
-  void add(Reminder r) {
+  Future<void> add(Reminder r) async {
     _items.add(r);
     notifyListeners();
+    try {
+      await _repo.save(_items);
+      await _repo.schedule(r);
+    } catch (e) {
+      debugPrint('Error adding reminder: $e');
+    }
   }
 
-  void toggle(String id, bool v) {
+  Future<void> toggle(String id, bool v) async {
     final i = _items.indexWhere((e) => e.id == id);
     if (i != -1) {
       _items[i].enabled = v;
       notifyListeners();
+      try {
+        await _repo.save(_items);
+        if (v) {
+          await _repo.schedule(_items[i]);
+        } else {
+          await _repo.cancel(_items[i]);
+        }
+      } catch (e) {
+        debugPrint('Error toggling reminder: $e');
+      }
     }
   }
 
-  void remove(String id) {
-    _items.removeWhere((e) => e.id == id);
+  Future<void> remove(String id) async {
+    final reminderIndex = _items.indexWhere((e) => e.id == id);
+    if (reminderIndex == -1) return;
+    
+    final reminder = _items[reminderIndex];
+    _items.removeAt(reminderIndex);
     notifyListeners();
+    try {
+      await _repo.save(_items);
+      await _repo.cancel(reminder);
+    } catch (e) {
+      debugPrint('Error removing reminder: $e');
+    }
   }
 
   List<Reminder> remindersForSelectedDay() {

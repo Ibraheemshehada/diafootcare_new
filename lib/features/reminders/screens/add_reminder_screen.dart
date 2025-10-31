@@ -298,13 +298,12 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:intl/intl.dart' as intl;
-import 'package:android_alarm_manager_plus/android_alarm_manager_plus.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import '../../../data/models/reminder.dart';
+import '../../../data/repositories/reminders_repo.dart';
 import '../../../core/services/notification_service.dart';
-import '../../../core/services/web_notification_service.dart';
 
 enum ReminderKind { medication, wound, photo, other }
+
 enum RepeatMode { once, daily, custom }
 
 class AddReminderScreen extends StatefulWidget {
@@ -353,10 +352,11 @@ class _AddReminderScreenState extends State<AddReminderScreen> {
     final picked = await showTimePicker(
       context: context,
       initialTime: _time,
-      builder: (ctx, child) => MediaQuery(
-        data: MediaQuery.of(ctx).copyWith(alwaysUse24HourFormat: false),
-        child: child!,
-      ),
+      builder:
+          (ctx, child) => MediaQuery(
+            data: MediaQuery.of(ctx).copyWith(alwaysUse24HourFormat: false),
+            child: child!,
+          ),
     );
     if (picked != null) setState(() => _time = picked);
   }
@@ -374,102 +374,163 @@ class _AddReminderScreenState extends State<AddReminderScreen> {
     }
   }
 
-  // ✅ Full async submit
+  // ✅ Full async submit - Uses RemindersRepo for proper scheduling
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
     _formKey.currentState!.save();
 
-    // Title
-    String title = _label.trim().isNotEmpty ? _label.trim() : _kindLabel(_kind);
-    if (_kind == ReminderKind.medication) {
-      final parts = <String>[
-        if (_medName.trim().isNotEmpty) _medName.trim(),
-        if (_dosage.trim().isNotEmpty) _dosage.trim(),
-      ];
-      if (parts.isNotEmpty) title = parts.join(' — ');
-    }
-
-    // Schedule config
-    List<int> weekdays = const [];
-    DateTime? oneDate;
-
-    switch (_repeat) {
-      case RepeatMode.once:
-        oneDate = _oneDate == null
-            ? DateTime.now()
-            : DateTime(_oneDate!.year, _oneDate!.month, _oneDate!.day);
-        final candidate = _combineDateAndTime(oneDate!, _time);
-        if (candidate.isBefore(DateTime.now())) {
-          oneDate = DateTime.now().add(const Duration(minutes: 1));
-          oneDate = DateTime(oneDate!.year, oneDate!.month, oneDate!.day);
-        }
-        break;
-      case RepeatMode.daily:
-        weekdays = const [1, 2, 3, 4, 5, 6, 7];
-        break;
-      case RepeatMode.custom:
-        if (_weekdays.isEmpty) return;
-        weekdays = _weekdays.toList()..sort();
-        break;
-    }
-
-    final reminder = Reminder(
-      id: _id(),
-      time: _time,
-      title: title,
-      note: _kindLabel(_kind),
-      weekdays: weekdays,
-      oneOffDate: oneDate,
-      enabled: true,
-    );
-
-    // 🔔 Schedule notification
-    final when = _combineDateAndTime(oneDate ?? DateTime.now(), _time);
-    final id = int.parse(reminder.id.hashCode.toString().substring(0, 6));
-
-    // Save title/body before scheduling
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('notif_title_$id', title);
-    await prefs.setString('notif_body_$id', _kindLabel(_kind));
-
-    // Schedule alarm to trigger even if app closed (Android only)
-    if (!kIsWeb && Platform.isAndroid) {
-      await AndroidAlarmManager.oneShotAt(
-        when,
-        id,
-        showReminderNotification,
-        exact: true,
-        wakeup: true,
+    // Show loading indicator
+    if (mounted) {
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (_) => const Center(child: CircularProgressIndicator()),
       );
-    } else if (kIsWeb) {
-      // For web, use JavaScript-based timer notifications
-      WebNotificationService.instance.scheduleAt(
-        id: id,
-        when: when,
+    }
+
+    try {
+      // Title
+      String title =
+          _label.trim().isNotEmpty ? _label.trim() : _kindLabel(_kind);
+      if (_kind == ReminderKind.medication) {
+        final parts = <String>[
+          if (_medName.trim().isNotEmpty) _medName.trim(),
+          if (_dosage.trim().isNotEmpty) _dosage.trim(),
+        ];
+        if (parts.isNotEmpty) title = parts.join(' — ');
+      }
+
+      // Schedule config
+      List<int> weekdays = const [];
+      DateTime? oneDate;
+
+      switch (_repeat) {
+        case RepeatMode.once:
+          oneDate =
+              _oneDate == null
+                  ? DateTime.now()
+                  : DateTime(_oneDate!.year, _oneDate!.month, _oneDate!.day);
+          final candidate = _combineDateAndTime(oneDate, _time);
+          if (candidate.isBefore(DateTime.now())) {
+            final nextMinute = DateTime.now().add(const Duration(minutes: 1));
+            oneDate = DateTime(
+              nextMinute.year,
+              nextMinute.month,
+              nextMinute.day,
+            );
+          }
+          break;
+        case RepeatMode.daily:
+          weekdays = const [1, 2, 3, 4, 5, 6, 7];
+          break;
+        case RepeatMode.custom:
+          if (_weekdays.isEmpty) {
+            if (mounted) {
+              Navigator.pop(context); // Close loading
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text('Please select at least one day'.tr())),
+              );
+            }
+            return;
+          }
+          weekdays = _weekdays.toList()..sort();
+          break;
+      }
+
+      final reminder = Reminder(
+        id: _id(),
+        time: _time,
         title: title,
-        body: _kindLabel(_kind),
+        note: _kindLabel(_kind),
+        weekdays: weekdays,
+        oneOffDate: oneDate,
+        enabled: true,
       );
-      
-      // Show confirmation
+
+      // 🔔 Check notification permissions first
+      final notifService = NotificationService.I;
+      final hasPermission = await notifService.areNotificationsEnabled();
+
+      if (!hasPermission && !kIsWeb && Platform.isAndroid) {
+        // Try to request permission again
+        final granted = await notifService.requestNotificationPermission();
+        if (!granted) {
+          if (mounted) {
+            Navigator.pop(context); // Close loading
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: const Text(
+                  '⚠️ Notification permission is required for reminders. Please enable it in Settings.',
+                ),
+                duration: const Duration(seconds: 5),
+                backgroundColor: Colors.orange,
+              ),
+            );
+          }
+          return;
+        }
+      }
+
+      // 🔔 Schedule notification using RemindersRepo
+      final repo = RemindersRepo();
+
+      // For testing: if reminder is less than 10 seconds away, show immediate test notification
+      final when = _combineDateAndTime(oneDate ?? DateTime.now(), _time);
+      final timeUntil = when.difference(DateTime.now());
+      if (timeUntil.inSeconds <= 10 && timeUntil.inSeconds > 0) {
+        debugPrint(
+          '🧪 Test notification will fire in ${timeUntil.inSeconds} seconds',
+        );
+      }
+
+      await repo.schedule(reminder);
+
+      // Close loading dialog
+      if (mounted) Navigator.pop(context);
+
+      // Show success message
+      if (mounted) {
+        final when = _combineDateAndTime(oneDate ?? DateTime.now(), _time);
+        final localeStr = context.locale.toLanguageTag();
+        String message;
+        if (_repeat == RepeatMode.daily) {
+          message = '⏰ Daily reminder scheduled for ${_time.format(context)}';
+        } else if (_repeat == RepeatMode.once) {
+          message =
+              '⏰ Reminder scheduled for ${intl.DateFormat.yMd(localeStr).add_jm().format(when)}';
+        } else {
+          message =
+              '⏰ Reminder scheduled for selected days at ${_time.format(context)}';
+        }
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(message),
+            duration: const Duration(seconds: 3),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+
+      // Return reminder to parent screen
+      if (mounted) {
+        Navigator.pop(context, reminder);
+      }
+    } catch (e) {
+      // Close loading dialog
+      if (mounted) Navigator.pop(context);
+
+      // Show error message
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('⏰ Reminder scheduled for ${intl.DateFormat.yMd().add_jm().format(when)}'),
+            content: Text('Error scheduling reminder: $e'),
+            backgroundColor: Colors.red,
             duration: const Duration(seconds: 3),
           ),
         );
       }
-    } else {
-      // For iOS and other platforms, use local notifications
-      await NotificationService.I.scheduleOneOff(
-        id: id,
-        title: title,
-        body: _kindLabel(_kind),
-        whenLocal: when,
-      );
     }
-
-    Navigator.pop(context, reminder);
   }
 
   @override
@@ -498,17 +559,21 @@ class _AddReminderScreenState extends State<AddReminderScreen> {
               value: _kind,
               items: [
                 DropdownMenuItem(
-                    value: ReminderKind.medication,
-                    child: Text('type_medication'.tr())),
+                  value: ReminderKind.medication,
+                  child: Text('type_medication'.tr()),
+                ),
                 DropdownMenuItem(
-                    value: ReminderKind.wound,
-                    child: Text('type_wound'.tr())),
+                  value: ReminderKind.wound,
+                  child: Text('type_wound'.tr()),
+                ),
                 DropdownMenuItem(
-                    value: ReminderKind.photo,
-                    child: Text('type_photo'.tr())),
+                  value: ReminderKind.photo,
+                  child: Text('type_photo'.tr()),
+                ),
                 DropdownMenuItem(
-                    value: ReminderKind.other,
-                    child: Text('type_other'.tr())),
+                  value: ReminderKind.other,
+                  child: Text('type_other'.tr()),
+                ),
               ],
               onChanged: (v) => setState(() => _kind = v ?? _kind),
             ),
@@ -518,8 +583,7 @@ class _AddReminderScreenState extends State<AddReminderScreen> {
               Text('med_name'.tr(), style: t.textTheme.labelLarge),
               SizedBox(height: 6.h),
               TextFormField(
-                decoration:
-                InputDecoration(hintText: 'enter_medication'.tr()),
+                decoration: InputDecoration(hintText: 'enter_medication'.tr()),
                 onSaved: (v) => _medName = v?.trim() ?? '',
               ),
               SizedBox(height: 12.h),
@@ -539,12 +603,17 @@ class _AddReminderScreenState extends State<AddReminderScreen> {
               value: _repeat,
               items: [
                 DropdownMenuItem(
-                    value: RepeatMode.once, child: Text('repeat_once'.tr())),
+                  value: RepeatMode.once,
+                  child: Text('repeat_once'.tr()),
+                ),
                 DropdownMenuItem(
-                    value: RepeatMode.daily, child: Text('repeat_daily'.tr())),
+                  value: RepeatMode.daily,
+                  child: Text('repeat_daily'.tr()),
+                ),
                 DropdownMenuItem(
-                    value: RepeatMode.custom,
-                    child: Text('repeat_custom'.tr())),
+                  value: RepeatMode.custom,
+                  child: Text('repeat_custom'.tr()),
+                ),
               ],
               onChanged: (v) => setState(() => _repeat = v ?? _repeat),
             ),
@@ -559,22 +628,19 @@ class _AddReminderScreenState extends State<AddReminderScreen> {
                     child: Container(
                       padding: EdgeInsets.all(12.w),
                       decoration: BoxDecoration(
-                        color:
-                        t.colorScheme.surfaceVariant.withOpacity(.35),
+                        color: t.colorScheme.surfaceVariant.withOpacity(.35),
                         borderRadius: BorderRadius.circular(12.r),
                       ),
                       child: Text(
                         _oneDate == null
                             ? '—'
-                            : intl.DateFormat.yMMMMd(locale)
-                            .format(_oneDate!),
+                            : intl.DateFormat.yMMMMd(locale).format(_oneDate!),
                         style: t.textTheme.bodyMedium,
                       ),
                     ),
                   ),
                   SizedBox(width: 8.w),
-                  FilledButton(
-                      onPressed: _pickDate, child: Text('pick'.tr())),
+                  FilledButton(onPressed: _pickDate, child: Text('pick'.tr())),
                 ],
               ),
             ],
@@ -617,13 +683,14 @@ class _AddReminderScreenState extends State<AddReminderScreen> {
                       color: t.colorScheme.surfaceVariant.withOpacity(.35),
                       borderRadius: BorderRadius.circular(12.r),
                     ),
-                    child: Text(_time.format(context),
-                        style: t.textTheme.bodyMedium),
+                    child: Text(
+                      _time.format(context),
+                      style: t.textTheme.bodyMedium,
+                    ),
                   ),
                 ),
                 SizedBox(width: 8.w),
-                FilledButton(
-                    onPressed: _pickTime, child: Text('pick'.tr())),
+                FilledButton(onPressed: _pickTime, child: Text('pick'.tr())),
               ],
             ),
 
@@ -632,8 +699,7 @@ class _AddReminderScreenState extends State<AddReminderScreen> {
               height: 48.h,
               child: FilledButton(
                 onPressed: _submit,
-                child:
-                Text('apply'.tr(), style: TextStyle(fontSize: 16.sp)),
+                child: Text('apply'.tr(), style: TextStyle(fontSize: 16.sp)),
               ),
             ),
           ],

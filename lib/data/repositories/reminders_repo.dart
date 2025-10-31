@@ -40,8 +40,13 @@ class RemindersRepo {
 
   Future<void> schedule(Reminder r) async {
     await _notifs.init();
-    if (!r.enabled) return;
+    if (!r.enabled) {
+      debugPrint('⏰ Reminder ${r.id} is disabled, skipping schedule');
+      return;
+    }
+    debugPrint('⏰ Scheduling reminder: ${r.title} at ${r.time.hour}:${r.time.minute}');
     await _scheduleOne(r);
+    debugPrint('✅ Reminder scheduled successfully');
   }
 
   Future<void> cancel(Reminder r) async {
@@ -54,40 +59,54 @@ class RemindersRepo {
   }
 
   Future<void> _scheduleOne(Reminder r) async {
-    final base = _notifs.notifIdFromKey(r.id);
-    final body = r.note;
+    try {
+      final base = _notifs.notifIdFromKey(r.id);
+      final body = r.note;
 
-    if (r.isOneOff()) {
-      final d = r.oneOffDate!;
-      final dt = DateTime(d.year, d.month, d.day, r.time.hour, r.time.minute);
-      await _notifs.scheduleOneOff(
-        id: base,
-        title: r.title,
-        body: body,
-        whenLocal: dt,
-      );
-      return;
-    }
+      debugPrint('📅 Reminder type: oneOff=${r.isOneOff()}, daily=${r.repeatsDaily()}, weekdays=${r.weekdays}');
 
-    if (r.repeatsDaily()) {
-      await _notifs.scheduleDaily(
-        id: base,
+      if (r.isOneOff()) {
+        final d = r.oneOffDate!;
+        final dt = DateTime(d.year, d.month, d.day, r.time.hour, r.time.minute);
+        debugPrint('⏰ Scheduling one-off notification for: ${dt.toString()}');
+        await _notifs.scheduleOneOff(
+          id: base,
+          title: r.title,
+          body: body,
+          whenLocal: dt,
+        );
+        debugPrint('✅ One-off notification scheduled');
+        return;
+      }
+
+      if (r.repeatsDaily()) {
+        debugPrint('⏰ Scheduling daily notification at ${r.time.hour}:${r.time.minute}');
+        await _notifs.scheduleDaily(
+          id: base,
+          title: r.title,
+          body: body,
+          hour: r.time.hour,
+          minute: r.time.minute,
+        );
+        debugPrint('✅ Daily notification scheduled');
+        return;
+      }
+
+      // custom weekdays
+      debugPrint('⏰ Scheduling weekly notification on ${r.weekdays} at ${r.time.hour}:${r.time.minute}');
+      await _notifs.scheduleWeekly(
+        baseId: base,
         title: r.title,
         body: body,
         hour: r.time.hour,
         minute: r.time.minute,
+        weekdays: r.weekdays..sort(),
       );
-      return;
+      debugPrint('✅ Weekly notification scheduled');
+    } catch (e, stackTrace) {
+      debugPrint('❌ Error scheduling reminder: $e');
+      debugPrint('Stack trace: $stackTrace');
+      rethrow;
     }
-
-    // custom weekdays
-    await _notifs.scheduleWeekly(
-      baseId: base,
-      title: r.title,
-      body: body,
-      hour: r.time.hour,
-      minute: r.time.minute,
-      weekdays: r.weekdays..sort(),
-    );
   }
 }
