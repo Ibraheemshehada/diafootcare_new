@@ -28,7 +28,7 @@ class _PreviewScreenState extends State<PreviewScreen> {
       final String savedPath = path.join(appDocDir.path, fileName);
 
       // Copy the file to app directory
-      final File savedFile = await File(widget.file.path).copy(savedPath);
+      await File(widget.file.path).copy(savedPath);
       
       debugPrint('✅ Image saved to: $savedPath');
       return savedPath;
@@ -55,6 +55,7 @@ class _PreviewScreenState extends State<PreviewScreen> {
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(14.r),
                 child: Container(
+                  width: double.infinity,
                   color: const Color(0xFFF2F2F2),
                   child: FutureBuilder<Uint8List>(
                     future: _bytes(),
@@ -62,7 +63,11 @@ class _PreviewScreenState extends State<PreviewScreen> {
                       if (!snap.hasData) {
                         return const Center(child: CircularProgressIndicator());
                       }
-                      return Image.memory(snap.data!, fit: BoxFit.contain);
+                      return Image.memory(
+                        snap.data!,
+                        fit: BoxFit.cover,
+                        width: double.infinity,
+                      );
                     },
                   ),
                 ),
