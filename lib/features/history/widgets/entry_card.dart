@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -7,6 +8,26 @@ class HistoryEntryCard extends StatelessWidget {
   final WoundEntry entry;
   final VoidCallback onView;
   const HistoryEntryCard({super.key, required this.entry, required this.onView});
+
+  Widget _buildImage() {
+    if (entry.imagePath.startsWith('assets/')) {
+      return Image.asset(entry.imagePath, width: 120.w, height: 120.w, fit: BoxFit.cover);
+    } else {
+      // File system image
+      final file = File(entry.imagePath);
+      if (file.existsSync()) {
+        return Image.file(file, width: 120.w, height: 120.w, fit: BoxFit.cover);
+      } else {
+        // Placeholder if file doesn't exist
+        return Container(
+          width: 120.w,
+          height: 120.w,
+          color: Colors.grey[300],
+          child: const Icon(Icons.image_not_supported),
+        );
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -24,7 +45,7 @@ class HistoryEntryCard extends StatelessWidget {
           children: [
             ClipRRect(
               borderRadius: BorderRadius.only(topLeft: Radius.circular(14.r), bottomLeft: Radius.circular(14.r)),
-              child: Image.asset(entry.imagePath, width: 120.w, height: 120.w, fit: BoxFit.cover),
+              child: _buildImage(),
             ),
             Expanded(
               child: Padding(

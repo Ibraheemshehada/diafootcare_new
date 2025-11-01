@@ -158,7 +158,12 @@ class _AnalysisLoadingScreenState extends State<AnalysisLoadingScreen> {
       if (!mounted) return;
       Navigator.pushReplacement(
         context,
-        MaterialPageRoute(builder: (_) => AiResultScreen(result: result)),
+        MaterialPageRoute(
+          builder: (_) => AiResultScreen(
+            result: result,
+            imagePath: widget.imagePath,
+          ),
+        ),
       );
     } catch (e) {
       debugPrint('❌ Analysis error: $e');

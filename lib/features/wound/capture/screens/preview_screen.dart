@@ -1,16 +1,43 @@
+import 'dart:io';
 import 'dart:typed_data';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:path/path.dart' as path;
 
 import '../../analysis/screens/analysis_loading_screen.dart';
 
-class PreviewScreen extends StatelessWidget {
+class PreviewScreen extends StatefulWidget {
   final XFile file;
   const PreviewScreen({super.key, required this.file});
 
-  Future<Uint8List> _bytes() => file.readAsBytes();
+  @override
+  State<PreviewScreen> createState() => _PreviewScreenState();
+}
+
+class _PreviewScreenState extends State<PreviewScreen> {
+  Future<Uint8List> _bytes() => widget.file.readAsBytes();
+  
+  Future<String> _saveImageToLocal() async {
+    try {
+      // Get app documents directory
+      final Directory appDocDir = await getApplicationDocumentsDirectory();
+      final String fileName = 'wound_photo_${DateTime.now().millisecondsSinceEpoch}.jpg';
+      final String savedPath = path.join(appDocDir.path, fileName);
+
+      // Copy the file to app directory
+      final File savedFile = await File(widget.file.path).copy(savedPath);
+      
+      debugPrint('✅ Image saved to: $savedPath');
+      return savedPath;
+    } catch (e) {
+      debugPrint('❌ Error saving image: $e');
+      // Fallback to original path
+      return widget.file.path;
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -56,13 +83,28 @@ class PreviewScreen extends StatelessWidget {
                   child: SizedBox(
                     height: 48.h,
                     child: ElevatedButton.icon(
-                      onPressed: () {
-                        Navigator.pushReplacement(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => const AnalysisLoadingScreen(imagePath: ''),
-                          ),
-                        );
+                      onPressed: () async {
+                        // Show loading
+                        if (mounted) {
+                          showDialog(
+                            context: context,
+                            barrierDismissible: false,
+                            builder: (_) => const Center(child: CircularProgressIndicator()),
+                          );
+                        }
+
+                        // Save image to local storage
+                        final imagePath = await _saveImageToLocal();
+
+                        if (mounted) {
+                          Navigator.pop(context); // Close loading dialog
+                          Navigator.pushReplacement(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => AnalysisLoadingScreen(imagePath: imagePath),
+                            ),
+                          );
+                        }
                       },
                       icon: const Icon(Icons.bookmark_add_outlined),
                       label: Text('save_and_continue'.tr(), style: TextStyle(fontSize: 14.sp)),

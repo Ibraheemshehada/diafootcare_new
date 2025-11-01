@@ -5,7 +5,7 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:firebase_core/firebase_core.dart';
 import 'core/services/notification_service.dart';
 import 'core/services/web_notification_service.dart';
-import 'features/wound/analysis/services/ai_service.dart';  // ✅ Import AI service
+import 'features/wound/analysis/services/ai_service.dart'; // ✅ Import AI service
 import 'firebase_options.dart';
 
 import 'package:easy_localization/easy_localization.dart';
@@ -35,7 +35,9 @@ Future<void> requestExactAlarmPermission() async {
       if (result.isGranted) {
         debugPrint("✅ Exact alarm permission granted");
       } else {
-        debugPrint("⚠️ Exact alarm permission denied - reminders may be delayed");
+        debugPrint(
+          "⚠️ Exact alarm permission denied - reminders may be delayed",
+        );
       }
     } else {
       debugPrint("✅ Exact alarm permission already granted");
@@ -51,6 +53,7 @@ Future<void> requestCameraPermission() async {
     debugPrint("❌ Camera permission denied");
   }
 }
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
@@ -102,7 +105,7 @@ void main() async {
   } else {
     // Request mobile permissions
     await requestNotificationPermission();
-    await requestExactAlarmPermission();  // For Android 12+ exact alarm scheduling
+    await requestExactAlarmPermission(); // For Android 12+ exact alarm scheduling
     await requestCameraPermission();
   }
   runApp(
@@ -116,4 +119,3 @@ void main() async {
     ),
   );
 }
-

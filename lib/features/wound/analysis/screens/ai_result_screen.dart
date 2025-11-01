@@ -4,10 +4,12 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_svg/svg.dart';
 
 import '../viewmodel/analysis_result.dart';
+import '../../../../data/repositories/wounds_repository.dart';
 
 class AiResultScreen extends StatelessWidget {
   final AnalysisResult result;
-  const AiResultScreen({super.key, required this.result});
+  final String imagePath; // Image path to save
+  const AiResultScreen({super.key, required this.result, required this.imagePath});
 
   @override
   Widget build(BuildContext context) {
@@ -100,7 +102,53 @@ class AiResultScreen extends StatelessWidget {
             SizedBox(
               height: 52.h,
               child: FilledButton(
-                onPressed: () => Navigator.popUntil(context, (r) => r.isFirst),
+                onPressed: () async {
+                  try {
+                    // Show loading indicator
+                    if (context.mounted) {
+                      showDialog(
+                        context: context,
+                        barrierDismissible: false,
+                        builder: (_) => const Center(child: CircularProgressIndicator()),
+                      );
+                    }
+
+                    // Save result to database
+                    final repo = WoundsRepository();
+                    await repo.saveWoundResult(
+                      imagePath: imagePath,
+                      result: result,
+                    );
+
+                    if (context.mounted) {
+                      Navigator.pop(context); // Close loading dialog
+                      
+                      // Show success message
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text('result_saved'.tr()),
+                          backgroundColor: Colors.green,
+                          duration: const Duration(seconds: 2),
+                        ),
+                      );
+
+                      // Navigate back to home
+                      Navigator.popUntil(context, (r) => r.isFirst);
+                    }
+                  } catch (e) {
+                    if (context.mounted) {
+                      Navigator.pop(context); // Close loading dialog
+                      
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text('save_error'.tr()),
+                          backgroundColor: Colors.red,
+                          duration: const Duration(seconds: 3),
+                        ),
+                      );
+                    }
+                  }
+                },
                 child: Text('save_result'.tr(), style: TextStyle(fontSize: 16.sp)),
               ),
             ),
