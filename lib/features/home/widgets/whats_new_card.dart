@@ -4,11 +4,13 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
 class WhatsNewCard extends StatelessWidget {
-  final TimeOfDay nextReminder;
+  final TimeOfDay? nextReminder;
+  final String? nextReminderTitle;
   final int weeklyProgressPercent;
   const WhatsNewCard({
     super.key,
     required this.nextReminder,
+    this.nextReminderTitle,
     required this.weeklyProgressPercent,
   });
 
@@ -100,10 +102,9 @@ class WhatsNewCard extends StatelessWidget {
                             SizedBox(width: 8.w),
                             Expanded(
                               child: Text(
-                                // e.g. "Next Reminder: Take a wound photo at 3:00 PM"
-                                'next_reminder_take_photo'.tr(
-                                  namedArgs: {'time': nextReminder.format(context)},
-                                ),
+                                nextReminder != null
+                                    ? 'Next Reminder: ${nextReminderTitle ?? 'Reminder'} at ${nextReminder!.format(context)}'
+                                    : 'no_upcoming_reminders'.tr(),
                                 style: t.textTheme.bodyMedium?.copyWith(color: Colors.white),
                               ),
                             ),
@@ -116,10 +117,15 @@ class WhatsNewCard extends StatelessWidget {
                             SizedBox(width: 8.w),
                             Expanded(
                               child: Text(
-                                // e.g. "Last Week’s Progress: +12% improvement"
-                                'last_week_progress'.tr(
-                                  namedArgs: {'percent': weeklyProgressPercent.toString()},
-                                ),
+                                weeklyProgressPercent != 0
+                                    ? 'last_week_progress'.tr(
+                                        namedArgs: {
+                                          'percent': weeklyProgressPercent > 0 
+                                              ? '+${weeklyProgressPercent.toString()}' 
+                                              : weeklyProgressPercent.toString(),
+                                        },
+                                      )
+                                    : 'no_progress_data'.tr(),
                                 style: t.textTheme.bodyMedium?.copyWith(color: Colors.white),
                               ),
                             ),

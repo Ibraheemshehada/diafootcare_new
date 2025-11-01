@@ -253,9 +253,11 @@
 
   "senior_tip_7_t": "Don’t Worry About Mistakes",
   "senior_tip_7_b": "You can always edit or delete entries—take your time and tap carefully.",
-  "whats_new_today": "What’s New Today?",
+  "whats_new_today": "What's New Today?",
   "next_reminder_take_photo": "Next Reminder: Take a wound photo at {time}",
-  "last_week_progress": "Last Week’s Progress: +{percent}% improvement",
+  "last_week_progress": "Last Week's Progress: {percent}% improvement",
+  "no_upcoming_reminders": "No upcoming reminders",
+  "no_progress_data": "No progress data available",
   "export_title": "Export My Data",
   "export_subtitle": "Download a copy of your health records.",
   "ds_wound_ai": "Wound Photos & AI Analysis",

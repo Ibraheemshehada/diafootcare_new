@@ -62,6 +62,7 @@ class HomeScreen extends StatelessWidget {
                     // What's new
                     WhatsNewCard(
                       nextReminder: vm.nextReminder,
+                      nextReminderTitle: vm.nextReminderTitle,
                       weeklyProgressPercent: vm.weeklyProgressPercent,
                     ),
 
