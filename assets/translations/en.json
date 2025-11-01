@@ -269,6 +269,29 @@
   "fmt_csv": "CSV",
   "fmt_excel": "Excel",
   "export_download": "Export & Download",
-  "export_preparing": "Your export is being prepared…"
+  "export_preparing": "Your export is being prepared…",
+
+  "refresh": "Refresh",
+  "no_notifications": "No Notifications",
+  "no_notifications_desc": "You don't have any active reminders. Add reminders to see them here.",
+  "on": "On {date} at {time}",
+  "daily_at": "Daily at {time}",
+  "weekly_on": "Weekly on {days} at {time}",
+  "mon": "Monday",
+  "tue": "Tuesday",
+  "wed": "Wednesday",
+  "thu": "Thursday",
+  "fri": "Friday",
+  "sat": "Saturday",
+  "sun": "Sunday",
+
+  "password_updated_successfully": "Password updated successfully",
+  "password_update_failed": "Failed to update password",
+  "incorrect_old_password": "Incorrect old password",
+  "password_too_weak": "Password is too weak. Please use a stronger password",
+  "requires_recent_login": "Please log in again to change your password",
+  "user_not_logged_in": "User not logged in",
+  "export_completed": "Export completed successfully",
+  "export_failed": "Export failed"
 
 }

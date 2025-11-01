@@ -109,17 +109,19 @@ class ExportDataScreen extends StatelessWidget {
                     width: 230.w,
                     height: 48.h,
                     child: FilledButton(
-                      onPressed: vm.hasAny
+                      onPressed: (vm.hasAny && !vm.isLoading)
                           ? () async {
-                        await vm.export();
-                        if (!context.mounted) return;
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(content: Text('export_preparing'.tr())),
-                        );
+                        await vm.export(context);
                       }
                           : null,
-                      child: Text('export_download'.tr(),
-                          style: TextStyle(fontSize: 14.sp)),
+                      child: vm.isLoading
+                          ? SizedBox(
+                              height: 20.sp,
+                              width: 20.sp,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : Text('export_download'.tr(),
+                              style: TextStyle(fontSize: 14.sp)),
                     ),
                   ),
                 ),

@@ -9,6 +9,7 @@ import '../widgets/home_header.dart';
 import '../widgets/whats_new_card.dart';
 import '../widgets/recent_note_card.dart';
 import '../widgets/service_tile.dart';
+import '../../../routes/app_routes.dart';
 
 // ✅ import the notes state
 
@@ -53,7 +54,9 @@ class HomeScreen extends StatelessWidget {
                     // Header
                     HomeHeader(
                       userFirstName: vm.userFirstName,
-                      onNotifications: () {}, // TODO
+                      onNotifications: () {
+                        Navigator.pushNamed(context, AppRoutes.notifications);
+                      },
                     ),
 
                     // What's new

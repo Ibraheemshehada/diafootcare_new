@@ -7,6 +7,7 @@ class AnalysisResult {
   final String inflammation;
   final double healingProgress;
   final String graphImagePath; // optional placeholder for now
+  final bool isFromModel; // Indicates if measurements are from Model 1 or simulated
 
   AnalysisResult({
     required this.length,
@@ -17,5 +18,6 @@ class AnalysisResult {
     required this.inflammation,
     required this.healingProgress,
     this.graphImagePath = 'assets/images/progress_graph.png',
+    this.isFromModel = false,
   });
 }

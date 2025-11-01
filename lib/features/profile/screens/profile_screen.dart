@@ -104,6 +104,7 @@ class ProfileScreen extends StatelessWidget {
             leading: Icons.notifications_active_rounded,
             title: 'notifications'.tr(),
             trailing: Switch(value: settings.notificationsEnabled, onChanged: settings.setNotifications),
+            onTap: () => Navigator.pushNamed(context, AppRoutes.notifications),
           ),
           ProfileTile(leading: Icons.description_rounded, title: 'terms'.tr(), onTap: () {}),
           ProfileTile(leading: Icons.elderly_rounded, title: 'senior_tips'.tr(), onTap: () {

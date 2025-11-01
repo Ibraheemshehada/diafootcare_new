@@ -1,6 +1,7 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 class ChangePasswordScreen extends StatefulWidget {
   const ChangePasswordScreen({super.key});
@@ -15,6 +16,7 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
   final _new = TextEditingController();
   final _confirm = TextEditingController();
   bool _oldObscure = true, _newObscure = true, _confirmObscure = true;
+  bool _isLoading = false;
 
   @override
   void dispose() {
@@ -85,13 +87,16 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
           SizedBox(height: 20.h),
           SizedBox(
             height: 48.h,
+            width: double.infinity,
             child: FilledButton(
-              onPressed: () {
-                if (!_formKey.currentState!.validate()) return;
-                // TODO: call backend to change password
-                Navigator.pop(context);
-              },
-              child: Text('update_password'.tr(), style: TextStyle(fontSize: 16.sp)),
+              onPressed: _isLoading ? null : _updatePassword,
+              child: _isLoading
+                  ? SizedBox(
+                      height: 20.sp,
+                      width: 20.sp,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : Text('update_password'.tr(), style: TextStyle(fontSize: 16.sp)),
             ),
           ),
         ],
@@ -101,4 +106,65 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
 
   String? _required(String? v) => (v == null || v.isEmpty) ? 'required'.tr() : null;
   String? _min6(String? v) => (v == null || v.length < 6) ? 'min_chars'.tr(namedArgs: {'n': '6'}) : null;
+
+  Future<void> _updatePassword() async {
+    if (!_formKey.currentState!.validate()) return;
+
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null || user.email == null) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('user_not_logged_in'.tr())),
+      );
+      return;
+    }
+
+    setState(() => _isLoading = true);
+
+    try {
+      // Re-authenticate with old password
+      final credential = EmailAuthProvider.credential(
+        email: user.email!,
+        password: _old.text.trim(),
+      );
+      await user.reauthenticateWithCredential(credential);
+
+      // Update password
+      await user.updatePassword(_new.text.trim());
+      await user.reload();
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('password_updated_successfully'.tr()),
+          backgroundColor: Colors.green,
+        ),
+      );
+      Navigator.pop(context);
+    } on FirebaseAuthException catch (e) {
+      if (!mounted) return;
+      String errorMessage = 'password_update_failed'.tr();
+      
+      if (e.code == 'wrong-password') {
+        errorMessage = 'incorrect_old_password'.tr();
+      } else if (e.code == 'weak-password') {
+        errorMessage = 'password_too_weak'.tr();
+      } else if (e.code == 'requires-recent-login') {
+        errorMessage = 'requires_recent_login'.tr();
+      }
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(errorMessage)),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('password_update_failed'.tr() + ': $e')),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
+  }
 }

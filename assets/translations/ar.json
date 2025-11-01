@@ -267,5 +267,28 @@
   "fmt_csv": "CSV",
   "fmt_excel": "Excel",
   "export_download": "تصدير وتنزيل",
-  "export_preparing": "جارٍ تجهيز التصدير…"
+  "export_preparing": "جارٍ تجهيز التصدير…",
+
+  "refresh": "تحديث",
+  "no_notifications": "لا توجد إشعارات",
+  "no_notifications_desc": "ليس لديك أي تذكيرات نشطة. أضف تذكيرات لرؤيتها هنا.",
+  "on": "في {date} الساعة {time}",
+  "daily_at": "يومياً في الساعة {time}",
+  "weekly_on": "أسبوعياً يوم {days} الساعة {time}",
+  "mon": "الاثنين",
+  "tue": "الثلاثاء",
+  "wed": "الأربعاء",
+  "thu": "الخميس",
+  "fri": "الجمعة",
+  "sat": "السبت",
+  "sun": "الأحد",
+
+  "password_updated_successfully": "تم تحديث كلمة المرور بنجاح",
+  "password_update_failed": "فشل تحديث كلمة المرور",
+  "incorrect_old_password": "كلمة المرور القديمة غير صحيحة",
+  "password_too_weak": "كلمة المرور ضعيفة جداً. يرجى استخدام كلمة مرور أقوى",
+  "requires_recent_login": "يرجى تسجيل الدخول مرة أخرى لتغيير كلمة المرور",
+  "user_not_logged_in": "المستخدم غير مسجل الدخول",
+  "export_completed": "اكتمل التصدير بنجاح",
+  "export_failed": "فشل التصدير"
 }

@@ -66,8 +66,9 @@ class AiService {
     if (!_modelLoaded || kIsWeb) {
       await Future.delayed(const Duration(seconds: 2));
       final result = _getSimulatedResult();
-      debugPrint('✅ Analysis complete (simulated)!');
+      debugPrint('⚠️  Analysis complete (SIMULATED - Model 1 not available)!');
       debugPrint('   Length: ${result.length}cm, Width: ${result.width}cm, Depth: ${result.depth}cm');
+      debugPrint('   These are NOT real measurements from the photo');
       return result;
     }
 

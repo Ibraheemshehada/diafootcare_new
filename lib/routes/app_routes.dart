@@ -14,6 +14,7 @@ import '../features/profile/screens/edit_profile_screen.dart';
 import '../features/profile/screens/profile_screen.dart';
 import '../features/reminders/screens/reminders_screen.dart';
 import '../features/settings/screens/export_data_screen.dart';
+import '../features/notifications/screens/notifications_screen.dart';
 import '../features/settings/screens/senior_tips_screen.dart';
 
 import '../features/shell/screens/main_shell.dart';
@@ -45,6 +46,7 @@ class AppRoutes {
   static const String changePassword = '/profile/change_password';
   static const String seniorTips = '/seniorTips';
   static const exportData = '/exportData';
+  static const String notifications = '/notifications';
 
 
 
@@ -68,6 +70,7 @@ class AppRoutes {
     profile: (_) => const ProfileScreen(),
     editProfile: (_) => const EditProfileScreen(),
     changePassword: (_) => const ChangePasswordScreen(),
+    notifications: (_) => const NotificationsScreen(),
 
     preview: (context) {
       // For preview, pass XFile via arguments
