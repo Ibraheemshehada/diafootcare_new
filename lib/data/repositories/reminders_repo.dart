@@ -9,6 +9,12 @@ class RemindersRepo {
   static const _k = 'reminders_v1';
   final _notifs = NotificationService.I;
 
+  /// Check if notifications are enabled in settings
+  Future<bool> _areNotificationsEnabled() async {
+    final sp = await SharedPreferences.getInstance();
+    return sp.getBool('notifications_enabled') ?? true; // Default to enabled
+  }
+
   Future<List<Reminder>> load() async {
     try {
       final sp = await SharedPreferences.getInstance();
@@ -31,6 +37,15 @@ class RemindersRepo {
   /// Rebuild all OS schedules from scratch (idempotent).
   Future<void> rescheduleAll(List<Reminder> items) async {
     await _notifs.init();
+    
+    // Check if notifications are enabled
+    final notificationsEnabled = await _areNotificationsEnabled();
+    if (!notificationsEnabled) {
+      debugPrint('🔕 Notifications disabled - cancelling all reminders');
+      await _notifs.cancelAll();
+      return;
+    }
+    
     await _notifs.cancelAll();
 
     for (final r in items.where((r) => r.enabled)) {
@@ -40,6 +55,14 @@ class RemindersRepo {
 
   Future<void> schedule(Reminder r) async {
     await _notifs.init();
+    
+    // Check if notifications are enabled
+    final notificationsEnabled = await _areNotificationsEnabled();
+    if (!notificationsEnabled) {
+      debugPrint('🔕 Notifications disabled - skipping reminder schedule');
+      return;
+    }
+    
     if (!r.enabled) {
       debugPrint('⏰ Reminder ${r.id} is disabled, skipping schedule');
       return;

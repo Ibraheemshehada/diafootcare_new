@@ -103,7 +103,20 @@ class ProfileScreen extends StatelessWidget {
           ProfileTile(
             leading: Icons.notifications_active_rounded,
             title: 'notifications'.tr(),
-            trailing: Switch(value: settings.notificationsEnabled, onChanged: settings.setNotifications),
+            trailing: Switch(
+              value: settings.notificationsEnabled,
+              onChanged: (v) async {
+                try {
+                  await settings.setNotifications(v);
+                } catch (e) {
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('Failed to update notifications: $e')),
+                    );
+                  }
+                }
+              },
+            ),
             onTap: () => Navigator.pushNamed(context, AppRoutes.notifications),
           ),
           ProfileTile(leading: Icons.description_rounded, title: 'terms'.tr(), onTap: () {}),
