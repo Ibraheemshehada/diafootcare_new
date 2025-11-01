@@ -80,6 +80,21 @@ class WoundsRepository {
     }
   }
 
+  /// Load all wound entries with full details for export
+  Future<List<Map<String, dynamic>>> loadAllWoundsForExport() async {
+    try {
+      final db = await _db;
+      final List<Map<String, dynamic>> maps = await db.query(
+        'wounds',
+        orderBy: 'date DESC',
+      );
+      return maps;
+    } catch (e) {
+      debugPrint('❌ Error loading wounds for export: $e');
+      return [];
+    }
+  }
+
   /// Load a single wound entry by ID
   Future<WoundEntry?> loadWoundById(int id) async {
     try {
