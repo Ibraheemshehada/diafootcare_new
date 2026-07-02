@@ -10,8 +10,10 @@ import '../viewmodel/analysis_result.dart';
 ///
 /// Model 1 — Wound SEGMENTATION (U-Net, MobileNetV2). Input [1,320,320,3]
 ///   float32 (pixels /255, normalization baked in), output [1,320,320,1]
-///   float32 probability mask. We threshold the mask and measure it to get
-///   wound length / width / area.
+///   float32 probability mask. Post-processing is ported 1:1 from the training
+///   notebook (model-1.ipynb): threshold (fallback 0.5×peak), 5×5 morphological
+///   open+close, largest connected region -> length / width / area, and a
+///   depth HEURISTIC: (wound density inside its bounding box) × 1.5 mm.
 /// Model 2 — Tissue CLASSIFICATION (CLIP ViT-B/32 backbone + SVM head).
 ///   backbone: image[1,224,224,3] (CLIP-normalized) -> 512-d embedding;
 ///   head: 512-d -> 5 probabilities [epithelial, granulation, necrosis,
@@ -36,6 +38,11 @@ class AiService {
   // ---- Model 1 config ----
   static const String _model1Path = 'assets/models/model1_wound_fp16.tflite';
   static const double _maskThreshold = 0.5;
+
+  /// Depth heuristic scale from the notebook (`pixel_depth_mm=1.5`): a wound
+  /// that completely fills its bounding box is assumed 1.5 mm deep; sparser
+  /// masks scale down proportionally. An estimate, not a real 3D measurement.
+  static const double _pixelDepthMm = 1.5;
 
   /// When the photo is NOT calibrated with a reference object, we have no true
   /// scale. We assume the frame's wider side spans this many cm so the numbers
@@ -120,14 +127,16 @@ class AiService {
       final image = img.bakeOrientation(decoded);
 
       // --- Model 1: segmentation -> measurements ---
-      double length = 0, width = 0, areaCm2 = 0;
+      double length = 0, width = 0, areaCm2 = 0, depth = 0;
       if (_model1Loaded) {
         final m = _runSegmentation(image, pixelsPerCm);
         length = m.lengthCm;
         width = m.widthCm;
         areaCm2 = m.areaCm2;
+        depth = m.depthCm;
         debugPrint('✅ Model 1: L=${length.toStringAsFixed(2)}cm '
-            'W=${width.toStringAsFixed(2)}cm area=${areaCm2.toStringAsFixed(2)}cm²');
+            'W=${width.toStringAsFixed(2)}cm area=${areaCm2.toStringAsFixed(2)}cm² '
+            'D=${depth.toStringAsFixed(2)}cm');
       }
 
       // --- Model 2: tissue classification ---
@@ -141,7 +150,7 @@ class AiService {
       return AnalysisResult(
         length: length,
         width: width,
-        depth: 0.0, // segmentation cannot estimate depth
+        depth: depth, // notebook heuristic: bbox fill density × 1.5 mm
         tissueType: tissueType,
         pusLevel: 'N/A', // Model 3 (not built yet)
         inflammation: 'N/A', // Model 3 (not built yet)
@@ -189,31 +198,123 @@ class AiService {
     );
     _model1!.run(input, output);
 
-    // Threshold + bounding box of the wound.
-    int area = 0, minX = w, minY = h, maxX = -1, maxY = -1;
+    // ---- Post-processing ported from the training notebook ----
+    // 1) Binarize; if nothing clears the threshold, retry at half the peak
+    //    response (handles an under-confident model).
+    var mask = List.generate(
+      h,
+      (y) => List.generate(
+          w, (x) => (output[0][y][x][0] as num) >= _maskThreshold),
+    );
+    if (!mask.any((row) => row.any((v) => v))) {
+      double peak = 0;
+      for (int y = 0; y < h; y++) {
+        for (int x = 0; x < w; x++) {
+          final v = (output[0][y][x][0] as num).toDouble();
+          if (v > peak) peak = v;
+        }
+      }
+      if (peak <= 0) return const _Measurements(0, 0, 0, 0);
+      mask = List.generate(
+        h,
+        (y) => List.generate(
+            w, (x) => (output[0][y][x][0] as num) > 0.5 * peak),
+      );
+    }
+
+    // 2) Morphological open then close (5×5) to drop specks and fill holes.
+    mask = _morph5(_morph5(mask, dilate: false), dilate: true); // open
+    mask = _morph5(_morph5(mask, dilate: true), dilate: false); // close
+
+    // 3) Measure the largest connected region only (= largest contour).
+    final comp = _largestComponent(mask);
+    if (comp == null) return const _Measurements(0, 0, 0, 0); // no wound found
+
+    // 4) Depth heuristic: wound pixel density inside its bounding box
+    //    × pixel_depth_mm, converted to cm. Scale-independent.
+    int inBox = 0;
+    for (int y = comp.minY; y <= comp.maxY; y++) {
+      for (int x = comp.minX; x <= comp.maxX; x++) {
+        if (mask[y][x]) inBox++;
+      }
+    }
+    final boxW = comp.maxX - comp.minX + 1;
+    final boxH = comp.maxY - comp.minY + 1;
+    final depthCm = (inBox / (boxW * boxH)) * _pixelDepthMm / 10;
+
+    // Scale mask-space (320) pixels back to original-image pixels.
+    final sx = origW / w, sy = origH / h;
+    final widthPx = boxW * sx;
+    final lengthPx = boxH * sy;
+    final areaPx = comp.area * sx * sy;
+    return _Measurements(
+      lengthPx / ppc,
+      widthPx / ppc,
+      areaPx / (ppc * ppc),
+      depthCm,
+    );
+  }
+
+  /// 5×5 binary dilation/erosion (cv2.morphologyEx kernel=ones((5,5))).
+  /// Outside the frame counts as background for dilation and as wound for
+  /// erosion, matching OpenCV's default border handling.
+  List<List<bool>> _morph5(List<List<bool>> m, {required bool dilate}) {
+    final h = m.length, w = m[0].length;
+    const r = 2;
+    final out = List.generate(h, (_) => List.filled(w, false));
     for (int y = 0; y < h; y++) {
       for (int x = 0; x < w; x++) {
-        if (output[0][y][x][0] >= _maskThreshold) {
+        var hit = false;
+        for (int dy = -r; dy <= r && !hit; dy++) {
+          for (int dx = -r; dx <= r && !hit; dx++) {
+            final ny = y + dy, nx = x + dx;
+            final inside = ny >= 0 && ny < h && nx >= 0 && nx < w;
+            final v = inside ? m[ny][nx] : !dilate;
+            if (dilate ? v : !v) hit = true;
+          }
+        }
+        out[y][x] = dilate ? hit : !hit;
+      }
+    }
+    return out;
+  }
+
+  /// Largest 8-connected region of the mask (area + bounding box).
+  _Component? _largestComponent(List<List<bool>> m) {
+    final h = m.length, w = m[0].length;
+    final seen = List.generate(h, (_) => List.filled(w, false));
+    _Component? best;
+    for (int y0 = 0; y0 < h; y0++) {
+      for (int x0 = 0; x0 < w; x0++) {
+        if (!m[y0][x0] || seen[y0][x0]) continue;
+        int area = 0, minX = x0, maxX = x0, minY = y0, maxY = y0;
+        final stack = <int>[y0 * w + x0];
+        seen[y0][x0] = true;
+        while (stack.isNotEmpty) {
+          final p = stack.removeLast();
+          final y = p ~/ w, x = p % w;
           area++;
           if (x < minX) minX = x;
           if (x > maxX) maxX = x;
           if (y < minY) minY = y;
           if (y > maxY) maxY = y;
+          for (int dy = -1; dy <= 1; dy++) {
+            for (int dx = -1; dx <= 1; dx++) {
+              final ny = y + dy, nx = x + dx;
+              if (ny < 0 || ny >= h || nx < 0 || nx >= w) continue;
+              if (m[ny][nx] && !seen[ny][nx]) {
+                seen[ny][nx] = true;
+                stack.add(ny * w + nx);
+              }
+            }
+          }
+        }
+        if (best == null || area > best.area) {
+          best = _Component(area, minX, minY, maxX, maxY);
         }
       }
     }
-    if (maxX < 0) return const _Measurements(0, 0, 0); // no wound found
-
-    // Scale mask-space (320) pixels back to original-image pixels.
-    final sx = origW / w, sy = origH / h;
-    final widthPx = (maxX - minX + 1) * sx;
-    final lengthPx = (maxY - minY + 1) * sy;
-    final areaPx = area * sx * sy;
-    return _Measurements(
-      lengthPx / ppc,
-      widthPx / ppc,
-      areaPx / (ppc * ppc),
-    );
+    return best;
   }
 
   // ---------------------------------------------------------------------------
@@ -336,5 +437,12 @@ class _Measurements {
   final double lengthCm;
   final double widthCm;
   final double areaCm2;
-  const _Measurements(this.lengthCm, this.widthCm, this.areaCm2);
+  final double depthCm;
+  const _Measurements(this.lengthCm, this.widthCm, this.areaCm2, this.depthCm);
+}
+
+class _Component {
+  final int area;
+  final int minX, minY, maxX, maxY;
+  const _Component(this.area, this.minX, this.minY, this.maxX, this.maxY);
 }
