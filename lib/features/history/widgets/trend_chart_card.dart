@@ -13,13 +13,52 @@ class TrendChartCard extends StatelessWidget {
     final t = Theme.of(context);
     final isRtl = Directionality.of(context) == TextDirection.RTL;
 
-    // --- 1) Data (fallback to dummy if empty) ---
-    final mainSeries = (monthlyTrend.isEmpty)
-        ? <double>[12, 14, 13, 16, 18, 15, 15]  // dummy like your mock
-        : monthlyTrend;
+    // --- 1) Data (real monthly trend; empty state when no entries) ---
+    final mainSeries = monthlyTrend;
 
-    // a faint comparison/baseline (dummy)
-    final baseline = <double>[12, 13, 12.5, 12.8, 13.2, 13.8, 14];
+    if (mainSeries.isEmpty) {
+      return Padding(
+        padding: EdgeInsets.fromLTRB(16.w, 16.h, 16.w, 8.h),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Text("healing_trend_graph".tr(), style: t.textTheme.titleMedium),
+                const Spacer(),
+                Container(
+                  padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 6.h),
+                  decoration: BoxDecoration(
+                    color: t.colorScheme.surfaceVariant,
+                    borderRadius: BorderRadius.circular(16.r),
+                  ),
+                  child: Text("monthly".tr(), style: t.textTheme.labelMedium),
+                ),
+              ],
+            ),
+            SizedBox(height: 10.h),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(12.r),
+              child: Container(
+                height: 220.h,
+                width: double.infinity,
+                color: t.colorScheme.surfaceVariant.withOpacity(.25),
+                padding: EdgeInsets.all(16.w),
+                child: Center(
+                  child: Text(
+                    "no_trend_data".tr(),
+                    textAlign: TextAlign.center,
+                    style: t.textTheme.bodyMedium?.copyWith(
+                      color: t.colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
 
     final n = mainSeries.length;
 
@@ -44,10 +83,9 @@ class TrendChartCard extends StatelessWidget {
     }
 
     final mainSpots = _toSpots(mainSeries);
-    final baseSpots = _toSpots(baseline);
 
     // --- 4) Axis ranges with padding ---
-    final allY = [...mainSeries, ...baseline];
+    final allY = mainSeries;
     final yMin = (allY.reduce((a, b) => a < b ? a : b)).floorToDouble();
     final yMax = (allY.reduce((a, b) => a > b ? a : b)).ceilToDouble();
     final pad = ((yMax - yMin).abs() * 0.2).clamp(1.0, 6.0);
@@ -56,10 +94,11 @@ class TrendChartCard extends StatelessWidget {
 
     // Choose a nice tick interval
     double niceInterval(double range) {
-      if (range <= 6) return 2;
       if (range <= 10) return 2;
       if (range <= 16) return 4;
-      return 5;
+      if (range <= 30) return 5;
+      if (range <= 60) return 10;
+      return 25;
     }
     final interval = niceInterval(maxY - minY);
 
@@ -175,18 +214,6 @@ class TrendChartCard extends StatelessWidget {
                       belowBarData: BarAreaData(
                         show: true,
                         color: t.colorScheme.primary.withOpacity(.12),
-                      ),
-                    ),
-                    // Baseline (gray)
-                    LineChartBarData(
-                      spots: baseSpots,
-                      isCurved: true,
-                      barWidth: 3,
-                      color: t.colorScheme.onSurfaceVariant,
-                      dotData: FlDotData(show: false),
-                      belowBarData: BarAreaData(
-                        show: true,
-                        color: t.colorScheme.onSurfaceVariant.withOpacity(.08),
                       ),
                     ),
                   ],

@@ -74,6 +74,36 @@ class _AiResultScreenState extends State<AiResultScreen> {
             _SectionTitle('measurements'.tr()),
             SizedBox(height: 12.h),
 
+            if (!result.isFromModel) ...[
+              Container(
+                padding: EdgeInsets.all(12.w),
+                decoration: BoxDecoration(
+                  color: Colors.red.withOpacity(.08),
+                  borderRadius: BorderRadius.circular(12.r),
+                  border: Border.all(color: Colors.red.withOpacity(.4)),
+                ),
+                child: Row(
+                  children: [
+                    Icon(Icons.warning_amber_rounded,
+                        color: Colors.red[800], size: 20.sp),
+                    SizedBox(width: 10.w),
+                    Expanded(
+                      child: Text(
+                        'Demo result — the AI models could not run on this '
+                        'device, so these values are simulated and do NOT '
+                        'describe your photo.',
+                        style: t.textTheme.bodySmall?.copyWith(
+                          fontSize: 11.5.sp,
+                          color: Colors.red[900],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              SizedBox(height: 12.h),
+            ],
+
             if (!result.isCalibrated && result.isFromModel) ...[
               Container(
                 padding: EdgeInsets.all(12.w),

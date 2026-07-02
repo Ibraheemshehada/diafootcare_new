@@ -84,6 +84,7 @@
   "area_mm2": "{value} mm²",
   "months": ["Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug"],
   "healing_trend_graph": "Healing Trend Graph",
+  "no_trend_data": "No data yet — save wound analyses to see your healing trend here.",
   "monthly": "Monthly",
   "chart_placeholder": "Chart placeholder",
 

@@ -11,9 +11,11 @@ class SettingsViewModel extends ChangeNotifier {
   bool get isDarkPreferred => _themeMode == ThemeMode.dark;
   bool get notificationsEnabled => _notificationsEnabled;
 
-  void setDarkMode(bool v) {
+  Future<void> setDarkMode(bool v) async {
     _themeMode = v ? ThemeMode.dark : ThemeMode.light;
     notifyListeners();
+    final p = await SharedPreferences.getInstance();
+    await p.setBool('dark_mode', v);
   }
 
   Future<void> setNotifications(bool v) async {
@@ -54,6 +56,10 @@ class SettingsViewModel extends ChangeNotifier {
     final p = await SharedPreferences.getInstance();
     _acceptedTerms = p.getBool('accepted_terms') ?? false;
     _notificationsEnabled = p.getBool('notifications_enabled') ?? true; // Default to enabled
+    final dark = p.getBool('dark_mode');
+    if (dark != null) {
+      _themeMode = dark ? ThemeMode.dark : ThemeMode.light;
+    }
     notifyListeners();
   }
 

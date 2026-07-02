@@ -60,18 +60,23 @@ class DatabaseHelper {
           await db.execute('CREATE INDEX IF NOT EXISTS idx_notes_date ON notes(date DESC)');
         }
         if (oldVersion < 3) {
-          // Update wounds table to include new fields
-          try {
-            await db.execute('ALTER TABLE wounds ADD COLUMN imagePath TEXT');
-            await db.execute('ALTER TABLE wounds ADD COLUMN pusLevel TEXT');
-            await db.execute('ALTER TABLE wounds ADD COLUMN inflammation TEXT');
-            await db.execute('ALTER TABLE wounds ADD COLUMN healingProgress REAL');
-            await db.execute('ALTER TABLE wounds ADD COLUMN createdAt INTEGER');
-            await db.execute('CREATE INDEX IF NOT EXISTS idx_wounds_date ON wounds(date DESC)');
-          } catch (e) {
-            // If columns already exist, ignore
-            debugPrint('Note: Some wounds columns may already exist: $e');
+          // Update wounds table to include new fields. Each ALTER is guarded
+          // separately so one already-existing column doesn't skip the rest.
+          const alters = [
+            'ALTER TABLE wounds ADD COLUMN imagePath TEXT',
+            'ALTER TABLE wounds ADD COLUMN pusLevel TEXT',
+            'ALTER TABLE wounds ADD COLUMN inflammation TEXT',
+            'ALTER TABLE wounds ADD COLUMN healingProgress REAL',
+            'ALTER TABLE wounds ADD COLUMN createdAt INTEGER',
+          ];
+          for (final sql in alters) {
+            try {
+              await db.execute(sql);
+            } catch (e) {
+              debugPrint('Note: wounds column may already exist: $e');
+            }
           }
+          await db.execute('CREATE INDEX IF NOT EXISTS idx_wounds_date ON wounds(date DESC)');
         }
       },
       onOpen: (db) async {

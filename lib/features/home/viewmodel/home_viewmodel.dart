@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import '../../../data/models/note.dart';
 import '../../../data/models/service_item.dart';
 import '../../../data/repositories/reminders_repo.dart';
 import '../../../data/repositories/wounds_repository.dart';
@@ -63,19 +62,6 @@ class HomeViewModel extends ChangeNotifier {
       notifyListeners();
     }
   }
-
-  final List<Note> recentNotes = [
-    Note(
-      date: DateTime(2025, 7, 24),
-      text: "The wound looks slightly smaller today. No signs of redness. Pain level lower than yesterday.",
-      id: "1"
-    ),
-    Note(
-      date: DateTime(2025, 7, 23),
-      text: "Mild redness around the edges. Applied ointment after cleaning. Pain when touching.",
-      id: "2"
-    ),
-  ];
 
   final services = [
     ServiceItem(

@@ -38,20 +38,36 @@ class HistoryViewModel extends ChangeNotifier {
     return "Stable";
   }
 
-  // Trend data (monthly trend based on entries)
+  /// Monthly healing trend for the last 7 calendar months (oldest → newest):
+  /// percent reduction of the average wound area vs the first recorded month.
+  /// Months without entries carry the previous value. Empty when no entries.
   List<double> get monthlyTrend {
-    if (_entries.isEmpty) return [0, 0, 0, 0, 0, 0, 0];
-    
-    // Group entries by month and calculate average progress
-    final Map<int, List<WoundEntry>> byMonth = {};
-    for (var entry in _entries) {
-      final month = entry.date.month;
-      byMonth.putIfAbsent(month, () => []).add(entry);
+    if (_entries.isEmpty) return const [];
+
+    // Average area (cm²) per calendar month, keyed by year*12+month.
+    final Map<int, List<double>> areasByMonth = {};
+    for (final e in _entries) {
+      final key = e.date.year * 12 + e.date.month;
+      areasByMonth.putIfAbsent(key, () => []).add(e.lengthCm * e.widthCm);
     }
-    
-    // For simplicity, return last 7 months' average progress
-    // This can be enhanced to calculate actual trends
-    return [12, 14, 13, 16, 18, 15, 15]; // Placeholder - can be calculated from entries
+    double avg(List<double> v) => v.reduce((a, b) => a + b) / v.length;
+
+    final firstKey = areasByMonth.keys.reduce((a, b) => a < b ? a : b);
+    final baseline = avg(areasByMonth[firstKey]!);
+    if (baseline <= 0) return const [];
+
+    final now = DateTime.now();
+    final nowKey = now.year * 12 + now.month;
+    final trend = <double>[];
+    double last = 0;
+    for (int key = nowKey - 6; key <= nowKey; key++) {
+      final areas = areasByMonth[key];
+      if (areas != null) {
+        last = (baseline - avg(areas)) / baseline * 100;
+      }
+      trend.add(last);
+    }
+    return trend;
   }
 
   Future<void> _loadWounds() async {
