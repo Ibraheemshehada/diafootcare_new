@@ -8,6 +8,7 @@ class AnalysisResult {
   final double healingProgress;
   final String graphImagePath; // optional placeholder for now
   final bool isFromModel; // Indicates if measurements are from Model 1 or simulated
+  final bool isCalibrated; // true if cm came from a real reference-object scale
 
   AnalysisResult({
     required this.length,
@@ -19,5 +20,6 @@ class AnalysisResult {
     required this.healingProgress,
     this.graphImagePath = 'assets/images/progress_graph.png',
     this.isFromModel = false,
+    this.isCalibrated = false,
   });
 }

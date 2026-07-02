@@ -74,6 +74,36 @@ class _AiResultScreenState extends State<AiResultScreen> {
             _SectionTitle('measurements'.tr()),
             SizedBox(height: 12.h),
 
+            if (!result.isCalibrated && result.isFromModel) ...[
+              Container(
+                padding: EdgeInsets.all(12.w),
+                decoration: BoxDecoration(
+                  color: Colors.orange.withOpacity(.10),
+                  borderRadius: BorderRadius.circular(12.r),
+                  border: Border.all(color: Colors.orange.withOpacity(.4)),
+                ),
+                child: Row(
+                  children: [
+                    Icon(Icons.info_outline,
+                        color: Colors.orange[800], size: 20.sp),
+                    SizedBox(width: 10.w),
+                    Expanded(
+                      child: Text(
+                        'Not calibrated — cm values are approximate. Track the '
+                        'relative trend, or set a scale with a reference object '
+                        'for true measurements.',
+                        style: t.textTheme.bodySmall?.copyWith(
+                          fontSize: 11.5.sp,
+                          color: Colors.orange[900],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              SizedBox(height: 12.h),
+            ],
+
             _StatCard(
               icon: Icons.straighten,
               value: result.length,

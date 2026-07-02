@@ -129,13 +129,17 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:loading_animation_widget/loading_animation_widget.dart';
-import '../viewmodel/analysis_result.dart';
 import '../services/ai_service.dart';  // ✅ Import AI service
 import 'ai_result_screen.dart';
 
 class AnalysisLoadingScreen extends StatefulWidget {
   final String imagePath; // photo taken
-  const AnalysisLoadingScreen({super.key, required this.imagePath});
+  final double? pixelsPerCm; // from reference-object calibration (null = skipped)
+  const AnalysisLoadingScreen({
+    super.key,
+    required this.imagePath,
+    this.pixelsPerCm,
+  });
 
   @override
   State<AnalysisLoadingScreen> createState() => _AnalysisLoadingScreenState();
@@ -153,7 +157,10 @@ class _AnalysisLoadingScreenState extends State<AnalysisLoadingScreen> {
       // ✅ Use real AI service to analyze the wound
       debugPrint('🔍 Analyzing wound image: ${widget.imagePath}');
       
-      final result = await AiService.instance.analyzeWound(widget.imagePath);
+      final result = await AiService.instance.analyzeWound(
+        widget.imagePath,
+        pixelsPerCm: widget.pixelsPerCm,
+      );
 
       if (!mounted) return;
       Navigator.pushReplacement(

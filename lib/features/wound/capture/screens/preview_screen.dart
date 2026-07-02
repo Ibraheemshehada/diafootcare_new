@@ -8,6 +8,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as path;
 
 import '../../analysis/screens/analysis_loading_screen.dart';
+import '../../analysis/screens/scale_calibration_screen.dart';
 
 class PreviewScreen extends StatefulWidget {
   final XFile file;
@@ -101,15 +102,29 @@ class _PreviewScreenState extends State<PreviewScreen> {
                         // Save image to local storage
                         final imagePath = await _saveImageToLocal();
 
-                        if (mounted) {
-                          Navigator.pop(context); // Close loading dialog
-                          Navigator.pushReplacement(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) => AnalysisLoadingScreen(imagePath: imagePath),
+                        if (!mounted) return;
+                        Navigator.pop(context); // Close loading dialog
+
+                        // Optional reference-object calibration for real-cm
+                        // measurements. Returns px/cm, or null if skipped.
+                        final pixelsPerCm = await Navigator.push<double?>(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) =>
+                                ScaleCalibrationScreen(imagePath: imagePath),
+                          ),
+                        );
+
+                        if (!mounted) return;
+                        Navigator.pushReplacement(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => AnalysisLoadingScreen(
+                              imagePath: imagePath,
+                              pixelsPerCm: pixelsPerCm,
                             ),
-                          );
-                        }
+                          ),
+                        );
                       },
                       icon: const Icon(Icons.bookmark_add_outlined),
                       label: Text('save_and_continue'.tr(), style: TextStyle(fontSize: 14.sp)),

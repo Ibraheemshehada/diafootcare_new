@@ -1,0 +1,19 @@
+{
+  "classes": [
+    "epithelial",
+    "granulation",
+    "necrosis",
+    "callus",
+    "slough"
+  ],
+  "thresholds": {
+    "epithelial": 0.09,
+    "granulation": 0.43,
+    "necrosis": 0.6,
+    "callus": 0.45,
+    "slough": 0.63
+  },
+  "cv_auc": 0.825,
+  "cv_f1": 0.7327,
+  "fibrin": "dropped"
+}
