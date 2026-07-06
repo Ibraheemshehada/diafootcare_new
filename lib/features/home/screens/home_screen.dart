@@ -4,6 +4,8 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:provider/provider.dart';
 
 import '../../notes/viewmodel/notes_viewmodel.dart';
+import '../../glucose/viewmodel/glucose_viewmodel.dart';
+import '../../glucose/screens/glucose_screen.dart' show glucoseStatusColor, glucoseStatusLabel;
 import '../viewmodel/home_viewmodel.dart';
 import '../widgets/home_header.dart';
 import '../widgets/whats_new_card.dart';
@@ -26,6 +28,10 @@ class HomeScreen extends StatelessWidget {
 
           // ✅ pull recent notes from NotesViewModel (shared source of truth)
           final recent = notesVm.recent(count: 10);
+
+          // Latest glucose reading for the dashboard card
+          final glucoseVm = context.watch<GlucoseViewModel>();
+          final latestGlucose = glucoseVm.latest;
 
           // Pastel palettes for light/dark
           final colorsLight = <Color>[
@@ -64,6 +70,17 @@ class HomeScreen extends StatelessWidget {
                       nextReminder: vm.nextReminder,
                       nextReminderTitle: vm.nextReminderTitle,
                       weeklyProgressPercent: vm.weeklyProgressPercent,
+                      latestGlucoseText: latestGlucose == null
+                          ? null
+                          : '${latestGlucose.value.toStringAsFixed(0)} mg/dL',
+                      latestGlucoseStatus: latestGlucose == null
+                          ? null
+                          : glucoseStatusLabel(latestGlucose.status),
+                      latestGlucoseColor: latestGlucose == null
+                          ? null
+                          : glucoseStatusColor(latestGlucose.status),
+                      onGlucoseTap: () =>
+                          Navigator.pushNamed(context, AppRoutes.glucose),
                     ),
 
                     // Recent notes section title

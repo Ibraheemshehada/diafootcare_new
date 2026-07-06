@@ -11,6 +11,9 @@ import 'package:pdf/widgets.dart' as pw;
 import '../../../data/repositories/wounds_repository.dart';
 import '../../../data/repositories/notes_repository.dart';
 import '../../../data/repositories/reminders_repo.dart';
+import '../../../data/repositories/glucose_repository.dart';
+import '../../../data/repositories/medication_repository.dart';
+import '../../../data/models/medication.dart';
 
 enum ExportFormat { pdf, csv, xlsx }
 
@@ -193,19 +196,66 @@ class ExportDataViewModel extends ChangeNotifier {
 
     if (glucose) {
       buffer.writeln('=== Glucose Readings ===');
-      buffer.writeln('Date,Reading (mg/dL)');
-      buffer.writeln('(No glucose data available)');
+      buffer.writeln('Date,Reading (mg/dL),Context,Status');
+      try {
+        final readings = await GlucoseRepository().getAll();
+        if (readings.isEmpty) {
+          buffer.writeln('(No glucose data available)');
+        } else {
+          for (final r in readings) {
+            buffer.writeln([
+              r.dateTime.toIso8601String(),
+              r.value.toStringAsFixed(0),
+              r.tag,
+              r.status.name,
+            ].join(','));
+          }
+        }
+      } catch (e) {
+        buffer.writeln('Error loading glucose: $e');
+      }
       buffer.writeln('');
     }
 
     if (medication) {
-      buffer.writeln('=== Medication Log ===');
-      buffer.writeln('Date,Medication,Dosage');
-      buffer.writeln('(No medication data available)');
-      buffer.writeln('');
+      await _writeMedicationsCsv(buffer);
     }
 
     return buffer.toString();
+  }
+
+  /// Shared CSV/Excel medication section: the medication list + a 7-day
+  /// adherence figure (taken vs scheduled doses).
+  Future<void> _writeMedicationsCsv(StringBuffer buffer) async {
+    buffer.writeln('=== Medications ===');
+    buffer.writeln('Medication,Dosage,Times per day');
+    try {
+      final repo = MedicationRepository();
+      final meds = await repo.getAll();
+      if (meds.isEmpty) {
+        buffer.writeln('(No medication data available)');
+      } else {
+        for (final m in meds) {
+          buffer.writeln([
+            '"${m.name.replaceAll('"', '""')}"',
+            '"${m.dosage.replaceAll('"', '""')}"',
+            m.timesPerDay.toString(),
+          ].join(','));
+        }
+        final now = DateTime.now();
+        final keys = List.generate(
+            7, (i) => medDateKey(now.subtract(Duration(days: i))));
+        final taken = await repo.takenCountForDates(keys);
+        final scheduled =
+            meds.fold<int>(0, (a, m) => a + m.timesPerDay) * 7;
+        final pct = scheduled == 0 ? 100 : ((taken / scheduled) * 100).round();
+        buffer.writeln('');
+        buffer.writeln('7-day adherence,$pct%,$taken/$scheduled doses');
+      }
+    } catch (e) {
+      buffer.writeln('Error loading medications: $e');
+    }
+    buffer.writeln('');
   }
 
   Future<Uint8List> _generatePDF() async {
@@ -245,12 +295,12 @@ class ExportDataViewModel extends ChangeNotifier {
     
     // Glucose
     if (glucose) {
-      allWidgets.addAll(_buildGlucoseSection());
+      allWidgets.addAll(await _buildGlucoseSection());
     }
     
     // Medication
     if (medication) {
-      allWidgets.addAll(_buildMedicationSection());
+      allWidgets.addAll(await _buildMedicationSection());
     }
     
     pdf.addPage(
@@ -404,8 +454,8 @@ class ExportDataViewModel extends ChangeNotifier {
     return widgets;
   }
 
-  List<pw.Widget> _buildGlucoseSection() {
-    return [
+  Future<List<pw.Widget>> _buildGlucoseSection() async {
+    final widgets = <pw.Widget>[
       pw.Header(
         level: 1,
         child: pw.Text(
@@ -413,23 +463,80 @@ class ExportDataViewModel extends ChangeNotifier {
           style: pw.TextStyle(fontSize: 18, fontWeight: pw.FontWeight.bold),
         ),
       ),
-      pw.Text('(No glucose data available)'),
-      pw.SizedBox(height: 20),
     ];
+    try {
+      final readings = await GlucoseRepository().getAll();
+      if (readings.isEmpty) {
+        widgets.add(pw.Text('No glucose data available.'));
+      } else {
+        widgets.add(
+          pw.TableHelper.fromTextArray(
+            headers: ['Date', 'Reading (mg/dL)', 'Context', 'Status'],
+            data: readings
+                .map((r) => [
+                      r.dateTime.toIso8601String().split('T')[0] +
+                          ' ' +
+                          r.dateTime
+                              .toIso8601String()
+                              .split('T')[1]
+                              .substring(0, 5),
+                      r.value.toStringAsFixed(0),
+                      r.tag,
+                      r.status.name,
+                    ])
+                .toList(),
+          ),
+        );
+      }
+    } catch (e) {
+      widgets.add(pw.Text('Error loading glucose: $e'));
+    }
+    widgets.add(pw.SizedBox(height: 20));
+    return widgets;
   }
 
-  List<pw.Widget> _buildMedicationSection() {
-    return [
+  Future<List<pw.Widget>> _buildMedicationSection() async {
+    final widgets = <pw.Widget>[
       pw.Header(
         level: 1,
         child: pw.Text(
-          'Medication Log',
+          'Medications',
           style: pw.TextStyle(fontSize: 18, fontWeight: pw.FontWeight.bold),
         ),
       ),
-      pw.Text('(No medication data available)'),
-      pw.SizedBox(height: 20),
     ];
+    try {
+      final repo = MedicationRepository();
+      final meds = await repo.getAll();
+      if (meds.isEmpty) {
+        widgets.add(pw.Text('No medication data available.'));
+      } else {
+        widgets.add(
+          pw.TableHelper.fromTextArray(
+            headers: ['Medication', 'Dosage', 'Times/day'],
+            data: meds
+                .map((m) => [m.name, m.dosage, m.timesPerDay.toString()])
+                .toList(),
+          ),
+        );
+        final now = DateTime.now();
+        final keys = List.generate(
+            7, (i) => medDateKey(now.subtract(Duration(days: i))));
+        final taken = await repo.takenCountForDates(keys);
+        final scheduled =
+            meds.fold<int>(0, (a, m) => a + m.timesPerDay) * 7;
+        final pct = scheduled == 0 ? 100 : ((taken / scheduled) * 100).round();
+        widgets.add(pw.SizedBox(height: 8));
+        widgets.add(pw.Text(
+          '7-day adherence: $pct%  ($taken of $scheduled doses)',
+          style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
+        ));
+      }
+    } catch (e) {
+      widgets.add(pw.Text('Error loading medications: $e'));
+    }
+    widgets.add(pw.SizedBox(height: 20));
+    return widgets;
   }
 
   Future<Uint8List> _generateExcel() async {
@@ -466,11 +573,35 @@ class ExportDataViewModel extends ChangeNotifier {
       buffer.writeln('');
     }
 
+    // Glucose
+    if (glucose) {
+      buffer.writeln('=== Glucose Readings ===');
+      buffer.writeln('Date,Reading (mg/dL),Context,Status');
+      try {
+        final readings = await GlucoseRepository().getAll();
+        if (readings.isEmpty) {
+          buffer.writeln('(No glucose data available)');
+        } else {
+          for (final r in readings) {
+            buffer.writeln([
+              r.dateTime.toIso8601String(),
+              r.value.toStringAsFixed(0),
+              r.tag,
+              r.status.name,
+            ].join(','));
+          }
+        }
+      } catch (e) {
+        buffer.writeln('Error loading glucose: $e');
+      }
+      buffer.writeln('');
+    }
+
     // Notes
     if (notes) {
       buffer.writeln('=== Daily Notes ===');
       buffer.writeln('Date,Note');
-      
+
       try {
         final notesRepo = NotesRepository();
         final notesList = await notesRepo.getAll();
@@ -516,6 +647,11 @@ class ExportDataViewModel extends ChangeNotifier {
         buffer.writeln('Error loading reminders: $e');
       }
       buffer.writeln('');
+    }
+
+    // Medications
+    if (medication) {
+      await _writeMedicationsCsv(buffer);
     }
 
     // Convert to UTF-8 bytes with BOM

@@ -7,11 +7,19 @@ class WhatsNewCard extends StatelessWidget {
   final TimeOfDay? nextReminder;
   final String? nextReminderTitle;
   final int weeklyProgressPercent;
+  final String? latestGlucoseText; // e.g. "132 mg/dL" (null = none logged)
+  final String? latestGlucoseStatus; // localized status label
+  final Color? latestGlucoseColor;
+  final VoidCallback? onGlucoseTap;
   const WhatsNewCard({
     super.key,
     required this.nextReminder,
     this.nextReminderTitle,
     required this.weeklyProgressPercent,
+    this.latestGlucoseText,
+    this.latestGlucoseStatus,
+    this.latestGlucoseColor,
+    this.onGlucoseTap,
   });
 
   @override
@@ -131,6 +139,27 @@ class WhatsNewCard extends StatelessWidget {
                             ),
                           ],
                         ),
+                        if (latestGlucoseText != null) ...[
+                          SizedBox(height: 8.h),
+                          InkWell(
+                            onTap: onGlucoseTap,
+                            child: Row(
+                              children: [
+                                const Icon(Icons.water_drop_outlined,
+                                    color: Colors.white),
+                                SizedBox(width: 8.w),
+                                Expanded(
+                                  child: Text(
+                                    '${'glucose_title'.tr()}: $latestGlucoseText'
+                                    '${latestGlucoseStatus != null ? ' · $latestGlucoseStatus' : ''}',
+                                    style: t.textTheme.bodyMedium
+                                        ?.copyWith(color: Colors.white),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
                       ],
                     ),
                   ),

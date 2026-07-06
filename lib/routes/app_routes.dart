@@ -16,6 +16,8 @@ import '../features/reminders/screens/reminders_screen.dart';
 import '../features/settings/screens/export_data_screen.dart';
 import '../features/notifications/screens/notifications_screen.dart';
 import '../features/settings/screens/senior_tips_screen.dart';
+import '../features/glucose/screens/glucose_screen.dart';
+import '../features/medication/screens/medication_screen.dart';
 
 import '../features/shell/screens/main_shell.dart';
 import '../features/wound/capture/screens/capture_screen.dart';
@@ -47,6 +49,8 @@ class AppRoutes {
   static const String seniorTips = '/seniorTips';
   static const exportData = '/exportData';
   static const String notifications = '/notifications';
+  static const String glucose = '/glucose';
+  static const String medication = '/medication';
 
 
 
@@ -71,6 +75,8 @@ class AppRoutes {
     editProfile: (_) => const EditProfileScreen(),
     changePassword: (_) => const ChangePasswordScreen(),
     notifications: (_) => const NotificationsScreen(),
+    glucose: (_) => const GlucoseScreen(),
+    medication: (_) => const MedicationScreen(),
 
     preview: (context) {
       // For preview, pass XFile via arguments

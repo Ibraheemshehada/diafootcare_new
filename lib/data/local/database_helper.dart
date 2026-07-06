@@ -18,7 +18,7 @@ class DatabaseHelper {
     final path = join(await getDatabasesPath(), 'diafoot.db');
     return openDatabase(
       path,
-      version: 4, // ⬅️ bumped to 4 to add Model 3 infection/ischaemia fields
+      version: 6, // ⬅️ bumped to 6 to add medications + medication_logs
       onCreate: (db, version) async {
         await db.execute('''
           CREATE TABLE wounds (
@@ -48,6 +48,20 @@ class DatabaseHelper {
           )
         ''');
         await db.execute('CREATE INDEX IF NOT EXISTS idx_notes_date ON notes(date DESC)');
+
+        // ⬇️ Glucose readings on fresh DB
+        await db.execute('''
+          CREATE TABLE glucose_readings (
+            id       TEXT PRIMARY KEY,
+            value    REAL NOT NULL,
+            dateTime INTEGER NOT NULL,
+            tag      TEXT NOT NULL
+          )
+        ''');
+        await db.execute('CREATE INDEX IF NOT EXISTS idx_glucose_dt ON glucose_readings(dateTime DESC)');
+
+        // ⬇️ Medications + per-dose logs on fresh DB
+        await _createMedicationTables(db);
       },
       onUpgrade: (db, oldVersion, newVersion) async {
         if (oldVersion < 2) {
@@ -94,6 +108,21 @@ class DatabaseHelper {
             }
           }
         }
+        if (oldVersion < 5) {
+          // Glucose readings table.
+          await db.execute('''
+            CREATE TABLE IF NOT EXISTS glucose_readings (
+              id       TEXT PRIMARY KEY,
+              value    REAL NOT NULL,
+              dateTime INTEGER NOT NULL,
+              tag      TEXT NOT NULL
+            )
+          ''');
+          await db.execute('CREATE INDEX IF NOT EXISTS idx_glucose_dt ON glucose_readings(dateTime DESC)');
+        }
+        if (oldVersion < 6) {
+          await _createMedicationTables(db);
+        }
       },
       onOpen: (db) async {
         // Extra safety: ensure table exists even if onCreate/onUpgrade didn't run
@@ -105,7 +134,44 @@ class DatabaseHelper {
           )
         ''');
         await db.execute('CREATE INDEX IF NOT EXISTS idx_notes_date ON notes(date DESC)');
+
+        // Extra safety: ensure glucose table exists
+        await db.execute('''
+          CREATE TABLE IF NOT EXISTS glucose_readings (
+            id       TEXT PRIMARY KEY,
+            value    REAL NOT NULL,
+            dateTime INTEGER NOT NULL,
+            tag      TEXT NOT NULL
+          )
+        ''');
+        await db.execute('CREATE INDEX IF NOT EXISTS idx_glucose_dt ON glucose_readings(dateTime DESC)');
+
+        // Extra safety: ensure medication tables exist
+        await _createMedicationTables(db);
       },
     );
+  }
+
+  Future<void> _createMedicationTables(Database db) async {
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS medications (
+        id          TEXT PRIMARY KEY,
+        name        TEXT NOT NULL,
+        dosage      TEXT,
+        timesPerDay INTEGER NOT NULL,
+        createdAt   INTEGER NOT NULL
+      )
+    ''');
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS medication_logs (
+        doseKey      TEXT PRIMARY KEY,
+        medicationId TEXT NOT NULL,
+        dateKey      TEXT NOT NULL,
+        doseIndex    INTEGER NOT NULL,
+        takenAt      INTEGER NOT NULL
+      )
+    ''');
+    await db.execute(
+        'CREATE INDEX IF NOT EXISTS idx_medlogs_date ON medication_logs(dateKey)');
   }
 }

@@ -119,6 +119,32 @@ class HomeViewModel extends ChangeNotifier {
       bgOffsetY: 0.00,
       bgOpacity: 0.07,
     ),
+
+    ServiceItem(
+      title: "Blood Glucose",
+      subtitle: "Log and track your glucose readings.",
+      iconAsset: "assets/svg/glucose.svg",
+      route: "/glucose",
+      isPrimary: false,
+      bgScale: 0.70,
+      bgAlignment: Alignment.centerRight,
+      bgOffsetX: 0.04,
+      bgOffsetY: 0.00,
+      bgOpacity: 0.07,
+    ),
+
+    ServiceItem(
+      title: "Medications",
+      subtitle: "Track doses and daily adherence.",
+      iconAsset: "assets/svg/medication.svg",
+      route: "/medication",
+      isPrimary: false,
+      bgScale: 0.70,
+      bgAlignment: Alignment.centerRight,
+      bgOffsetX: 0.04,
+      bgOffsetY: 0.00,
+      bgOpacity: 0.07,
+    ),
   ];
 
   /// Load the next upcoming reminder
