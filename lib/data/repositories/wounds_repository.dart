@@ -31,6 +31,8 @@ class WoundsRepository {
           'tissueType': result.tissueType,
           'pusLevel': result.pusLevel,
           'inflammation': result.inflammation,
+          'infection': result.infection,
+          'ischaemia': result.ischaemia,
           'healingProgress': result.healingProgress,
           'createdAt': now.millisecondsSinceEpoch,
         },
@@ -151,6 +153,8 @@ class WoundsRepository {
         tissueType: map['tissueType'] as String? ?? 'Unknown',
         pusLevel: map['pusLevel'] as String? ?? 'Unknown',
         inflammation: map['inflammation'] as String? ?? 'None',
+        infection: map['infection'] as String? ?? 'N/A',
+        ischaemia: map['ischaemia'] as String? ?? 'N/A',
         healingProgress: (map['healingProgress'] as num?)?.toDouble() ?? 0.0,
       );
     } catch (e) {

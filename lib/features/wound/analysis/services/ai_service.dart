@@ -8,12 +8,14 @@ import '../viewmodel/analysis_result.dart';
 
 /// AI Service for wound analysis.
 ///
-/// Model 1 — Wound SEGMENTATION (U-Net, MobileNetV2). Input [1,320,320,3]
-///   float32 (pixels /255, normalization baked in), output [1,320,320,1]
-///   float32 probability mask. Post-processing is ported 1:1 from the training
-///   notebook (model-1.ipynb): threshold (fallback 0.5×peak), 5×5 morphological
-///   open+close, largest connected region -> length / width / area, and a
-///   depth HEURISTIC: (wound density inside its bounding box) × 1.5 mm.
+/// Model 1 — Wound SEGMENTATION (U-Net, MobileNetV2 + scSE decoder attention,
+///   trained on FUSeg whole-foot photos + DFUTissue crops, ~0.86 val Dice).
+///   Input [1,320,320,3] float32 (pixels /255, normalization baked in), output [1,320,320,1]
+///   float32 probability mask. Post-processing (ported from the training
+///   notebook): 2-view h-flip TTA, threshold (fallback 0.5×peak), 5×5 morphological
+///   open+close, largest connected region -> AREA + rotated (PCA-axis) length/width.
+///   DEPTH cannot be derived from a 2D photo: it comes from the clinician's manual
+///   probe entry (or a future depth sensor). Never estimated from the mask.
 /// Model 2 — Tissue CLASSIFICATION (CLIP ViT-B/32 backbone + SVM head).
 ///   backbone: image[1,224,224,3] (CLIP-normalized) -> 512-d embedding;
 ///   head: 512-d -> 5 probabilities [epithelial, granulation, necrosis,
@@ -35,14 +37,22 @@ class AiService {
   Interpreter? _tissueHead;
   bool _model2Loaded = false;
 
+  // Model 3 (infection & ischaemia): reuses the SAME CLIP backbone + small head
+  Interpreter? _infectionHead;
+  bool _model3Loaded = false;
+
   // ---- Model 1 config ----
   static const String _model1Path = 'assets/models/model1_wound_fp16.tflite';
+
+  /// Mask threshold. 0.5 is the deployment default; the FUSeg-val-tuned optimum
+  /// was ~0.73 but a high threshold shrinks the mask and biases AREA low, which
+  /// matters more for measurement than the last Dice point. Keep 0.5 for sizing.
   static const double _maskThreshold = 0.5;
 
-  /// Depth heuristic scale from the notebook (`pixel_depth_mm=1.5`): a wound
-  /// that completely fills its bounding box is assumed 1.5 mm deep; sparser
-  /// masks scale down proportionally. An estimate, not a real 3D measurement.
-  static const double _pixelDepthMm = 1.5;
+  /// Averaging the plain + horizontally-flipped prediction (2-view TTA) gives a
+  /// steadier boundary for ~2x inference cost (~tens of ms on a phone). Set to
+  /// false if analysis ever feels slow on low-end devices.
+  static const bool _useFlipTta = true;
 
   /// When the photo is NOT calibrated with a reference object, we have no true
   /// scale. We assume the frame's wider side spans this many cm so the numbers
@@ -63,6 +73,22 @@ class AiService {
   };
   static const List<double> _clipMean = [0.48145466, 0.45782750, 0.40821073];
   static const List<double> _clipStd = [0.26862954, 0.26130258, 0.27577711];
+
+  // ---- Model 3 config (infection & ischaemia) ----
+  // Same shared CLIP backbone -> tiny head. 4-class softmax over
+  // [none, infection, ischaemia, both]. From it we derive two binaries:
+  //   P(infection) = p[infection] + p[both];  P(ischaemia) = p[ischaemia] + p[both]
+  // and apply the tuned thresholds below (from infection_ischaemia_head_meta.json).
+  static const String _infectionHeadPath =
+      'assets/models/infection_ischaemia_head.tflite';
+  static const List<String> _infectionClasses = [
+    'none', 'infection', 'ischaemia', 'both',
+  ];
+  // MLP head (512->256->4, label smoothing 0.05). Thresholds from
+  // infection_ischaemia_head_meta.json (grouped-CV tuned):
+  // infection AUC 0.890/F1 0.829, ischaemia AUC 0.987/F1 0.872.
+  static const double _infectionThreshold = 0.41;
+  static const double _ischaemiaThreshold = 0.61;
 
   /// Initialize the AI service and load both models.
   Future<void> init() async {
@@ -100,6 +126,18 @@ class AiService {
       _model2Loaded = false;
     }
 
+    // Model 3 (infection & ischaemia head — shares Model 2's backbone)
+    try {
+      debugPrint('📦 Loading Model 3 (infection/ischaemia): head');
+      _infectionHead = await Interpreter.fromAsset(_infectionHeadPath);
+      debugPrint('✅ Model 3 loaded. head out='
+          '${_infectionHead!.getOutputTensor(0).shape}');
+      _model3Loaded = true;
+    } catch (e) {
+      debugPrint('⚠️  Failed to load Model 3: $e');
+      _model3Loaded = false;
+    }
+
     _initialized = true;
   }
 
@@ -108,8 +146,13 @@ class AiService {
   /// [pixelsPerCm] is the true scale (in ORIGINAL-image pixels per cm) obtained
   /// from reference-object calibration. If null, an uncalibrated estimate is
   /// used and the result is flagged `isCalibrated = false`.
+  ///
+  /// [manualDepthCm] is the wound depth measured by the clinician with a sterile
+  /// probe. A single 2D photo physically cannot yield depth, so this is the only
+  /// trustworthy source on a normal phone camera; when absent, depth is reported
+  /// as 0 and the UI shows "not measured" instead of a fabricated number.
   Future<AnalysisResult> analyzeWound(String imagePath,
-      {double? pixelsPerCm}) async {
+      {double? pixelsPerCm, double? manualDepthCm}) async {
     if (!_initialized) await init();
     debugPrint('🔍 Analyzing wound image: $imagePath (ppc=$pixelsPerCm)');
 
@@ -127,33 +170,49 @@ class AiService {
       final image = img.bakeOrientation(decoded);
 
       // --- Model 1: segmentation -> measurements ---
-      double length = 0, width = 0, areaCm2 = 0, depth = 0;
+      // Depth comes ONLY from the clinician's probe entry (see doc above).
+      double length = 0, width = 0, areaCm2 = 0;
+      final double depth = manualDepthCm ?? 0.0;
       if (_model1Loaded) {
         final m = _runSegmentation(image, pixelsPerCm);
         length = m.lengthCm;
         width = m.widthCm;
         areaCm2 = m.areaCm2;
-        depth = m.depthCm;
         debugPrint('✅ Model 1: L=${length.toStringAsFixed(2)}cm '
             'W=${width.toStringAsFixed(2)}cm area=${areaCm2.toStringAsFixed(2)}cm² '
-            'D=${depth.toStringAsFixed(2)}cm');
+            'D=${manualDepthCm == null ? "not measured" : depth.toStringAsFixed(2)}');
       }
 
-      // --- Model 2: tissue classification ---
+      // --- Model 2 + Model 3: ONE CLIP backbone pass feeds both heads ---
       String tissueType = 'Unknown';
-      if (_model2Loaded) {
-        final probs = _runTissue(image);
-        tissueType = _pickTissueLabel(probs);
-        debugPrint('✅ Model 2: $probs -> $tissueType');
+      String infectionStatus = 'N/A', ischaemiaStatus = 'N/A', riskBadge = 'Normal';
+      if (_clipBackbone != null && (_model2Loaded || _model3Loaded)) {
+        final emb = _clipEmbedding(image); // backbone runs ONCE per image
+        if (_model2Loaded) {
+          final probs = _runTissue(emb);
+          tissueType = _pickTissueLabel(probs);
+          debugPrint('✅ Model 2: $probs -> $tissueType');
+        }
+        if (_model3Loaded) {
+          final r = _runInfection(emb);
+          infectionStatus = r.infection;
+          ischaemiaStatus = r.ischaemia;
+          riskBadge = r.badge;
+          debugPrint('✅ Model 3: badge=$riskBadge '
+              'infection=$infectionStatus ischaemia=$ischaemiaStatus');
+        }
       }
 
       return AnalysisResult(
         length: length,
         width: width,
-        depth: depth, // notebook heuristic: bbox fill density × 1.5 mm
+        depth: depth, // clinician-entered probe depth; 0 = not measured
         tissueType: tissueType,
-        pusLevel: 'N/A', // Model 3 (not built yet)
-        inflammation: 'N/A', // Model 3 (not built yet)
+        pusLevel: 'N/A', // legacy field — superseded by Model 3 infection/ischaemia
+        inflammation: 'N/A', // legacy field — superseded by Model 3
+        infection: infectionStatus,
+        ischaemia: ischaemiaStatus,
+        riskBadge: riskBadge,
         healingProgress: _calculateHealingProgress(areaCm2),
         isFromModel: true,
         isCalibrated: pixelsPerCm != null,
@@ -180,45 +239,37 @@ class AiService {
     // Resize to model input; normalization (/255) is the only step the model
     // expects (mean/std are baked into the graph).
     final resized = img.copyResize(image, width: w, height: h);
-    final input = List.generate(
-      1,
-      (_) => List.generate(
-        h,
-        (y) => List.generate(w, (x) {
-          final p = resized.getPixel(x, y);
-          return [p.rNormalized, p.gNormalized, p.bNormalized]; // r/255 etc.
-        }),
-      ),
-    );
 
-    // Output mask [1,H,W,1].
-    final output = List.generate(
-      1,
-      (_) => List.generate(h, (_) => List.generate(w, (_) => List.filled(1, 0.0))),
-    );
-    _model1!.run(input, output);
+    // Probability map, optionally averaged with the h-flipped view (2-view TTA)
+    // for a steadier wound boundary — mirrors the notebook's TTA evaluation.
+    final probs = _predictProbs(resized, h, w, flip: false);
+    if (_useFlipTta) {
+      final flipped = _predictProbs(resized, h, w, flip: true);
+      for (int y = 0; y < h; y++) {
+        for (int x = 0; x < w; x++) {
+          probs[y][x] = (probs[y][x] + flipped[y][x]) / 2.0;
+        }
+      }
+    }
 
     // ---- Post-processing ported from the training notebook ----
     // 1) Binarize; if nothing clears the threshold, retry at half the peak
     //    response (handles an under-confident model).
     var mask = List.generate(
       h,
-      (y) => List.generate(
-          w, (x) => (output[0][y][x][0] as num) >= _maskThreshold),
+      (y) => List.generate(w, (x) => probs[y][x] >= _maskThreshold),
     );
     if (!mask.any((row) => row.any((v) => v))) {
       double peak = 0;
       for (int y = 0; y < h; y++) {
         for (int x = 0; x < w; x++) {
-          final v = (output[0][y][x][0] as num).toDouble();
-          if (v > peak) peak = v;
+          if (probs[y][x] > peak) peak = probs[y][x];
         }
       }
-      if (peak <= 0) return const _Measurements(0, 0, 0, 0);
+      if (peak <= 0) return const _Measurements(0, 0, 0);
       mask = List.generate(
         h,
-        (y) => List.generate(
-            w, (x) => (output[0][y][x][0] as num) > 0.5 * peak),
+        (y) => List.generate(w, (x) => probs[y][x] > 0.5 * peak),
       );
     }
 
@@ -228,31 +279,104 @@ class AiService {
 
     // 3) Measure the largest connected region only (= largest contour).
     final comp = _largestComponent(mask);
-    if (comp == null) return const _Measurements(0, 0, 0, 0); // no wound found
+    if (comp == null) return const _Measurements(0, 0, 0); // no wound found
 
-    // 4) Depth heuristic: wound pixel density inside its bounding box
-    //    × pixel_depth_mm, converted to cm. Scale-independent.
-    int inBox = 0;
+    // 4) TRUE length/width via the wound's principal (PCA) axes — equivalent to
+    //    cv2.minAreaRect in the notebook. The old axis-aligned bounding box
+    //    over-measures any wound that lies diagonally in the frame.
+    //    Uses anisotropic px sizes so non-square photos measure correctly.
+    final sx = origW / w, sy = origH / h; // mask-px -> original-px scale
+    final ext = _pcaExtentPx(mask, comp, sx, sy);
+    final areaPx = comp.area * sx * sy;
+
+    return _Measurements(
+      ext.majorPx / ppc,
+      ext.minorPx / ppc,
+      areaPx / (ppc * ppc),
+    );
+  }
+
+  /// One forward pass -> H×W probability map. When [flip] is true the input is
+  /// mirrored horizontally and the output un-mirrored, so it aligns with the
+  /// plain view for averaging.
+  List<List<double>> _predictProbs(img.Image resized, int h, int w,
+      {required bool flip}) {
+    final input = List.generate(
+      1,
+      (_) => List.generate(
+        h,
+        (y) => List.generate(w, (x) {
+          final p = resized.getPixel(flip ? w - 1 - x : x, y);
+          return [p.rNormalized, p.gNormalized, p.bNormalized]; // r/255 etc.
+        }),
+      ),
+    );
+    final output = List.generate(
+      1,
+      (_) => List.generate(h, (_) => List.generate(w, (_) => List.filled(1, 0.0))),
+    );
+    _model1!.run(input, output);
+    return List.generate(
+      h,
+      (y) => List.generate(
+        w,
+        (x) => (output[0][y][flip ? w - 1 - x : x][0] as num).toDouble(),
+      ),
+    );
+  }
+
+  /// Rotated extents of the largest component along its principal axes, in
+  /// ORIGINAL-image pixels. PCA on the (anisotropically scaled) wound pixels
+  /// gives the true major/minor axis even for diagonal wounds.
+  _AxisExtent _pcaExtentPx(
+      List<List<bool>> mask, _Component comp, double sx, double sy) {
+    // Mean of wound pixel coordinates (in original-px units).
+    double mx = 0, my = 0;
+    int n = 0;
     for (int y = comp.minY; y <= comp.maxY; y++) {
       for (int x = comp.minX; x <= comp.maxX; x++) {
-        if (mask[y][x]) inBox++;
+        if (!mask[y][x]) continue;
+        mx += x * sx;
+        my += y * sy;
+        n++;
       }
     }
-    final boxW = comp.maxX - comp.minX + 1;
-    final boxH = comp.maxY - comp.minY + 1;
-    final depthCm = (inBox / (boxW * boxH)) * _pixelDepthMm / 10;
+    if (n == 0) return const _AxisExtent(0, 0);
+    mx /= n;
+    my /= n;
 
-    // Scale mask-space (320) pixels back to original-image pixels.
-    final sx = origW / w, sy = origH / h;
-    final widthPx = boxW * sx;
-    final lengthPx = boxH * sy;
-    final areaPx = comp.area * sx * sy;
-    return _Measurements(
-      lengthPx / ppc,
-      widthPx / ppc,
-      areaPx / (ppc * ppc),
-      depthCm,
-    );
+    // 2x2 covariance -> principal axis angle.
+    double cxx = 0, cyy = 0, cxy = 0;
+    for (int y = comp.minY; y <= comp.maxY; y++) {
+      for (int x = comp.minX; x <= comp.maxX; x++) {
+        if (!mask[y][x]) continue;
+        final dx = x * sx - mx, dy = y * sy - my;
+        cxx += dx * dx;
+        cyy += dy * dy;
+        cxy += dx * dy;
+      }
+    }
+    final theta = 0.5 * atan2(2 * cxy, cxx - cyy);
+    final ct = cos(theta), st = sin(theta);
+
+    // Project pixels onto the principal axes; extent = max - min (+1px width).
+    double minU = double.infinity, maxU = -double.infinity;
+    double minV = double.infinity, maxV = -double.infinity;
+    for (int y = comp.minY; y <= comp.maxY; y++) {
+      for (int x = comp.minX; x <= comp.maxX; x++) {
+        if (!mask[y][x]) continue;
+        final dx = x * sx - mx, dy = y * sy - my;
+        final u = dx * ct + dy * st;
+        final v = -dx * st + dy * ct;
+        if (u < minU) minU = u;
+        if (u > maxU) maxU = u;
+        if (v < minV) minV = v;
+        if (v > maxV) maxV = v;
+      }
+    }
+    final e1 = (maxU - minU) + (sx + sy) / 2; // + ~1px: pixels have area
+    final e2 = (maxV - minV) + (sx + sy) / 2;
+    return _AxisExtent(max(e1, e2), min(e1, e2));
   }
 
   /// 5×5 binary dilation/erosion (cv2.morphologyEx kernel=ones((5,5))).
@@ -321,10 +445,17 @@ class AiService {
   // Model 2 — tissue classification (CLIP backbone -> SVM head)
   // ---------------------------------------------------------------------------
 
-  Map<String, double> _runTissue(img.Image image) {
+  /// Run the shared CLIP backbone ONCE -> 512-d embedding [1,512].
+  /// Both the tissue head (Model 2) and the infection head (Model 3) consume
+  /// this same embedding, so the expensive backbone never runs twice per image.
+  List _clipEmbedding(img.Image image) {
     final input = _clipPreprocess(image).reshape([1, 224, 224, 3]);
     final emb = List.filled(512, 0.0).reshape([1, 512]);
     _clipBackbone!.run(input, emb);
+    return emb;
+  }
+
+  Map<String, double> _runTissue(List emb) {
     final probs = List.filled(_tissueClasses.length, 0.0)
         .reshape([1, _tissueClasses.length]);
     _tissueHead!.run(emb, probs);
@@ -332,6 +463,30 @@ class AiService {
       for (int c = 0; c < _tissueClasses.length; c++)
         _tissueClasses[c]: (probs[0][c] as num).toDouble(),
     };
+  }
+
+  /// Model 3: 512-d embedding -> 4-class softmax -> two binary readouts + badge.
+  _InfectionResult _runInfection(List emb) {
+    final probs = List.filled(_infectionClasses.length, 0.0)
+        .reshape([1, _infectionClasses.length]);
+    _infectionHead!.run(emb, probs);
+    // order: [none, infection, ischaemia, both]
+    final pInfection = (probs[0][1] as num).toDouble() + (probs[0][3] as num).toDouble();
+    final pIschaemia = (probs[0][2] as num).toDouble() + (probs[0][3] as num).toDouble();
+    final hasInfection = pInfection >= _infectionThreshold;
+    final hasIschaemia = pIschaemia >= _ischaemiaThreshold;
+    final badge = hasInfection && hasIschaemia
+        ? 'High Risk'
+        : hasInfection
+            ? 'Infection Detected'
+            : hasIschaemia
+                ? 'Impaired Blood Flow'
+                : 'Normal';
+    return _InfectionResult(
+      infection: hasInfection ? 'Present' : 'Not Present',
+      ischaemia: hasIschaemia ? 'Impaired' : 'Adequate',
+      badge: badge,
+    );
   }
 
   /// CLIP preprocessing: resize shorter side to 224 (bicubic), center-crop 224,
@@ -413,32 +568,55 @@ class AiService {
       tissueType: 'Granulation',
       pusLevel: 'Moderate',
       inflammation: 'None',
+      infection: 'Not Present',
+      ischaemia: 'Adequate',
+      riskBadge: 'Normal',
       healingProgress: 45.0,
     );
   }
 
-  bool get isModelLoaded => _model1Loaded || _model2Loaded;
+  bool get isModelLoaded => _model1Loaded || _model2Loaded || _model3Loaded;
 
   void dispose() {
     _model1?.close();
     _clipBackbone?.close();
     _tissueHead?.close();
+    _infectionHead?.close();
     _model1 = null;
     _clipBackbone = null;
     _tissueHead = null;
+    _infectionHead = null;
     _initialized = false;
     _model1Loaded = false;
     _model2Loaded = false;
+    _model3Loaded = false;
     debugPrint('🗑️  AI service disposed');
   }
+}
+
+class _InfectionResult {
+  final String infection; // 'Present' / 'Not Present'
+  final String ischaemia; // 'Impaired' / 'Adequate'
+  final String badge; // Normal / Infection Detected / Impaired Blood Flow / High Risk
+  const _InfectionResult({
+    required this.infection,
+    required this.ischaemia,
+    required this.badge,
+  });
 }
 
 class _Measurements {
   final double lengthCm;
   final double widthCm;
   final double areaCm2;
-  final double depthCm;
-  const _Measurements(this.lengthCm, this.widthCm, this.areaCm2, this.depthCm);
+  const _Measurements(this.lengthCm, this.widthCm, this.areaCm2);
+}
+
+/// Extents along the wound's principal axes, in original-image pixels.
+class _AxisExtent {
+  final double majorPx; // length
+  final double minorPx; // width
+  const _AxisExtent(this.majorPx, this.minorPx);
 }
 
 class _Component {

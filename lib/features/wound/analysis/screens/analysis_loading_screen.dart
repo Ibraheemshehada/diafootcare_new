@@ -135,10 +135,12 @@ import 'ai_result_screen.dart';
 class AnalysisLoadingScreen extends StatefulWidget {
   final String imagePath; // photo taken
   final double? pixelsPerCm; // from reference-object calibration (null = skipped)
+  final double? manualDepthCm; // clinician's probe depth (null = not measured)
   const AnalysisLoadingScreen({
     super.key,
     required this.imagePath,
     this.pixelsPerCm,
+    this.manualDepthCm,
   });
 
   @override
@@ -160,6 +162,7 @@ class _AnalysisLoadingScreenState extends State<AnalysisLoadingScreen> {
       final result = await AiService.instance.analyzeWound(
         widget.imagePath,
         pixelsPerCm: widget.pixelsPerCm,
+        manualDepthCm: widget.manualDepthCm,
       );
 
       if (!mounted) return;

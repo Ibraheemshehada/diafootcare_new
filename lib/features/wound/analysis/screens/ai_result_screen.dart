@@ -58,6 +58,7 @@ class _AiResultScreenState extends State<AiResultScreen> {
   Widget build(BuildContext context) {
     final t = Theme.of(context);
     final primary = t.colorScheme.primary;
+    const warn = Color(0xFFE8A317); // amber for a single positive condition
     final result = widget.result;
 
     return Scaffold(
@@ -154,12 +155,17 @@ class _AiResultScreenState extends State<AiResultScreen> {
             _StatCard(
               svgAsset: 'assets/svg/arrow_down.svg',
               value: result.depth,
+              // Depth cannot be read from a 2D photo; it is only shown when the
+              // clinician entered a probe measurement. 0 = not measured.
+              valueText: result.depth > 0 ? null : '—',
               label: 'depth'.tr(),
               color: primary,
-              unit: 'cm'.tr(),
+              unit: result.depth > 0 ? 'cm'.tr() : '',
             ),
 
             SizedBox(height: 20.h),
+            _RiskBadge(badge: result.riskBadge),
+            SizedBox(height: 16.h),
             _SectionTitle('wound_details'.tr()),
             SizedBox(height: 12.h),
 
@@ -172,18 +178,19 @@ class _AiResultScreenState extends State<AiResultScreen> {
               color: primary,
             ),
             SizedBox(height: 10.h),
+            // Model 3 — replaces the old "Pus Level" row with two rows.
             _DetailCard(
-              icon: Icons.opacity_outlined,
-              title: result.pusLevel,
-              subtitle: 'pus_level'.tr(),
-              color: primary,
+              icon: Icons.coronavirus_outlined,
+              title: _localizedStatus(result.infection),
+              subtitle: 'infection'.tr(),
+              color: result.infection == 'Present' ? warn : primary,
             ),
             SizedBox(height: 10.h),
             _DetailCard(
-              icon: Icons.local_fire_department_outlined,
-              title: result.inflammation,
-              subtitle: 'inflammation'.tr(),
-              color: primary,
+              icon: Icons.bloodtype_outlined,
+              title: _localizedStatus(result.ischaemia),
+              subtitle: 'blood_flow'.tr(),
+              color: result.ischaemia == 'Impaired' ? warn : primary,
             ),
 
             SizedBox(height: 20.h),
@@ -298,6 +305,10 @@ class _StatCard extends StatelessWidget {
   final int quarterTurns;
   final String unit;
 
+  /// Optional display override (e.g. '—' for a not-measured depth). When null,
+  /// the numeric [value] is shown as usual.
+  final String? valueText;
+
   const _StatCard({
     this.icon,
     this.svgAsset,
@@ -306,6 +317,7 @@ class _StatCard extends StatelessWidget {
     required this.color,
     this.quarterTurns = 0,
     this.unit = 'cm',
+    this.valueText,
     super.key,
   }) : assert(
          icon != null || svgAsset != null,
@@ -351,7 +363,7 @@ class _StatCard extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                '${value.toStringAsFixed(1)} ${unit.isEmpty ? "" : unit}',
+                valueText ?? '${value.toStringAsFixed(1)} ${unit.isEmpty ? "" : unit}',
                 style: t.textTheme.titleMedium?.copyWith(
                   fontWeight: FontWeight.w700,
                   fontSize: 16.sp,
@@ -446,6 +458,82 @@ class _DetailCard extends StatelessWidget {
                 ),
               ),
             ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Map a Model-3 English status value to a localized display string.
+String _localizedStatus(String value) {
+  switch (value) {
+    case 'Present':
+      return 'status_present'.tr();
+    case 'Not Present':
+      return 'status_not_present'.tr();
+    case 'Impaired':
+      return 'status_impaired'.tr();
+    case 'Adequate':
+      return 'status_adequate'.tr();
+    default:
+      return 'not_available'.tr();
+  }
+}
+
+/// Top-of-results risk banner derived from the SAME Model-3 prediction.
+/// none->Normal (green), infection/ischaemia only->amber, both->High Risk (red).
+class _RiskBadge extends StatelessWidget {
+  final String badge; // English key from AnalysisResult.riskBadge
+  const _RiskBadge({required this.badge});
+
+  @override
+  Widget build(BuildContext context) {
+    final t = Theme.of(context);
+    late final Color color;
+    late final IconData icon;
+    late final String label;
+    switch (badge) {
+      case 'High Risk':
+        color = const Color(0xFFD64545); // red
+        icon = Icons.warning_amber_rounded;
+        label = 'badge_high_risk'.tr();
+        break;
+      case 'Infection Detected':
+        color = const Color(0xFFE8A317); // amber
+        icon = Icons.coronavirus_outlined;
+        label = 'badge_infection'.tr();
+        break;
+      case 'Impaired Blood Flow':
+        color = const Color(0xFFE8A317); // amber
+        icon = Icons.bloodtype_outlined;
+        label = 'badge_ischaemia'.tr();
+        break;
+      default: // Normal
+        color = const Color(0xFF2E9E6B); // green
+        icon = Icons.check_circle_outline;
+        label = 'badge_normal'.tr();
+    }
+    return Container(
+      padding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 12.h),
+      decoration: BoxDecoration(
+        color: color.withOpacity(.10),
+        borderRadius: BorderRadius.circular(12.r),
+        border: Border.all(color: color.withOpacity(.45)),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, color: color, size: 24.sp),
+          SizedBox(width: 10.w),
+          Expanded(
+            child: Text(
+              label,
+              style: t.textTheme.titleMedium?.copyWith(
+                color: color,
+                fontWeight: FontWeight.w700,
+                fontSize: 16.sp,
+              ),
+            ),
           ),
         ],
       ),

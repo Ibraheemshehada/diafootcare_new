@@ -18,7 +18,7 @@ class DatabaseHelper {
     final path = join(await getDatabasesPath(), 'diafoot.db');
     return openDatabase(
       path,
-      version: 3, // ⬅️ bumped to 3 to add wounds table fields
+      version: 4, // ⬅️ bumped to 4 to add Model 3 infection/ischaemia fields
       onCreate: (db, version) async {
         await db.execute('''
           CREATE TABLE wounds (
@@ -31,6 +31,8 @@ class DatabaseHelper {
             tissueType TEXT,
             pusLevel TEXT,
             inflammation TEXT,
+            infection TEXT,
+            ischaemia TEXT,
             healingProgress REAL,
             createdAt INTEGER NOT NULL
           )
@@ -77,6 +79,20 @@ class DatabaseHelper {
             }
           }
           await db.execute('CREATE INDEX IF NOT EXISTS idx_wounds_date ON wounds(date DESC)');
+        }
+        if (oldVersion < 4) {
+          // Model 3: infection & ischaemia columns (guarded individually).
+          const alters = [
+            'ALTER TABLE wounds ADD COLUMN infection TEXT',
+            'ALTER TABLE wounds ADD COLUMN ischaemia TEXT',
+          ];
+          for (final sql in alters) {
+            try {
+              await db.execute(sql);
+            } catch (e) {
+              debugPrint('Note: wounds column may already exist: $e');
+            }
+          }
         }
       },
       onOpen: (db) async {

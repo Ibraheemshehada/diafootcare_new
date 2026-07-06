@@ -1,0 +1,28 @@
+{
+  "classes": [
+    "none",
+    "infection",
+    "ischaemia",
+    "both"
+  ],
+  "head": "MLP 512->256->4 (dropout 0.5, label_smoothing 0.05)",
+  "input": "512-d CLIP embedding from clip_backbone_fp16.tflite (L2-normalized inside head)",
+  "derived_binary": {
+    "infection": [
+      "infection",
+      "both"
+    ],
+    "ischaemia": [
+      "ischaemia",
+      "both"
+    ]
+  },
+  "thresholds": {
+    "infection": 0.41,
+    "ischaemia": 0.61
+  },
+  "badge_rule": "neither->Normal, infection only->Infection Detected, ischaemia only->Impaired Blood Flow, both->High Risk",
+  "cv_infection_auc": 0.89,
+  "cv_ischaemia_auc": 0.9874,
+  "cv_macro_binary_auc": 0.9387
+}

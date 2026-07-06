@@ -360,6 +360,7 @@ import '../../../data/repositories/wounds_repository.dart';
 class HealingResult {
   final double length, width, depth;
   final String tissueType, pusLevel, inflammation;
+  final String infection, ischaemia; // Model 3 outputs
   final double weeklyProgress;
   final String graphImagePath;
   const HealingResult({
@@ -369,6 +370,8 @@ class HealingResult {
     required this.tissueType,
     required this.pusLevel,
     required this.inflammation,
+    this.infection = 'N/A',
+    this.ischaemia = 'N/A',
     required this.weeklyProgress,
     this.graphImagePath = 'assets/images/progress_graph.png',
   });
@@ -498,16 +501,16 @@ class _HealingProgressScreenState extends State<HealingProgressScreen> {
             ),
             SizedBox(height: 10.h),
             _DetailCard(
-              icon: Icons.opacity_outlined,
-              title: result.pusLevel,
-              subtitle: 'pus_level'.tr(),
+              icon: Icons.coronavirus_outlined,
+              title: _statusTr(result.infection),
+              subtitle: 'infection'.tr(),
               color: primary,
             ),
             SizedBox(height: 10.h),
             _DetailCard(
-              icon: Icons.local_fire_department_outlined,
-              title: result.inflammation,
-              subtitle: 'inflammation'.tr(),
+              icon: Icons.bloodtype_outlined,
+              title: _statusTr(result.ischaemia),
+              subtitle: 'blood_flow'.tr(),
               color: primary,
             ),
 
@@ -950,5 +953,21 @@ class _ProgressLineChart extends StatelessWidget {
         ),
       ),
     );
+  }
+}
+
+/// Map a Model-3 English status value to a localized display string.
+String _statusTr(String value) {
+  switch (value) {
+    case 'Present':
+      return 'status_present'.tr();
+    case 'Not Present':
+      return 'status_not_present'.tr();
+    case 'Impaired':
+      return 'status_impaired'.tr();
+    case 'Adequate':
+      return 'status_adequate'.tr();
+    default:
+      return 'not_available'.tr();
   }
 }

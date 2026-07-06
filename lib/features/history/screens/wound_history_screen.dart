@@ -92,6 +92,8 @@ class _WoundHistoryScreenState extends State<WoundHistoryScreen> {
                         tissueType: analysisResult?.tissueType ?? 'Unknown',
                         pusLevel: analysisResult?.pusLevel ?? 'N/A',
                         inflammation: e.inflammation,
+                        infection: analysisResult?.infection ?? 'N/A',
+                        ischaemia: analysisResult?.ischaemia ?? 'N/A',
                         weeklyProgress: e.progressPct,
                         graphImagePath: 'assets/images/progress_graph.png',
                       );
