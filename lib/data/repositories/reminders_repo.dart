@@ -123,7 +123,7 @@ class RemindersRepo {
         body: body,
         hour: r.time.hour,
         minute: r.time.minute,
-        weekdays: r.weekdays..sort(),
+        weekdays: [...r.weekdays]..sort(),
       );
       debugPrint('✅ Weekly notification scheduled');
     } catch (e, stackTrace) {

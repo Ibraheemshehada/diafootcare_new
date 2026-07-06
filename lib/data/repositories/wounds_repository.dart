@@ -90,7 +90,9 @@ class WoundsRepository {
         'wounds',
         orderBy: 'date DESC',
       );
-      return maps;
+      // db.query returns a read-only list; return a mutable copy so callers
+      // (e.g. weekly-progress sorting) can reorder it without crashing.
+      return List<Map<String, dynamic>>.from(maps);
     } catch (e) {
       debugPrint('❌ Error loading wounds for export: $e');
       return [];

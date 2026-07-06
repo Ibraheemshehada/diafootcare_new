@@ -40,7 +40,10 @@ class CaptureTipsDialog extends StatelessWidget {
                     height: 44.h,
                     child: FilledButton(
                       onPressed: () => Navigator.of(context).pop('ok'),
-                      child: Text('ok'.tr(), style: TextStyle(fontSize: 14.sp)),
+                      child: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: Text('ok'.tr(), style: TextStyle(fontSize: 14.sp)),
+                      ),
                     ),
                   ),
                 ),
@@ -49,8 +52,14 @@ class CaptureTipsDialog extends StatelessWidget {
                   child: SizedBox(
                     height: 44.h,
                     child: OutlinedButton(
+                      style: OutlinedButton.styleFrom(
+                        padding: EdgeInsets.symmetric(horizontal: 8.w),
+                      ),
                       onPressed: () => Navigator.of(context).pop('dont_show'),
-                      child: Text('dont_show_again'.tr(), style: TextStyle(fontSize: 14.sp)),
+                      child: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: Text('dont_show_again'.tr(), style: TextStyle(fontSize: 14.sp)),
+                      ),
                     ),
                   ),
                 ),

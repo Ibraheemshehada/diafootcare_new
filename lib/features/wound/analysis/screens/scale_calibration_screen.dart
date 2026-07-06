@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'dart:math';
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -24,17 +25,17 @@ class ScaleCalibrationScreen extends StatefulWidget {
 }
 
 class _RefOption {
-  final String label;
+  final String labelKey; // translation key
   final double? cm; // null => custom
-  const _RefOption(this.label, this.cm);
+  const _RefOption(this.labelKey, this.cm);
 }
 
 class _ScaleCalibrationScreenState extends State<ScaleCalibrationScreen> {
   static const _prefsKey = 'calib_last_ref_cm';
   static const _options = <_RefOption>[
-    _RefOption('Card long edge\n8.56 cm', 8.56),
-    _RefOption('Card short edge\n5.40 cm', 5.398),
-    _RefOption('Custom', null),
+    _RefOption('ref_card_long_edge', 8.56),
+    _RefOption('ref_card_short_edge', 5.398),
+    _RefOption('ref_custom', null),
   ];
 
   Uint8List? _displayBytes; // baked, downscaled image for display
@@ -143,25 +144,24 @@ class _ScaleCalibrationScreenState extends State<ScaleCalibrationScreen> {
     final t = Theme.of(context);
     return Scaffold(
       appBar: AppBar(
-        title: Text('Set scale', style: TextStyle(fontSize: 18.sp)),
+        title: Text('set_scale'.tr(), style: TextStyle(fontSize: 18.sp)),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop<double?>(context, null),
-            child: const Text('Skip'),
+            child: Text('skip'.tr()),
           ),
         ],
       ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : _displayBytes == null
-              ? const Center(child: Text('Could not load image'))
+              ? Center(child: Text('could_not_load_image'.tr()))
               : Column(
                   children: [
                     Padding(
                       padding: EdgeInsets.fromLTRB(16.w, 10.h, 16.w, 4.h),
                       child: Text(
-                        'Place a card (or ruler) next to the wound, then tap the '
-                        'two ends of the reference object below.',
+                        'calib_instruction'.tr(),
                         style: t.textTheme.bodyMedium?.copyWith(fontSize: 13.sp),
                       ),
                     ),
@@ -209,7 +209,7 @@ class _ScaleCalibrationScreenState extends State<ScaleCalibrationScreen> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Reference length',
+            Text('reference_length'.tr(),
                 style: t.textTheme.labelLarge?.copyWith(fontSize: 13.sp)),
             SizedBox(height: 6.h),
             Wrap(
@@ -217,7 +217,7 @@ class _ScaleCalibrationScreenState extends State<ScaleCalibrationScreen> {
               children: List.generate(_options.length, (i) {
                 return ChoiceChip(
                   label: Text(
-                    _options[i].label,
+                    _options[i].labelKey.tr(),
                     textAlign: TextAlign.center,
                     style: TextStyle(fontSize: 11.sp),
                   ),
@@ -235,10 +235,10 @@ class _ScaleCalibrationScreenState extends State<ScaleCalibrationScreen> {
                 inputFormatters: [
                   FilteringTextInputFormatter.allow(RegExp(r'[0-9.]')),
                 ],
-                decoration: const InputDecoration(
+                decoration: InputDecoration(
                   isDense: true,
-                  border: OutlineInputBorder(),
-                  labelText: 'Reference length (cm)',
+                  border: const OutlineInputBorder(),
+                  labelText: 'reference_length_cm'.tr(),
                 ),
                 onChanged: (_) => setState(() {}),
               ),
@@ -251,8 +251,8 @@ class _ScaleCalibrationScreenState extends State<ScaleCalibrationScreen> {
                 onPressed: ready ? _confirm : null,
                 child: Text(
                   _points.length < 2
-                      ? 'Tap the two ends of the reference'
-                      : 'Use this scale',
+                      ? 'tap_two_ends'.tr()
+                      : 'use_this_scale'.tr(),
                   style: TextStyle(fontSize: 15.sp),
                 ),
               ),

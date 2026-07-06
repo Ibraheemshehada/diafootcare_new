@@ -2,6 +2,7 @@ import 'dart:io';
 import 'dart:typed_data';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:path_provider/path_provider.dart';
@@ -20,6 +21,59 @@ class PreviewScreen extends StatefulWidget {
 
 class _PreviewScreenState extends State<PreviewScreen> {
   Future<Uint8List> _bytes() => widget.file.readAsBytes();
+
+  /// Ask the user for the wound depth in cm. A single 2D photo can't yield
+  /// depth, so the trustworthy source is a manual probe measurement. Returns
+  /// the entered depth (> 0) or null if the user skips / leaves it empty.
+  Future<double?> _askWoundDepth() async {
+    final ctrl = TextEditingController();
+    final result = await showDialog<double?>(
+      context: context,
+      builder: (ctx) {
+        return AlertDialog(
+          title: Text('wound_depth'.tr()),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('wound_depth_hint'.tr(), style: TextStyle(fontSize: 13.sp)),
+              SizedBox(height: 14.h),
+              TextField(
+                controller: ctrl,
+                autofocus: true,
+                keyboardType:
+                    const TextInputType.numberWithOptions(decimal: true),
+                inputFormatters: [
+                  FilteringTextInputFormatter.allow(RegExp(r'[0-9.]')),
+                ],
+                decoration: InputDecoration(
+                  isDense: true,
+                  border: const OutlineInputBorder(),
+                  labelText: 'wound_depth_cm'.tr(),
+                  suffixText: 'cm',
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, null),
+              child: Text('skip'.tr()),
+            ),
+            FilledButton(
+              onPressed: () {
+                final v = double.tryParse(ctrl.text.trim());
+                Navigator.pop(ctx, (v != null && v > 0) ? v : null);
+              },
+              child: Text('save'.tr()),
+            ),
+          ],
+        );
+      },
+    );
+    ctrl.dispose();
+    return result;
+  }
   
   Future<String> _saveImageToLocal() async {
     try {
@@ -116,12 +170,18 @@ class _PreviewScreenState extends State<PreviewScreen> {
                         );
 
                         if (!mounted) return;
+                        // Depth can't come from a 2D photo — ask for a manual
+                        // probe measurement (optional).
+                        final manualDepthCm = await _askWoundDepth();
+
+                        if (!mounted) return;
                         Navigator.pushReplacement(
                           context,
                           MaterialPageRoute(
                             builder: (_) => AnalysisLoadingScreen(
                               imagePath: imagePath,
                               pixelsPerCm: pixelsPerCm,
+                              manualDepthCm: manualDepthCm,
                             ),
                           ),
                         );
