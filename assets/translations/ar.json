@@ -10,6 +10,8 @@
   "remember_me": "تذكرني",
   "forgot_password": "هل نسيت كلمة المرور؟",
   "create_account": "إنشاء حساب",
+  "continue_as_guest": "المتابعة كضيف",
+  "or": "أو",
   "email_required": "البريد الإلكتروني أو الهاتف مطلوب",
   "password_short": "يجب أن تكون كلمة المرور 6 أحرف على الأقل",
   "forget_password_title": "نسيت كلمة المرور",

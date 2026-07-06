@@ -24,6 +24,10 @@
     
     <!-- Exact alarm permission for android_alarm_manager_plus (Android 12+) -->
     <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM"/>
+    <!-- Android 13/14+: SCHEDULE_EXACT_ALARM is revoked by default. USE_EXACT_ALARM is
+         auto-granted for apps whose core function is alarms/reminders (this app), so
+         exact reminder notifications fire reliably without a manual settings toggle. -->
+    <uses-permission android:name="android.permission.USE_EXACT_ALARM"/>
     
     <!-- Firebase Cloud Messaging -->
     <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT"/>

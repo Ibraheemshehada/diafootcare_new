@@ -101,25 +101,27 @@ class LoginScreen extends StatelessWidget {
               ),
 
               SizedBox(height: 20.h),
-            ],
-          ),
-        ),
-      ),
 
-      // ✅ Always visible Outlined Button at bottom
-      bottomNavigationBar: Padding(
-        padding: EdgeInsets.fromLTRB(24.w, 0, 24.w, 24.h),
-        child: OutlinedButton(
-          onPressed: () {
-            Navigator.pushNamed(context, AppRoutes.signup);
-          },
-          style: OutlinedButton.styleFrom(
-            padding: EdgeInsets.symmetric(vertical: 14.h),
-            // minimumSize: Size(double.infinity, 48.h),
-          ),
-          child: Text(
-            tr('create_account'),
-            style: TextStyle(fontSize: 12.sp),
+              // Create Account button (scrolls with content so it never
+              // overlaps the guest button below the login form).
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton(
+                  onPressed: () {
+                    Navigator.pushNamed(context, AppRoutes.signup);
+                  },
+                  style: OutlinedButton.styleFrom(
+                    padding: EdgeInsets.symmetric(vertical: 14.h),
+                  ),
+                  child: Text(
+                    tr('create_account'),
+                    style: TextStyle(fontSize: 12.sp),
+                  ),
+                ),
+              ),
+
+              SizedBox(height: 24.h),
+            ],
           ),
         ),
       ),

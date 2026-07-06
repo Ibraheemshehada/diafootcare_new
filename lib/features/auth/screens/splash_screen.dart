@@ -70,11 +70,22 @@ class _SplashScreenState extends State<SplashScreen> {
   Future<void> _checkAuthAndNavigate() async {
     if (!mounted) return;
 
+    final prefs = await SharedPreferences.getInstance();
+
+    // Guest session: let the user keep using the app without a Firebase
+    // account until they explicitly log out (which clears this flag).
+    final isGuest = prefs.getBool('is_guest') ?? false;
+    if (isGuest) {
+      debugPrint('👤 Guest session active → Redirecting to home');
+      if (!mounted) return;
+      Navigator.pushReplacementNamed(context, AppRoutes.mainShell);
+      return;
+    }
+
     // Check Firebase auth state
     final currentUser = FirebaseAuth.instance.currentUser;
-    
+
     // Check if "Remember Me" was enabled
-    final prefs = await SharedPreferences.getInstance();
     final rememberMe = prefs.getBool('rememberMe') ?? false;
 
     if (currentUser != null && rememberMe) {

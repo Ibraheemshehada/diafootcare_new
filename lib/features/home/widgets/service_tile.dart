@@ -120,13 +120,15 @@ class ServiceTile extends StatelessWidget {
                             : t.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700)),
                       ),
                       SizedBox(height: 6.h),
-                      Text(
-                        item.subtitle.tr(),
-                        style: (item.isPrimary
-                            ? t.textTheme.bodySmall?.copyWith(color: Colors.white.withOpacity(.9))
-                            : t.textTheme.bodySmall?.copyWith(color: t.colorScheme.onSurfaceVariant)),
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
+                      Flexible(
+                        child: Text(
+                          item.subtitle.tr(),
+                          style: (item.isPrimary
+                              ? t.textTheme.bodySmall?.copyWith(color: Colors.white.withOpacity(.9))
+                              : t.textTheme.bodySmall?.copyWith(color: t.colorScheme.onSurfaceVariant)),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
                       ),
                     ],
                   ),

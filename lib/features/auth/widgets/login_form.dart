@@ -109,6 +109,42 @@ class LoginForm extends StatelessWidget {
                     ),
                   ),
                 ),
+
+                SizedBox(height: 16.h),
+
+                // "or" divider
+                Row(
+                  children: [
+                    const Expanded(child: Divider()),
+                    Padding(
+                      padding: EdgeInsets.symmetric(horizontal: 12.w),
+                      child: Text(
+                        tr('or'),
+                        style: TextStyle(fontSize: 12.sp, color: Colors.grey),
+                      ),
+                    ),
+                    const Expanded(child: Divider()),
+                  ],
+                ),
+
+                SizedBox(height: 16.h),
+
+                // Continue as Guest button
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton.icon(
+                    onPressed:
+                        vm.isLoading ? null : () => vm.continueAsGuest(context),
+                    style: OutlinedButton.styleFrom(
+                      padding: EdgeInsets.symmetric(vertical: 14.h),
+                    ),
+                    icon: const Icon(Icons.person_outline, size: 18),
+                    label: Text(
+                      tr('continue_as_guest'),
+                      style: TextStyle(fontSize: 12.sp),
+                    ),
+                  ),
+                ),
               ],
             ),
           );

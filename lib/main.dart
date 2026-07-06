@@ -5,7 +5,6 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:firebase_core/firebase_core.dart';
 import 'core/services/notification_service.dart';
 import 'core/services/web_notification_service.dart';
-import 'features/wound/analysis/services/ai_service.dart'; // ✅ Import AI service
 import 'firebase_options.dart';
 
 import 'package:easy_localization/easy_localization.dart';
@@ -84,14 +83,11 @@ void main() async {
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
   await EasyLocalization.ensureInitialized();
 
-  // ✅ Initialize AI Service for wound analysis
-  try {
-    await AiService.instance.init();
-    debugPrint('✅ AI Service initialized successfully');
-  } catch (e) {
-    debugPrint('⚠️ AI Service initialization failed: $e');
-    debugPrint('   App will use fallback data if model is unavailable');
-  }
+  // ℹ️ AI models are NOT loaded here. Interpreter.fromAsset does a synchronous
+  // native load of ~220MB of TFLite models on the UI isolate, which freezes the
+  // first frame and triggers an ANR. Nothing on Home/Capture needs the models —
+  // they are loaded lazily on the first analysis (AiService.analyzeWound() calls
+  // init() itself), while the analysis loading screen is already showing a spinner.
 
   // Request permissions based on platform
   if (kIsWeb) {

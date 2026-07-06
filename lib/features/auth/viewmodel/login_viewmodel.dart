@@ -117,6 +117,21 @@ class LoginViewModel extends ChangeNotifier {
     }
   }
 
+  /// Continue without a Firebase account. Persists a guest flag so the splash
+  /// screen keeps letting the user in until they log out.
+  Future<void> continueAsGuest(BuildContext context) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('is_guest', true);
+    await prefs.setBool('rememberMe', false);
+    await prefs.setString('user_firstName', 'Guest');
+    await prefs.setString('user_lastName', '');
+    await prefs.remove('user_email');
+    debugPrint('👤 Continuing as guest');
+
+    if (!context.mounted) return;
+    Navigator.pushReplacementNamed(context, AppRoutes.mainShell);
+  }
+
   void toggleRememberMe(bool? value) {
     rememberMe = value ?? false;
     notifyListeners();

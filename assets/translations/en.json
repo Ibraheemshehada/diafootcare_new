@@ -10,6 +10,8 @@
   "remember_me": "Remember Me",
   "forgot_password": "Forget The Password ?",
   "create_account": "Create Account",
+  "continue_as_guest": "Continue as Guest",
+  "or": "or",
   "email_required": "Email or phone is required",
   "password_short": "Password must be at least 6 characters",
   "forget_password_title": "Forget Password",

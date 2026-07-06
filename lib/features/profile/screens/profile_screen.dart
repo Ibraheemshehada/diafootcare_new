@@ -135,11 +135,12 @@ class ProfileScreen extends StatelessWidget {
               child: OutlinedButton.icon(
                 style: OutlinedButton.styleFrom(foregroundColor: Colors.red),
                 onPressed: () async {
-                  // Clear "Remember Me" preference
+                  // Clear "Remember Me" and guest session preferences
                   final prefs = await SharedPreferences.getInstance();
                   await prefs.setBool('rememberMe', false);
-                  debugPrint('🔓 Remember Me cleared on logout');
-                  
+                  await prefs.setBool('is_guest', false);
+                  debugPrint('🔓 Remember Me & guest session cleared on logout');
+
                   // Firebase logout
                   await FirebaseAuth.instance.signOut();
                   
