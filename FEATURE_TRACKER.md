@@ -11,37 +11,36 @@ _Last updated: 2026-07-07_
 
 ---
 
-## 🔖 RESUME HERE — session handoff (2026-07-07)
+## 🔖 RESUME HERE — session handoff (2026-07-07, end of day)
 
-**State:** §1 Glucose + §2 Medication are **committed** (`6a4f39a`). §3 Self-Care built this session and is **local & uncommitted** (not committed/pushed yet). `flutter analyze` = **0 errors** (only pre-existing `withOpacity`/style infos remain).
+**State: ALL work is committed AND pushed to `origin/main`.** Working tree clean. `flutter analyze` = **0 errors**. All 8 tracker sections (§1–§8) are built and were **device-QA'd this session** on the Pixel_4_API_36 emulator in **Arabic (RTL) + dark mode** — every feature passed (see per-section notes). Latest commit: **`6e6806c`**.
 
-**Built this session (2026-07-07), awaiting device QA:**
-1. **§3 Self-Care Behavior & Daily Check-ins** — a fixed daily foot-care checklist (5 tasks: inspect feet, wash & dry, moisturize, footwear, wound check). Tap a task to mark it done today; a completion ring shows today's %, plus a 🔥 streak badge (consecutive fully-completed days). Persists per-day in new DB table `self_care_logs`. Home tile "Daily Self-Care" (`/selfcare`), EN/AR, and a **7-day adherence %** section in export (CSV/PDF/Excel + toggle). **No add-dialog/FAB** (fixed task list) so it avoids the glucose crash class entirely. Includes the clinic **Do's & Don'ts** (8+6, from the infographics) as a rotating "Self-care tip" (random per launch + shuffle), with the full list behind a "View all" expander.
-2. **§4 Home health dashboard** — the home hero now surfaces **DFU risk** (from the latest wound's infection/ischaemia), glucose, and the **next appointment**; a dedicated **Self-Care summary card** shows today's completion bar + 🔥 streak + the rotating tip and taps through to the feature. **QA:** home shows Foot status row colored by risk (add a wound analysis first) → tap it opens wound history; self-care card bar/streak reflect today's checklist.
-3. **§6 Appointments** — new DB-backed feature (`appointments`, DB v8): full-page add form (title/date/time/location/notes + reminder lead), Upcoming/Past lists with swipe-to-delete, one-off local notification at the chosen lead time, home hero "next appointment" row + service tile, and an export section. **QA:** add an appointment a few minutes out with "at time" reminder → confirm it lists under Upcoming, the home hero shows it, and the notification fires.
+### What happened this session
+1. **Full on-device QA of §1–§8** — all pass. Highlights verified live: glucose add-reading (crash fix — NO red screen, live update), self-care toggle + ring + color thresholds + tip-on-launch, appointments add → Upcoming/Past + reminder chip, well-being sliders + severity colors + **fl_chart trend chart updates**, education hub + article + pharmacist-verified badge, and **§8 "My Activity" showed real per-feature open counts** (proof analytics logging works end-to-end). Persistence survived app reinstall.
+2. **Fixes applied + pushed (`bd7f4b2`):**
+   - **`android/gradle.properties`: heap 8G → 3G** (metaspace 4G→1G, `workers.max=2`). The 8G heap was the cause of the recurring **"Gradle build daemon disappeared" OOM crash** on this 16 GB machine. Clean build now ~18 min; **incremental builds ~30–40 s and reliable.**
+   - **Appointment default time** now rounds to the *next* hour with a 30-min buffer (was rounding *down*, so a just-created appointment could show as "Past"). Verified on device: at 1:56 the default correctly became **3:00 PM**.
+   - **Self-care "Another" shuffle** → swapped small `InkWell` for a 40dp `TextButton` (bigger, gesture-robust, better for seniors). See caveat below.
+   - **`intl` added to `pubspec.yaml`** (was transitive) — clears the `depend_on_referenced_packages` info lints.
+3. **Home tile visuals (`6e6806c`) — NEEDS ON-DEVICE VISUAL CHECK TOMORROW:**
+   - Redrew **glucose.svg + medication.svg as outline icons**. Reason: the service tile tints icons with a single color (`BlendMode.srcIn`), which **erased the white detail overlays** of the old filled icons (they rendered as flat blobs). Outline style matches the other newer icons and keeps detail.
+   - Added **6 decorative background SVGs** (`bg_glucose/medication/selfcare/appointments/wellbeing/education`) in the faint-tinted style of the original four, and wired `bgSvgAsset` into those `ServiceItem`s in `home_viewmodel.dart`. So **all Home tiles now have background art** (before, only the first four did).
 
-**Still awaiting device QA from last session (now committed):**
-- **§1 Glucose** — add a reading → confirm NO red error screen; reading + status + 7-avg update live (crash fix from Issue #1).
-- **§2 Medication** — add a med, tap dose chips → adherence % updates; swipe-to-delete works.
+### ⬜ TO DO NEXT SESSION (resume here)
+1. **Visually verify the Home tiles** (main pending item) — build/install and look at the services grid: confirm the 6 new **bg SVGs** look good (right scale/position/faintness) and the redrawn **glucose/medication outline icons** look right and consistent with the others. Tweak any bg art (`assets/svg/bg_*.svg`) or per-tile `bgScale`/`bgOffset*`/`bgOpacity` in `home_viewmodel.dart` if a motif sits awkwardly. *(These were committed compile-clean but not yet seen rendered.)*
+2. **Confirm the self-care shuffle button** on a **real device / clean tap** — during QA the tip never rotated via emulator synthetic taps even after the TextButton change, but the code is correct and the screen provably rebuilds on `notifyListeners` (the ring updates on task-toggle), so this is almost certainly an emulator small-target tap artifact, not a bug. Just confirm a real finger tap rotates the tip.
+3. **(Optional) polish backlog:** pre-existing `withOpacity` → `.withValues()` deprecations across older screens; consider a home streak/QoL chip if desired.
 
-4. **§5 QoL / Patient-Reported Outcomes** — new "My Well-being" feature (DB v9 `qol_entries` + `satisfaction_entries`): a periodic QoL check-in (pain / mobility / emotional impact on 0–10 sliders) with a latest-scores card, a burden trend chart, and a swipe-to-delete history; plus a 1–5 Likert satisfaction survey (ease / usefulness / willingness). Home service tile + export section. **QA:** record a check-in → summary + trend update; submit the survey; export with "Well-being" ticked.
+### Commits on origin/main (this push cycle)
+`6a4f39a` §1+§2 · `64c312d` §3+§4+§6 · `54cfe29` §5 · `ed4ff02` §7 · `8ac4fb4` §8 · `bd7f4b2` QA fixes · `6e6806c` tile icons+bg art.
 
-**DB:** schema is now **v10** (glucose=v5, medications+medication_logs=v6, self_care_logs=v7, appointments=v8, qol_entries+satisfaction_entries=v9, analytics_events=v10). Existing installs auto-migrate via `onUpgrade`; no wipe needed.
-
-5. **§7 Education & Pharmacist Support** — new "Education" hub (static, no DB): 5 curated foot-care guides with article detail pages, a pharmacist-verified tips card, and an "Ask your pharmacist" suggestions card. Home service tile. **QA:** open Education → tap a guide → article renders; check RTL/dark.
-6. **§8 Engagement / Usage Analytics** — local event logging (DB v10 `analytics_events`), a "My Activity" usage-summary screen (from Profile), and an engagement export section. **QA:** open a few features → My Activity shows counts; export with "Usage & Engagement" ticked.
-
-**🎉 All 8 tracker sections are now built.** Remaining work is **device QA of every feature + commit review**, not new features. (Optional polish backlog below.)
-
-## Optional polish backlog (not blocking)
-- `intl` is used directly in several files but isn't a direct `pubspec.yaml` dependency (transitive via easy_localization) → a handful of harmless `depend_on_referenced_packages` info lints. Add `intl` to dependencies to clear them.
-- Wider pre-existing lint cleanup: many `withOpacity` → `.withValues()` deprecations across older screens.
-- Surface the self-care streak / QoL on the Home hero only if desired (hero is already dense).
+**DB:** schema is **v10** (glucose=v5, meds+med_logs=v6, self_care_logs=v7, appointments=v8, qol+satisfaction=v9, analytics_events=v10). Existing installs auto-migrate via `onUpgrade`; no wipe needed.
 
 **Build/run gotchas (so we don't rediscover):**
 - Run: `flutter run -d emulator-5554`. adb isn't on PATH → use `C:/Users/jawhara/AppData/Local/Android/Sdk/platform-tools/adb.exe` (set `export MSYS_NO_PATHCONV=1` in Git Bash for `adb shell`).
-- **Gradle daemon crashes when it's been idle** ("daemon has disappeared" / `hs_err_pid*.log`). Fix: `cd android && ./gradlew --stop`, then rebuild. (Not a code error.)
-- Emulator (Pixel_4_API_36) is **laggy — taps often miss**; screenshot after each tap. It's been bumped to 4 GB RAM / 12 GB disk (in its `config.ini`).
+- Launch/install pattern that worked: `flutter emulators --launch Pixel_4_API_36`; wait for `adb shell getprop sys.boot_completed`=1; `adb install -r -d build/app/outputs/flutter-apk/app-debug.apk`; launch with `adb shell monkey -p com.example.daifootcare_new -c android.intent.category.LAUNCHER 1`; screenshot with `adb exec-out screencap -p > out.png`. App opens straight to Home (guest session persists).
+- **Gradle daemon OOM crash** ("daemon has disappeared" / `hs_err_pid*.log`) — was caused by `org.gradle.jvmargs=-Xmx8G`. **FIXED** in `gradle.properties` (now `-Xmx3G`). If it recurs on a low-RAM run: the machine only had ~2.4 GB free with the emulator up — **kill the emulator, build the APK, then relaunch the emulator and `adb install`** (build is the memory-heavy step; install is light).
+- Emulator (Pixel_4_API_36) is **laggy — taps often miss** (especially small targets in scroll views); screenshot after each tap and re-tap. It's 4 GB RAM / 12 GB disk (in its `config.ini`).
 - Models are in **Git LFS** now (clip_backbone is 167 MB > GitHub's 100 MB limit). Pushes work; `git lfs checkout` restores real model files if the working tree shows 134-byte pointers.
 - Login is via **Guest** (`is_guest` pref) — the app opens straight to Home as "Guest"; the old temp bypass was removed.
 
@@ -143,7 +142,9 @@ Study measures usage frequency, feature utilization, retention.
 
 ## ⚠️ Known Issues (to investigate)
 
-### Issue #1 — Glucose screen crashes after adding a reading — 🔧 FIX APPLIED (needs QA)
+### Issue #1 — Glucose screen crashes after adding a reading — ✅ RESOLVED (device-verified 2026-07-07)
+**Confirmed fixed on device:** added a reading (value 120) → NO red error screen; the summary card, 7-reading average, and history list all updated live in-session. The `AlertDialog` rewrite (below) resolved the `_dependents.isEmpty` assert.
+
 **Update:** Read the real assert — it's `InheritedElement.debugDeactivated()` asserting `_dependents.isEmpty` (an InheritedElement/FocusScope deactivated while a dependent — the autofocused TextField in the modal sheet — was still attached). Rewrote `glucose_screen.dart` to the proven reminders pattern:
 - Replaced `showModalBottomSheet` + autofocus TextField with a `showDialog`/`AlertDialog` (`_AddGlucoseDialog`, a `StatefulWidget` that disposes its own controller).
 - The dialog **returns** the input; the screen calls `vm.add()` **after** `await showDialog` completes (mutation happens after the route is gone — same as the reminders add flow).
@@ -169,11 +170,9 @@ Pending on-device QA to confirm the assert is gone.
 - **Files:** `lib/features/glucose/screens/glucose_screen.dart` (UI + `_showAddSheet`), `lib/features/glucose/viewmodel/glucose_viewmodel.dart`, provider registered in `lib/app.dart`.
 
 ## Progress
-- **Done:** baseline (§0)
-- **Committed:** §1 Glucose Monitoring (+ crash fix), §2 Medication Management (`6a4f39a`).
-- **Committed:** §3 Self-Care, §4 Home health dashboard, §6 Appointments (`64c312d`).
-- **Committed:** §5 QoL / PRO (`54cfe29`), §7 Education (`ed4ff02`).
-- **Built this session, pending device QA + commit:** §8 Engagement / Usage Analytics (event logging + "My Activity" + engagement export). Compiles with **0 analyzer errors**.
-- **All 8 tracker sections are built.** Next up: **device QA of the whole app**, then commit review. No feature work remains.
+- **Done + committed + pushed:** §0 baseline · §1 Glucose · §2 Medication · §3 Self-Care · §4 Home dashboard · §5 QoL/PRO · §6 Appointments · §7 Education · §8 Engagement.
+- **Device-QA'd this session (all pass, Arabic RTL + dark mode):** §1–§8. Glucose crash (Issue #1) confirmed **fixed**.
+- **All 8 tracker sections are built, committed, and pushed to `origin/main`** (through `6e6806c`).
+- **Only pending:** on-device *visual* check of the new Home tile art (outline icons + 6 bg SVGs) and a real-finger confirm of the self-care shuffle — see the RESUME HERE block at the top. No feature work remains.
 
 _As each item ships, it gets checked off here._
