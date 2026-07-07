@@ -14,6 +14,11 @@ import '../../../data/repositories/reminders_repo.dart';
 import '../../../data/repositories/glucose_repository.dart';
 import '../../../data/repositories/medication_repository.dart';
 import '../../../data/models/medication.dart';
+import '../../../data/repositories/self_care_repository.dart';
+import '../../../data/models/self_care_task.dart';
+import '../../../data/repositories/appointments_repository.dart';
+import '../../../data/models/appointment.dart';
+import 'package:intl/intl.dart' as intl;
 
 enum ExportFormat { pdf, csv, xlsx }
 
@@ -23,18 +28,33 @@ class ExportDataViewModel extends ChangeNotifier {
   bool glucose = false;
   bool notes = true;
   bool medication = false;
+  bool selfCare = false;
+  bool appointments = false;
   bool reminders = true;
 
   ExportFormat format = ExportFormat.pdf;
 
   bool get hasAny =>
-      woundAI || glucose || notes || medication || reminders;
+      woundAI ||
+      glucose ||
+      notes ||
+      medication ||
+      selfCare ||
+      appointments ||
+      reminders;
 
   bool get allSelected =>
-      woundAI && glucose && notes && medication && reminders;
+      woundAI &&
+      glucose &&
+      notes &&
+      medication &&
+      selfCare &&
+      appointments &&
+      reminders;
 
   void toggleAll(bool v) {
-    woundAI = glucose = notes = medication = reminders = v;
+    woundAI =
+        glucose = notes = medication = selfCare = appointments = reminders = v;
     notifyListeners();
   }
 
@@ -42,6 +62,8 @@ class ExportDataViewModel extends ChangeNotifier {
   void toggleGlucose(bool v) { glucose = v; notifyListeners(); }
   void toggleNotes(bool v)   { notes = v; notifyListeners(); }
   void toggleMedication(bool v) { medication = v; notifyListeners(); }
+  void toggleSelfCare(bool v) { selfCare = v; notifyListeners(); }
+  void toggleAppointments(bool v) { appointments = v; notifyListeners(); }
   void toggleReminders(bool v)  { reminders = v; notifyListeners(); }
 
   void setFormat(ExportFormat f) {
@@ -221,6 +243,14 @@ class ExportDataViewModel extends ChangeNotifier {
       await _writeMedicationsCsv(buffer);
     }
 
+    if (selfCare) {
+      await _writeSelfCareCsv(buffer);
+    }
+
+    if (appointments) {
+      await _writeAppointmentsCsv(buffer);
+    }
+
     return buffer.toString();
   }
 
@@ -254,6 +284,55 @@ class ExportDataViewModel extends ChangeNotifier {
       }
     } catch (e) {
       buffer.writeln('Error loading medications: $e');
+    }
+    buffer.writeln('');
+  }
+
+  /// Shared CSV/Excel self-care section: the tracked daily tasks + a 7-day
+  /// adherence figure (completed vs scheduled tasks).
+  Future<void> _writeSelfCareCsv(StringBuffer buffer) async {
+    buffer.writeln('=== Self-Care Check-ins ===');
+    buffer.writeln('Daily Task');
+    try {
+      for (final key in selfCareTaskKeys) {
+        buffer.writeln('"${'selfcare_task_$key'.tr().replaceAll('"', '""')}"');
+      }
+      final repo = SelfCareRepository();
+      final now = DateTime.now();
+      final keys = List.generate(
+          7, (i) => selfCareDateKey(now.subtract(Duration(days: i))));
+      final completed = await repo.completedCountForDates(keys);
+      final scheduled = selfCareTaskKeys.length * 7;
+      final pct = scheduled == 0 ? 0 : ((completed / scheduled) * 100).round();
+      buffer.writeln('');
+      buffer.writeln('7-day adherence,$pct%,$completed/$scheduled tasks');
+    } catch (e) {
+      buffer.writeln('Error loading self-care: $e');
+    }
+    buffer.writeln('');
+  }
+
+  /// Shared CSV/Excel appointments section.
+  Future<void> _writeAppointmentsCsv(StringBuffer buffer) async {
+    buffer.writeln('=== Appointments ===');
+    buffer.writeln('Title,Date & Time,Location,Reminder,Notes');
+    try {
+      final appts = await AppointmentsRepository().getAll();
+      if (appts.isEmpty) {
+        buffer.writeln('(No appointments available)');
+      } else {
+        for (final a in appts) {
+          buffer.writeln([
+            '"${a.title.replaceAll('"', '""')}"',
+            intl.DateFormat('yyyy-MM-dd HH:mm').format(a.dateTime),
+            '"${a.location.replaceAll('"', '""')}"',
+            '"${appointmentLeadKey(a.reminderLead).tr()}"',
+            '"${a.notes.replaceAll('"', '""')}"',
+          ].join(','));
+        }
+      }
+    } catch (e) {
+      buffer.writeln('Error loading appointments: $e');
     }
     buffer.writeln('');
   }
@@ -302,7 +381,17 @@ class ExportDataViewModel extends ChangeNotifier {
     if (medication) {
       allWidgets.addAll(await _buildMedicationSection());
     }
-    
+
+    // Self-care
+    if (selfCare) {
+      allWidgets.addAll(await _buildSelfCareSection());
+    }
+
+    // Appointments
+    if (appointments) {
+      allWidgets.addAll(await _buildAppointmentsSection());
+    }
+
     pdf.addPage(
       pw.MultiPage(
         pageFormat: PdfPageFormat.a4,
@@ -539,6 +628,80 @@ class ExportDataViewModel extends ChangeNotifier {
     return widgets;
   }
 
+  Future<List<pw.Widget>> _buildSelfCareSection() async {
+    final widgets = <pw.Widget>[
+      pw.Header(
+        level: 1,
+        child: pw.Text(
+          'Self-Care Check-ins',
+          style: pw.TextStyle(fontSize: 18, fontWeight: pw.FontWeight.bold),
+        ),
+      ),
+    ];
+    try {
+      widgets.add(
+        pw.TableHelper.fromTextArray(
+          headers: ['Daily Task'],
+          data: selfCareTaskKeys
+              .map((key) => [tr('selfcare_task_$key')])
+              .toList(),
+        ),
+      );
+      final repo = SelfCareRepository();
+      final now = DateTime.now();
+      final keys = List.generate(
+          7, (i) => selfCareDateKey(now.subtract(Duration(days: i))));
+      final completed = await repo.completedCountForDates(keys);
+      final scheduled = selfCareTaskKeys.length * 7;
+      final pct = scheduled == 0 ? 0 : ((completed / scheduled) * 100).round();
+      widgets.add(pw.SizedBox(height: 8));
+      widgets.add(pw.Text(
+        '7-day adherence: $pct%  ($completed of $scheduled tasks)',
+        style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
+      ));
+    } catch (e) {
+      widgets.add(pw.Text('Error loading self-care: $e'));
+    }
+    widgets.add(pw.SizedBox(height: 20));
+    return widgets;
+  }
+
+  Future<List<pw.Widget>> _buildAppointmentsSection() async {
+    final widgets = <pw.Widget>[
+      pw.Header(
+        level: 1,
+        child: pw.Text(
+          'Appointments',
+          style: pw.TextStyle(fontSize: 18, fontWeight: pw.FontWeight.bold),
+        ),
+      ),
+    ];
+    try {
+      final appts = await AppointmentsRepository().getAll();
+      if (appts.isEmpty) {
+        widgets.add(pw.Text('No appointments available.'));
+      } else {
+        widgets.add(
+          pw.TableHelper.fromTextArray(
+            headers: ['Title', 'Date & Time', 'Location', 'Reminder'],
+            data: appts
+                .map((a) => [
+                      a.title,
+                      intl.DateFormat('yyyy-MM-dd HH:mm').format(a.dateTime),
+                      a.location,
+                      appointmentLeadKey(a.reminderLead).tr(),
+                    ])
+                .toList(),
+          ),
+        );
+      }
+    } catch (e) {
+      widgets.add(pw.Text('Error loading appointments: $e'));
+    }
+    widgets.add(pw.SizedBox(height: 20));
+    return widgets;
+  }
+
   Future<Uint8List> _generateExcel() async {
     // Generate Excel-compatible CSV format (Excel can open CSV files)
     // This creates a CSV file with UTF-8 BOM that Excel can open properly
@@ -652,6 +815,16 @@ class ExportDataViewModel extends ChangeNotifier {
     // Medications
     if (medication) {
       await _writeMedicationsCsv(buffer);
+    }
+
+    // Self-care
+    if (selfCare) {
+      await _writeSelfCareCsv(buffer);
+    }
+
+    // Appointments
+    if (appointments) {
+      await _writeAppointmentsCsv(buffer);
     }
 
     // Convert to UTF-8 bytes with BOM

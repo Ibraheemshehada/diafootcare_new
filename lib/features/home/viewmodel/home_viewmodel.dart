@@ -12,10 +12,48 @@ class HomeViewModel extends ChangeNotifier {
   String? nextReminderTitle; // Title of the next reminder
   int weeklyProgressPercent = 0;
 
+  /// Latest wound's DFU risk badge (English key matching AnalysisResult.riskBadge):
+  /// 'Normal' | 'Infection Detected' | 'Impaired Blood Flow' | 'High Risk'.
+  /// null when no wound analysis exists yet.
+  String? dfuBadge;
+
   HomeViewModel() {
     _loadUserData();
     _loadNextReminder();
     _calculateWeeklyProgress();
+    _loadDfuStatus();
+  }
+
+  /// Derive the current foot-ulcer risk from the most recent wound entry,
+  /// using the same rule as the AI result screen: infection + ischaemia → High
+  /// Risk; either one alone → that badge; neither → Normal.
+  Future<void> _loadDfuStatus() async {
+    try {
+      final wounds = await WoundsRepository().loadAllWoundsForExport();
+      if (wounds.isEmpty) {
+        dfuBadge = null;
+        notifyListeners();
+        return;
+      }
+      // loadAllWoundsForExport is ordered by date DESC → first is newest.
+      final latest = wounds.first;
+      final infected = (latest['infection'] as String?) == 'Present';
+      final ischaemic = (latest['ischaemia'] as String?) == 'Impaired';
+      if (infected && ischaemic) {
+        dfuBadge = 'High Risk';
+      } else if (infected) {
+        dfuBadge = 'Infection Detected';
+      } else if (ischaemic) {
+        dfuBadge = 'Impaired Blood Flow';
+      } else {
+        dfuBadge = 'Normal';
+      }
+      notifyListeners();
+    } catch (e) {
+      debugPrint('❌ Error loading DFU status: $e');
+      dfuBadge = null;
+      notifyListeners();
+    }
   }
 
   // Load user first name from SharedPreferences
@@ -138,6 +176,32 @@ class HomeViewModel extends ChangeNotifier {
       subtitle: "Track doses and daily adherence.",
       iconAsset: "assets/svg/medication.svg",
       route: "/medication",
+      isPrimary: false,
+      bgScale: 0.70,
+      bgAlignment: Alignment.centerRight,
+      bgOffsetX: 0.04,
+      bgOffsetY: 0.00,
+      bgOpacity: 0.07,
+    ),
+
+    ServiceItem(
+      title: "Daily Self-Care",
+      subtitle: "Check off today's foot-care routine.",
+      iconAsset: "assets/svg/selfcare.svg",
+      route: "/selfcare",
+      isPrimary: false,
+      bgScale: 0.70,
+      bgAlignment: Alignment.centerRight,
+      bgOffsetX: 0.04,
+      bgOffsetY: 0.00,
+      bgOpacity: 0.07,
+    ),
+
+    ServiceItem(
+      title: "Appointments",
+      subtitle: "Schedule clinic visits and get reminders.",
+      iconAsset: "assets/svg/appointments.svg",
+      route: "/appointments",
       isPrimary: false,
       bgScale: 0.70,
       bgAlignment: Alignment.centerRight,
@@ -342,6 +406,7 @@ class HomeViewModel extends ChangeNotifier {
       refreshUserData(),
       _loadNextReminder(),
       _calculateWeeklyProgress(),
+      _loadDfuStatus(),
     ]);
   }
 }

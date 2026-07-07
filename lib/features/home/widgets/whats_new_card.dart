@@ -11,6 +11,12 @@ class WhatsNewCard extends StatelessWidget {
   final String? latestGlucoseStatus; // localized status label
   final Color? latestGlucoseColor;
   final VoidCallback? onGlucoseTap;
+  final String? dfuStatusLabel; // localized DFU risk label (null = no wound yet)
+  final IconData? dfuStatusIcon;
+  final Color? dfuStatusColor;
+  final VoidCallback? onDfuTap;
+  final String? nextAppointmentText; // e.g. "Podiatrist · Jul 12, 3:30 PM"
+  final VoidCallback? onAppointmentTap;
   const WhatsNewCard({
     super.key,
     required this.nextReminder,
@@ -20,6 +26,12 @@ class WhatsNewCard extends StatelessWidget {
     this.latestGlucoseStatus,
     this.latestGlucoseColor,
     this.onGlucoseTap,
+    this.dfuStatusLabel,
+    this.dfuStatusIcon,
+    this.dfuStatusColor,
+    this.onDfuTap,
+    this.nextAppointmentText,
+    this.onAppointmentTap,
   });
 
   @override
@@ -152,6 +164,57 @@ class WhatsNewCard extends StatelessWidget {
                                   child: Text(
                                     '${'glucose_title'.tr()}: $latestGlucoseText'
                                     '${latestGlucoseStatus != null ? ' · $latestGlucoseStatus' : ''}',
+                                    style: t.textTheme.bodyMedium
+                                        ?.copyWith(color: Colors.white),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                        if (dfuStatusLabel != null) ...[
+                          SizedBox(height: 8.h),
+                          InkWell(
+                            onTap: onDfuTap,
+                            child: Row(
+                              children: [
+                                Icon(dfuStatusIcon ?? Icons.health_and_safety_outlined,
+                                    color: dfuStatusColor ?? Colors.white),
+                                SizedBox(width: 8.w),
+                                Expanded(
+                                  child: Text.rich(
+                                    TextSpan(
+                                      text: '${'home_foot_status'.tr()}: ',
+                                      style: t.textTheme.bodyMedium
+                                          ?.copyWith(color: Colors.white),
+                                      children: [
+                                        TextSpan(
+                                          text: dfuStatusLabel,
+                                          style: t.textTheme.bodyMedium?.copyWith(
+                                            color: Colors.white,
+                                            fontWeight: FontWeight.w700,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                        if (nextAppointmentText != null) ...[
+                          SizedBox(height: 8.h),
+                          InkWell(
+                            onTap: onAppointmentTap,
+                            child: Row(
+                              children: [
+                                const Icon(Icons.event_outlined,
+                                    color: Colors.white),
+                                SizedBox(width: 8.w),
+                                Expanded(
+                                  child: Text(
+                                    '${'appt_next'.tr()}: $nextAppointmentText',
                                     style: t.textTheme.bodyMedium
                                         ?.copyWith(color: Colors.white),
                                   ),

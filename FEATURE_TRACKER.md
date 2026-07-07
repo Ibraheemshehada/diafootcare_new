@@ -7,21 +7,26 @@ behavior, pharmacist & education support).
 
 **Legend:** ✅ done · 🚧 in progress · ⚠️ partial · ⬜ not started
 
-_Last updated: 2026-07-06_
+_Last updated: 2026-07-07_
 
 ---
 
-## 🔖 RESUME HERE — session handoff (2026-07-06, end of day)
+## 🔖 RESUME HERE — session handoff (2026-07-07)
 
-**State:** All work below is **local & uncommitted** (nothing committed/pushed this session). `flutter analyze` = **0 errors** across the project.
+**State:** §1 Glucose + §2 Medication are **committed** (`6a4f39a`). §3 Self-Care built this session and is **local & uncommitted** (not committed/pushed yet). `flutter analyze` = **0 errors** (only pre-existing `withOpacity`/style infos remain).
 
-**Built today, awaiting device QA (couldn't test — emulator was closed):**
-1. **§1 Glucose** — full feature + a **crash fix** for the `_dependents.isEmpty` assert on add. Fix = rewrote the add flow to an `AlertDialog` that returns the input and mutates *after* the dialog closes (see Issue #1). **QA priority #1:** open Glucose → add a reading → confirm NO red error screen, and the reading + status + 7-avg update live.
-2. **§2 Medication** — new tracker (meds list, per-dose taken chips, today's adherence ring, 7-day adherence in export). **QA priority #2:** add a medication, tap dose chips, confirm adherence % updates; check swipe-to-delete.
+**Built this session (2026-07-07), awaiting device QA:**
+1. **§3 Self-Care Behavior & Daily Check-ins** — a fixed daily foot-care checklist (5 tasks: inspect feet, wash & dry, moisturize, footwear, wound check). Tap a task to mark it done today; a completion ring shows today's %, plus a 🔥 streak badge (consecutive fully-completed days). Persists per-day in new DB table `self_care_logs`. Home tile "Daily Self-Care" (`/selfcare`), EN/AR, and a **7-day adherence %** section in export (CSV/PDF/Excel + toggle). **No add-dialog/FAB** (fixed task list) so it avoids the glucose crash class entirely. Includes the clinic **Do's & Don'ts** (8+6, from the infographics) as a rotating "Self-care tip" (random per launch + shuffle), with the full list behind a "View all" expander.
+2. **§4 Home health dashboard** — the home hero now surfaces **DFU risk** (from the latest wound's infection/ischaemia), glucose, and the **next appointment**; a dedicated **Self-Care summary card** shows today's completion bar + 🔥 streak + the rotating tip and taps through to the feature. **QA:** home shows Foot status row colored by risk (add a wound analysis first) → tap it opens wound history; self-care card bar/streak reflect today's checklist.
+3. **§6 Appointments** — new DB-backed feature (`appointments`, DB v8): full-page add form (title/date/time/location/notes + reminder lead), Upcoming/Past lists with swipe-to-delete, one-off local notification at the chosen lead time, home hero "next appointment" row + service tile, and an export section. **QA:** add an appointment a few minutes out with "at time" reminder → confirm it lists under Upcoming, the home hero shows it, and the notification fires.
 
-**DB:** schema is now **v6** (glucose=v5, medications+medication_logs=v6). Existing installs auto-migrate via `onUpgrade`; no wipe needed.
+**Still awaiting device QA from last session (now committed):**
+- **§1 Glucose** — add a reading → confirm NO red error screen; reading + status + 7-avg update live (crash fix from Issue #1).
+- **§2 Medication** — add a med, tap dose chips → adherence % updates; swipe-to-delete works.
 
-**Next features (in order):** §3 Self-care daily checklist → §4 remaining dashboard tiles (DFU status, appointment) → §6 Appointments → §5 QoL/PRO survey → §7 Education/pharmacist → §8 Engagement analytics.
+**DB:** schema is now **v8** (glucose=v5, medications+medication_logs=v6, self_care_logs=v7, appointments=v8). Existing installs auto-migrate via `onUpgrade`; no wipe needed.
+
+**Next feature: §5 QoL / Patient-Reported Outcomes** (the remaining primary clinical-study data source: pain/mobility/emotional-impact scales + a satisfaction survey). Then §7 Education/pharmacist → §8 Engagement analytics.
 
 **Build/run gotchas (so we don't rediscover):**
 - Run: `flutter run -d emulator-5554`. adb isn't on PATH → use `C:/Users/jawhara/AppData/Local/Android/Sdk/platform-tools/adb.exe` (set `export MSYS_NO_PATHCONV=1` in Git Bash for `adb shell`).
@@ -70,19 +75,23 @@ Study needs glucose logs as a primary data source.
 - ⬜ Link medication *reminders* (the existing reminder "medication" type) to specific tracked meds — deferred
 - ⬜ QA on device (uses the same dialog/widget-class pattern as the glucose fix, so should be safe — verify)
 
-## 3. Self-Care Behavior & Daily Check-ins ✅-ish  ⬜
+## 3. Self-Care Behavior & Daily Check-ins 🚧 (built — needs QA on device)
 "Daily foot inspection, medication schedule, wound monitoring adherence %."
-- ⬜ Daily self-care checklist (foot inspection, wear proper footwear, wound check, etc.)
-- ⬜ Persist per-day completion; compute daily/weekly adherence %
-- ⬜ Streak / check-in indicator on home
-- ⬜ Include self-care adherence in export
-- ⬜ EN/AR localization
+- ✅ Daily self-care checklist — 5 fixed tasks: inspect feet, wash & dry, moisturize, footwear, wound check (`self_care_task.dart`)
+- ✅ Persist per-day completion (DB table `self_care_logs`, DB v7); today's completion % ring
+- ✅ Streak indicator (consecutive fully-completed days) shown on the self-care screen
+- ✅ Include self-care 7-day adherence % in export (CSV/PDF/Excel + a dedicated toggle)
+- ✅ Home "Daily Self-Care" tile (`/selfcare`) + `SelfCareViewModel` provider + route
+- ✅ **Do's & Don'ts advice** — 8 "Do" + 6 "Don't" diabetic foot-care tips (transcribed from the clinic infographics), EN/AR. Surfaced as a **rotating "Self-care tip" card** (random Do/Don't picked per app launch, + a shuffle button); the full green/red list is tucked behind a collapsed "View all" expander to keep the screen uncluttered
+- ✅ EN/AR localization (task titles + descriptions + advice)
+- ✅ **Home dashboard card** — self-care summary on Home (under the "What's New" hero): today's completion bar + 🔥 streak + rotating Do/Don't tip, taps through to the Self-Care screen (`SelfCareTipCard`, RTL-aware)
+- ⬜ QA on device (tap tasks, verify ring/streak update live + persistence across relaunch)
 
-## 4. Dashboard — Key Health Indicators 📊  ⚠️
-- ⬜ Surface **DFU status** (latest infection/ischaemia risk badge) on the home dashboard
-- ⬜ Glucose tile (from §1)
-- ⬜ Self-care adherence / streak tile (from §3)
-- ⬜ Next appointment tile (from §6)
+## 4. Dashboard — Key Health Indicators 📊  ✅ (built — needs QA on device)
+- ✅ Surface **DFU status** on the home "What's New Today?" hero — latest wound's risk (Normal/Infection/Impaired Blood Flow/High Risk), risk-colored icon, taps → wound history. Derived from the newest wound's infection/ischaemia via the same rule as the AI result screen (`HomeViewModel.dfuBadge` + `_dfuStatus`)
+- ✅ Glucose tile (from §1) — latest reading + status on the hero card
+- ✅ Self-care summary card on Home (from §3) — today's completion bar + **🔥 streak** + rotating Do/Don't tip, taps → Self-Care (`SelfCareTipCard`)
+- ✅ Next appointment tile (from §6) — soonest upcoming appointment on the hero, taps → Appointments
 
 ## 5. Patient-Reported Outcomes (QoL) 🧠  ⬜
 "Standardized scales: pain, mobility, emotional impact."
@@ -92,10 +101,15 @@ Study needs glucose logs as a primary data source.
 - ⬜ Include QoL + satisfaction in export
 - ⬜ EN/AR localization
 
-## 6. Appointments & Alerts 📅  ⬜
-- ⬜ Add "appointment" reminder type (or dedicated appointments list)
-- ⬜ Appointment notification + home "next appointment" tile
-- ⬜ EN/AR localization
+## 6. Appointments & Alerts 📅  🚧 (built — needs QA on device)
+- ✅ **Dedicated Appointments feature** (DB table `appointments`, DB v8) — a clean list, not overloaded onto reminders
+- ✅ Add appointment (full-page form): title, date, time, location, notes, and a **reminder lead** (none / at time / 1 hour before / 1 day before)
+- ✅ **Upcoming** + **Past** sections with a calendar-style date block and swipe-to-delete
+- ✅ One-off **local notification** at the chosen lead time — scheduled via `scheduleOneOff` with a **per-appointment id**, so it never touches the reminders feature's `cancelAll`
+- ✅ Home "next appointment" hero row + "Appointments" service tile (`/appointments`)
+- ✅ Appointments section in export (CSV/PDF/Excel + toggle)
+- ✅ EN/AR localization
+- ⬜ QA on device (add appointment → shows under Upcoming; notification fires at the lead time; once the time passes it moves to Past)
 
 ## 7. Education & Pharmacist Support 📚  ⬜
 - ⬜ Educational content module (articles/tips on DFU care, prevention)
@@ -140,7 +154,8 @@ Pending on-device QA to confirm the assert is gone.
 
 ## Progress
 - **Done:** baseline (§0)
-- **Built, pending device QA:** §1 Glucose Monitoring (+ crash fix applied), §2 Medication Management (tracker + adherence + export). Both compile with 0 analyzer errors.
-- **Next up:** device QA of §1 + §2 → §3 Self-care checklist → §4 remaining dashboard tiles → §6 Appointments → §5 QoL → §7 Education → §8 Engagement
+- **Committed:** §1 Glucose Monitoring (+ crash fix), §2 Medication Management (`6a4f39a`).
+- **Built this session, pending device QA + commit:** §3 Self-Care (checklist + streak + Do's/Don'ts tips + export), §4 Home health dashboard (DFU risk + glucose + next-appointment in the hero, self-care summary card), and §6 Appointments (list + reminders + export). Compiles with **0 analyzer errors**.
+- **Next up:** device QA of §1–§4 + §6 → **§5 QoL / PRO survey** → §7 Education → §8 Engagement
 
 _As each item ships, it gets checked off here._

@@ -1,14 +1,18 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:intl/intl.dart' as intl;
 import 'package:provider/provider.dart';
 
 import '../../notes/viewmodel/notes_viewmodel.dart';
 import '../../glucose/viewmodel/glucose_viewmodel.dart';
 import '../../glucose/screens/glucose_screen.dart' show glucoseStatusColor, glucoseStatusLabel;
+import '../../selfcare/viewmodel/self_care_viewmodel.dart';
+import '../../appointments/viewmodel/appointments_viewmodel.dart';
 import '../viewmodel/home_viewmodel.dart';
 import '../widgets/home_header.dart';
 import '../widgets/whats_new_card.dart';
+import '../widgets/self_care_tip_card.dart';
 import '../widgets/recent_note_card.dart';
 import '../widgets/service_tile.dart';
 import '../../../routes/app_routes.dart';
@@ -32,6 +36,20 @@ class HomeScreen extends StatelessWidget {
           // Latest glucose reading for the dashboard card
           final glucoseVm = context.watch<GlucoseViewModel>();
           final latestGlucose = glucoseVm.latest;
+
+          // Self-care summary (rotating tip + today's progress + streak)
+          final selfCareVm = context.watch<SelfCareViewModel>();
+          final selfCareTip = selfCareVm.tip;
+
+          // Latest DFU risk for the dashboard (null = no wound analysis yet)
+          final dfu = _dfuStatus(vm.dfuBadge);
+
+          // Next upcoming appointment for the hero row
+          final nextAppt = context.watch<AppointmentsViewModel>().nextUpcoming;
+          final locale = context.locale.toLanguageTag();
+          final nextApptText = nextAppt == null
+              ? null
+              : '${nextAppt.title} · ${intl.DateFormat.MMMd(locale).add_jm().format(nextAppt.dateTime)}';
 
           // Pastel palettes for light/dark
           final colorsLight = <Color>[
@@ -81,7 +99,26 @@ class HomeScreen extends StatelessWidget {
                           : glucoseStatusColor(latestGlucose.status),
                       onGlucoseTap: () =>
                           Navigator.pushNamed(context, AppRoutes.glucose),
+                      dfuStatusLabel: dfu?.label,
+                      dfuStatusIcon: dfu?.icon,
+                      dfuStatusColor: dfu?.color,
+                      onDfuTap: () =>
+                          Navigator.pushNamed(context, AppRoutes.measure),
+                      nextAppointmentText: nextApptText,
+                      onAppointmentTap: () =>
+                          Navigator.pushNamed(context, AppRoutes.appointments),
                     ),
+
+                    // Self-care summary + rotating tip → opens the Self-Care screen
+                    if (selfCareTip != null)
+                      SelfCareTipCard(
+                        tip: selfCareTip,
+                        doneToday: selfCareVm.doneToday,
+                        totalTasks: selfCareVm.totalTasks,
+                        streak: selfCareVm.streak,
+                        onTap: () =>
+                            Navigator.pushNamed(context, AppRoutes.selfCare),
+                      ),
 
                     // Recent notes section title
                     Padding(
@@ -147,5 +184,34 @@ class HomeScreen extends StatelessWidget {
         },
       ),
     );
+  }
+}
+
+/// Localized DFU risk presentation (label + color + icon), mapped from the
+/// English badge key. Mirrors the AI result screen's risk banner so Home and
+/// the analysis screen agree on colors/wording.
+class _DfuStatus {
+  final String label;
+  final Color color;
+  final IconData icon;
+  const _DfuStatus(this.label, this.color, this.icon);
+}
+
+_DfuStatus? _dfuStatus(String? badge) {
+  switch (badge) {
+    case null:
+      return null;
+    case 'High Risk':
+      return _DfuStatus('badge_high_risk'.tr(), const Color(0xFFD64545),
+          Icons.warning_amber_rounded);
+    case 'Infection Detected':
+      return _DfuStatus('badge_infection'.tr(), const Color(0xFFE8A317),
+          Icons.coronavirus_outlined);
+    case 'Impaired Blood Flow':
+      return _DfuStatus('badge_ischaemia'.tr(), const Color(0xFFE8A317),
+          Icons.bloodtype_outlined);
+    default: // Normal
+      return _DfuStatus('badge_normal'.tr(), const Color(0xFF2E9E6B),
+          Icons.check_circle_outline);
   }
 }

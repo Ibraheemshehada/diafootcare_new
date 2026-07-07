@@ -18,7 +18,7 @@ class DatabaseHelper {
     final path = join(await getDatabasesPath(), 'diafoot.db');
     return openDatabase(
       path,
-      version: 6, // ⬅️ bumped to 6 to add medications + medication_logs
+      version: 8, // ⬅️ bumped to 8 to add appointments (clinic visits + reminders)
       onCreate: (db, version) async {
         await db.execute('''
           CREATE TABLE wounds (
@@ -62,6 +62,12 @@ class DatabaseHelper {
 
         // ⬇️ Medications + per-dose logs on fresh DB
         await _createMedicationTables(db);
+
+        // ⬇️ Self-care daily check-in logs on fresh DB
+        await _createSelfCareTable(db);
+
+        // ⬇️ Appointments on fresh DB
+        await _createAppointmentsTable(db);
       },
       onUpgrade: (db, oldVersion, newVersion) async {
         if (oldVersion < 2) {
@@ -123,6 +129,12 @@ class DatabaseHelper {
         if (oldVersion < 6) {
           await _createMedicationTables(db);
         }
+        if (oldVersion < 7) {
+          await _createSelfCareTable(db);
+        }
+        if (oldVersion < 8) {
+          await _createAppointmentsTable(db);
+        }
       },
       onOpen: (db) async {
         // Extra safety: ensure table exists even if onCreate/onUpgrade didn't run
@@ -148,8 +160,43 @@ class DatabaseHelper {
 
         // Extra safety: ensure medication tables exist
         await _createMedicationTables(db);
+
+        // Extra safety: ensure self-care table exists
+        await _createSelfCareTable(db);
+
+        // Extra safety: ensure appointments table exists
+        await _createAppointmentsTable(db);
       },
     );
+  }
+
+  Future<void> _createAppointmentsTable(Database db) async {
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS appointments (
+        id           TEXT PRIMARY KEY,
+        title        TEXT NOT NULL,
+        dateTime     INTEGER NOT NULL,
+        location     TEXT,
+        notes        TEXT,
+        reminderLead INTEGER NOT NULL,
+        createdAt    INTEGER NOT NULL
+      )
+    ''');
+    await db.execute(
+        'CREATE INDEX IF NOT EXISTS idx_appointments_dt ON appointments(dateTime)');
+  }
+
+  Future<void> _createSelfCareTable(Database db) async {
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS self_care_logs (
+        logKey  TEXT PRIMARY KEY,
+        itemKey TEXT NOT NULL,
+        dateKey TEXT NOT NULL,
+        doneAt  INTEGER NOT NULL
+      )
+    ''');
+    await db.execute(
+        'CREATE INDEX IF NOT EXISTS idx_selfcare_date ON self_care_logs(dateKey)');
   }
 
   Future<void> _createMedicationTables(Database db) async {
