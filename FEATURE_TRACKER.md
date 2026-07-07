@@ -26,11 +26,17 @@ _Last updated: 2026-07-07_
 
 4. **§5 QoL / Patient-Reported Outcomes** — new "My Well-being" feature (DB v9 `qol_entries` + `satisfaction_entries`): a periodic QoL check-in (pain / mobility / emotional impact on 0–10 sliders) with a latest-scores card, a burden trend chart, and a swipe-to-delete history; plus a 1–5 Likert satisfaction survey (ease / usefulness / willingness). Home service tile + export section. **QA:** record a check-in → summary + trend update; submit the survey; export with "Well-being" ticked.
 
-**DB:** schema is now **v9** (glucose=v5, medications+medication_logs=v6, self_care_logs=v7, appointments=v8, qol_entries+satisfaction_entries=v9). Existing installs auto-migrate via `onUpgrade`; no wipe needed.
+**DB:** schema is now **v10** (glucose=v5, medications+medication_logs=v6, self_care_logs=v7, appointments=v8, qol_entries+satisfaction_entries=v9, analytics_events=v10). Existing installs auto-migrate via `onUpgrade`; no wipe needed.
 
 5. **§7 Education & Pharmacist Support** — new "Education" hub (static, no DB): 5 curated foot-care guides with article detail pages, a pharmacist-verified tips card, and an "Ask your pharmacist" suggestions card. Home service tile. **QA:** open Education → tap a guide → article renders; check RTL/dark.
+6. **§8 Engagement / Usage Analytics** — local event logging (DB v10 `analytics_events`), a "My Activity" usage-summary screen (from Profile), and an engagement export section. **QA:** open a few features → My Activity shows counts; export with "Usage & Engagement" ticked.
 
-**Next feature: §8 Engagement / Usage Analytics** (local event logging — screen opens, feature use, login timestamps — plus a usage summary and an export section for the study). This is the last item on the tracker.
+**🎉 All 8 tracker sections are now built.** Remaining work is **device QA of every feature + commit review**, not new features. (Optional polish backlog below.)
+
+## Optional polish backlog (not blocking)
+- `intl` is used directly in several files but isn't a direct `pubspec.yaml` dependency (transitive via easy_localization) → a handful of harmless `depend_on_referenced_packages` info lints. Add `intl` to dependencies to clear them.
+- Wider pre-existing lint cleanup: many `withOpacity` → `.withValues()` deprecations across older screens.
+- Surface the self-care streak / QoL on the Home hero only if desired (hero is already dense).
 
 **Build/run gotchas (so we don't rediscover):**
 - Run: `flutter run -d emulator-5554`. adb isn't on PATH → use `C:/Users/jawhara/AppData/Local/Android/Sdk/platform-tools/adb.exe` (set `export MSYS_NO_PATHCONV=1` in Git Bash for `adb shell`).
@@ -125,11 +131,13 @@ Study needs glucose logs as a primary data source.
 - ✅ EN/AR localization (all article bodies)
 - ⬜ QA on device (open Education → tap a guide → article renders; check RTL + dark mode)
 
-## 8. Engagement / Usage Analytics 📈  ⬜
+## 8. Engagement / Usage Analytics 📈  🚧 (built — needs QA on device)
 Study measures usage frequency, feature utilization, retention.
-- ⬜ Local event logging (screen opens, feature use, login timestamps)
-- ⬜ Usage summary (last active, streak, feature-use counts)
-- ⬜ Include engagement summary in export (for the study)
+- ✅ **Local event logging** (DB v10 `analytics_events`) — `app_open` on each launch + `feature_open` on every Home service-tile tap. Local-only; nothing leaves the device (`AnalyticsService`, fire-and-forget)
+- ✅ **Usage summary** screen "My Activity" (opened from Profile) — active days, day streak, app opens, first-used / last-active, and a feature-utilization bar list
+- ✅ **Engagement summary in export** (CSV/PDF/Excel + a "Usage & Engagement" toggle) — the usage metrics + per-feature open counts
+- ✅ EN/AR localization
+- ⬜ QA on device (open a few features → My Activity shows counts; export with "Usage & Engagement" ticked)
 
 ---
 
@@ -164,8 +172,8 @@ Pending on-device QA to confirm the assert is gone.
 - **Done:** baseline (§0)
 - **Committed:** §1 Glucose Monitoring (+ crash fix), §2 Medication Management (`6a4f39a`).
 - **Committed:** §3 Self-Care, §4 Home health dashboard, §6 Appointments (`64c312d`).
-- **Committed:** §5 QoL / PRO — "My Well-being" (`54cfe29`).
-- **Built this session, pending device QA + commit:** §7 Education & Pharmacist Support (curated guides + pharmacist tips + ask-pharmacist). Compiles with **0 analyzer errors**.
-- **Next up:** device QA of §1–§7 → **§8 Engagement / Usage Analytics** (last tracker item)
+- **Committed:** §5 QoL / PRO (`54cfe29`), §7 Education (`ed4ff02`).
+- **Built this session, pending device QA + commit:** §8 Engagement / Usage Analytics (event logging + "My Activity" + engagement export). Compiles with **0 analyzer errors**.
+- **All 8 tracker sections are built.** Next up: **device QA of the whole app**, then commit review. No feature work remains.
 
 _As each item ships, it gets checked off here._

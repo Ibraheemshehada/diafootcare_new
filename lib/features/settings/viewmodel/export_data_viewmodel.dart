@@ -19,6 +19,8 @@ import '../../../data/models/self_care_task.dart';
 import '../../../data/repositories/appointments_repository.dart';
 import '../../../data/models/appointment.dart';
 import '../../../data/repositories/wellbeing_repository.dart';
+import '../../../data/repositories/analytics_repository.dart';
+import '../../../core/services/analytics_service.dart';
 import 'package:intl/intl.dart' as intl;
 
 enum ExportFormat { pdf, csv, xlsx }
@@ -32,6 +34,7 @@ class ExportDataViewModel extends ChangeNotifier {
   bool selfCare = false;
   bool appointments = false;
   bool wellbeing = false;
+  bool engagement = false;
   bool reminders = true;
 
   ExportFormat format = ExportFormat.pdf;
@@ -44,6 +47,7 @@ class ExportDataViewModel extends ChangeNotifier {
       selfCare ||
       appointments ||
       wellbeing ||
+      engagement ||
       reminders;
 
   bool get allSelected =>
@@ -54,11 +58,12 @@ class ExportDataViewModel extends ChangeNotifier {
       selfCare &&
       appointments &&
       wellbeing &&
+      engagement &&
       reminders;
 
   void toggleAll(bool v) {
-    woundAI = glucose = notes =
-        medication = selfCare = appointments = wellbeing = reminders = v;
+    woundAI = glucose = notes = medication =
+        selfCare = appointments = wellbeing = engagement = reminders = v;
     notifyListeners();
   }
 
@@ -69,6 +74,7 @@ class ExportDataViewModel extends ChangeNotifier {
   void toggleSelfCare(bool v) { selfCare = v; notifyListeners(); }
   void toggleAppointments(bool v) { appointments = v; notifyListeners(); }
   void toggleWellbeing(bool v) { wellbeing = v; notifyListeners(); }
+  void toggleEngagement(bool v) { engagement = v; notifyListeners(); }
   void toggleReminders(bool v)  { reminders = v; notifyListeners(); }
 
   void setFormat(ExportFormat f) {
@@ -260,6 +266,10 @@ class ExportDataViewModel extends ChangeNotifier {
       await _writeWellbeingCsv(buffer);
     }
 
+    if (engagement) {
+      await _writeEngagementCsv(buffer);
+    }
+
     return buffer.toString();
   }
 
@@ -395,6 +405,37 @@ class ExportDataViewModel extends ChangeNotifier {
     buffer.writeln('');
   }
 
+  /// Shared CSV/Excel engagement summary: usage metrics + per-feature opens.
+  Future<void> _writeEngagementCsv(StringBuffer buffer) async {
+    buffer.writeln('=== Engagement Summary ===');
+    buffer.writeln('Metric,Value');
+    try {
+      final s = await AnalyticsRepository().getSummary();
+      String fmt(DateTime? d) =>
+          d == null ? 'N/A' : intl.DateFormat('yyyy-MM-dd').format(d);
+      buffer.writeln('First used,${fmt(s.firstUse)}');
+      buffer.writeln('Last active,${fmt(s.lastActive)}');
+      buffer.writeln('Active days,${s.activeDays}');
+      buffer.writeln('Current streak (days),${s.currentStreak}');
+      buffer.writeln('App opens,${s.appOpens}');
+      buffer.writeln('');
+      buffer.writeln('Feature,Opens');
+      if (s.features.isEmpty) {
+        buffer.writeln('(No feature usage recorded)');
+      } else {
+        for (final f in s.features) {
+          buffer.writeln([
+            '"${analyticsFeatureLabel(f.route).replaceAll('"', '""')}"',
+            f.count.toString(),
+          ].join(','));
+        }
+      }
+    } catch (e) {
+      buffer.writeln('Error loading engagement: $e');
+    }
+    buffer.writeln('');
+  }
+
   Future<Uint8List> _generatePDF() async {
     final pdf = pw.Document();
     
@@ -453,6 +494,11 @@ class ExportDataViewModel extends ChangeNotifier {
     // Well-being (QoL + satisfaction)
     if (wellbeing) {
       allWidgets.addAll(await _buildWellbeingSection());
+    }
+
+    // Engagement summary
+    if (engagement) {
+      allWidgets.addAll(await _buildEngagementSection());
     }
 
     pdf.addPage(
@@ -834,6 +880,51 @@ class ExportDataViewModel extends ChangeNotifier {
     return widgets;
   }
 
+  Future<List<pw.Widget>> _buildEngagementSection() async {
+    final widgets = <pw.Widget>[
+      pw.Header(
+        level: 1,
+        child: pw.Text(
+          'Engagement Summary',
+          style: pw.TextStyle(fontSize: 18, fontWeight: pw.FontWeight.bold),
+        ),
+      ),
+    ];
+    try {
+      final s = await AnalyticsRepository().getSummary();
+      String fmt(DateTime? d) =>
+          d == null ? 'N/A' : intl.DateFormat('yyyy-MM-dd').format(d);
+      widgets.add(
+        pw.TableHelper.fromTextArray(
+          headers: ['Metric', 'Value'],
+          data: [
+            ['First used', fmt(s.firstUse)],
+            ['Last active', fmt(s.lastActive)],
+            ['Active days', s.activeDays.toString()],
+            ['Current streak (days)', s.currentStreak.toString()],
+            ['App opens', s.appOpens.toString()],
+          ],
+        ),
+      );
+      widgets.add(pw.SizedBox(height: 10));
+      if (s.features.isNotEmpty) {
+        widgets.add(
+          pw.TableHelper.fromTextArray(
+            headers: ['Feature', 'Opens'],
+            data: s.features
+                .map((f) =>
+                    [analyticsFeatureLabel(f.route), f.count.toString()])
+                .toList(),
+          ),
+        );
+      }
+    } catch (e) {
+      widgets.add(pw.Text('Error loading engagement: $e'));
+    }
+    widgets.add(pw.SizedBox(height: 20));
+    return widgets;
+  }
+
   Future<Uint8List> _generateExcel() async {
     // Generate Excel-compatible CSV format (Excel can open CSV files)
     // This creates a CSV file with UTF-8 BOM that Excel can open properly
@@ -962,6 +1053,11 @@ class ExportDataViewModel extends ChangeNotifier {
     // Well-being
     if (wellbeing) {
       await _writeWellbeingCsv(buffer);
+    }
+
+    // Engagement
+    if (engagement) {
+      await _writeEngagementCsv(buffer);
     }
 
     // Convert to UTF-8 bytes with BOM

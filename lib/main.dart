@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 
 import 'package:firebase_core/firebase_core.dart';
 import 'core/services/notification_service.dart';
+import 'core/services/analytics_service.dart';
 import 'core/services/web_notification_service.dart';
 import 'firebase_options.dart';
 
@@ -82,6 +83,9 @@ void main() async {
   await NotificationService.I.init();
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
   await EasyLocalization.ensureInitialized();
+
+  // Log this launch for the study's engagement metrics (local-only, non-blocking).
+  AnalyticsService.I.logAppOpen();
 
   // ℹ️ AI models are NOT loaded here. Interpreter.fromAsset does a synchronous
   // native load of ~220MB of TFLite models on the UI isolate, which freezes the

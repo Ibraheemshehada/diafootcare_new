@@ -123,6 +123,9 @@ class ProfileScreen extends StatelessWidget {
           ProfileTile(leading: Icons.elderly_rounded, title: 'senior_tips'.tr(), onTap: () {
             Navigator.pushNamed(context, AppRoutes.seniorTips);
           }),
+          ProfileTile(leading: Icons.insights_rounded, title: 'usage_title'.tr(), onTap: () {
+            Navigator.pushNamed(context, AppRoutes.usage);
+          }),
           ProfileTile(leading: Icons.ios_share_rounded, title: 'export_data'.tr(), onTap: () {
             Navigator.pushNamed(context, AppRoutes.exportData);
           }),

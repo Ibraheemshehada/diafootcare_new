@@ -18,7 +18,7 @@ class DatabaseHelper {
     final path = join(await getDatabasesPath(), 'diafoot.db');
     return openDatabase(
       path,
-      version: 9, // ⬅️ bumped to 9 to add QoL + satisfaction (patient-reported outcomes)
+      version: 10, // ⬅️ bumped to 10 to add analytics_events (engagement/usage)
       onCreate: (db, version) async {
         await db.execute('''
           CREATE TABLE wounds (
@@ -71,6 +71,9 @@ class DatabaseHelper {
 
         // ⬇️ Patient-reported outcomes (QoL + satisfaction) on fresh DB
         await _createWellbeingTables(db);
+
+        // ⬇️ Engagement / usage analytics on fresh DB
+        await _createAnalyticsTable(db);
       },
       onUpgrade: (db, oldVersion, newVersion) async {
         if (oldVersion < 2) {
@@ -141,6 +144,9 @@ class DatabaseHelper {
         if (oldVersion < 9) {
           await _createWellbeingTables(db);
         }
+        if (oldVersion < 10) {
+          await _createAnalyticsTable(db);
+        }
       },
       onOpen: (db) async {
         // Extra safety: ensure table exists even if onCreate/onUpgrade didn't run
@@ -175,8 +181,24 @@ class DatabaseHelper {
 
         // Extra safety: ensure well-being (QoL + satisfaction) tables exist
         await _createWellbeingTables(db);
+
+        // Extra safety: ensure analytics table exists
+        await _createAnalyticsTable(db);
       },
     );
+  }
+
+  Future<void> _createAnalyticsTable(Database db) async {
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS analytics_events (
+        id   INTEGER PRIMARY KEY AUTOINCREMENT,
+        type TEXT NOT NULL,
+        name TEXT,
+        ts   INTEGER NOT NULL
+      )
+    ''');
+    await db.execute(
+        'CREATE INDEX IF NOT EXISTS idx_analytics_ts ON analytics_events(ts)');
   }
 
   Future<void> _createWellbeingTables(Database db) async {

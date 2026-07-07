@@ -9,6 +9,7 @@ import '../../glucose/viewmodel/glucose_viewmodel.dart';
 import '../../glucose/screens/glucose_screen.dart' show glucoseStatusColor, glucoseStatusLabel;
 import '../../selfcare/viewmodel/self_care_viewmodel.dart';
 import '../../appointments/viewmodel/appointments_viewmodel.dart';
+import '../../../core/services/analytics_service.dart';
 import '../viewmodel/home_viewmodel.dart';
 import '../widgets/home_header.dart';
 import '../widgets/whats_new_card.dart';
@@ -169,7 +170,10 @@ class HomeScreen extends StatelessWidget {
                           final s = vm.services[i];
                           return ServiceTile(
                             item: s,
-                            onTap: () => Navigator.pushNamed(context, s.route),
+                            onTap: () {
+                              AnalyticsService.I.logFeature(s.route);
+                              Navigator.pushNamed(context, s.route);
+                            },
                           );
                         },
                       ),
