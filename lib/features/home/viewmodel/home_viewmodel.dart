@@ -222,6 +222,19 @@ class HomeViewModel extends ChangeNotifier {
       bgOffsetY: 0.00,
       bgOpacity: 0.07,
     ),
+
+    ServiceItem(
+      title: "Education",
+      subtitle: "Learn how to protect your feet.",
+      iconAsset: "assets/svg/education.svg",
+      route: "/education",
+      isPrimary: false,
+      bgScale: 0.70,
+      bgAlignment: Alignment.centerRight,
+      bgOffsetX: 0.04,
+      bgOffsetY: 0.00,
+      bgOpacity: 0.07,
+    ),
   ];
 
   /// Load the next upcoming reminder

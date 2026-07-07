@@ -28,7 +28,9 @@ _Last updated: 2026-07-07_
 
 **DB:** schema is now **v9** (glucose=v5, medications+medication_logs=v6, self_care_logs=v7, appointments=v8, qol_entries+satisfaction_entries=v9). Existing installs auto-migrate via `onUpgrade`; no wipe needed.
 
-**Next feature: §7 Education & Pharmacist Support** (curated DFU-care articles/tips; the self-care Do's & Don'ts are a start). Then §8 Engagement analytics.
+5. **§7 Education & Pharmacist Support** — new "Education" hub (static, no DB): 5 curated foot-care guides with article detail pages, a pharmacist-verified tips card, and an "Ask your pharmacist" suggestions card. Home service tile. **QA:** open Education → tap a guide → article renders; check RTL/dark.
+
+**Next feature: §8 Engagement / Usage Analytics** (local event logging — screen opens, feature use, login timestamps — plus a usage summary and an export section for the study). This is the last item on the tracker.
 
 **Build/run gotchas (so we don't rediscover):**
 - Run: `flutter run -d emulator-5554`. adb isn't on PATH → use `C:/Users/jawhara/AppData/Local/Android/Sdk/platform-tools/adb.exe` (set `export MSYS_NO_PATHCONV=1` in Git Bash for `adb shell`).
@@ -115,11 +117,13 @@ Study needs glucose logs as a primary data source.
 - ✅ EN/AR localization
 - ⬜ QA on device (add appointment → shows under Upcoming; notification fires at the lead time; once the time passes it moves to Past)
 
-## 7. Education & Pharmacist Support 📚  ⬜
-- ⬜ Educational content module (articles/tips on DFU care, prevention)
-- ⬜ Pharmacist-verified tips section (curated content)
-- ⬜ (Optional) contact/ask-pharmacist entry point
-- ⬜ EN/AR localization
+## 7. Education & Pharmacist Support 📚  🚧 (built — needs QA on device)
+- ✅ **Educational content module** — 5 curated foot-care guides (daily foot care, footwear, blood sugar & feet, warning signs, wound/dressing care); each opens an article with an intro + bulleted steps + a "not a substitute for your care team" disclaimer
+- ✅ **Pharmacist-verified tips** section (4 tips) with a green "Pharmacist-verified" badge
+- ✅ **"Ask your pharmacist"** card with suggested questions (static entry point; no external launcher dependency)
+- ✅ Home "Education" service tile (`/education`) + article-detail route — static content, so no DB/provider needed
+- ✅ EN/AR localization (all article bodies)
+- ⬜ QA on device (open Education → tap a guide → article renders; check RTL + dark mode)
 
 ## 8. Engagement / Usage Analytics 📈  ⬜
 Study measures usage frequency, feature utilization, retention.
@@ -160,7 +164,8 @@ Pending on-device QA to confirm the assert is gone.
 - **Done:** baseline (§0)
 - **Committed:** §1 Glucose Monitoring (+ crash fix), §2 Medication Management (`6a4f39a`).
 - **Committed:** §3 Self-Care, §4 Home health dashboard, §6 Appointments (`64c312d`).
-- **Built this session, pending device QA + commit:** §5 QoL / PRO — "My Well-being" (QoL check-in + trend + satisfaction survey + export). Compiles with **0 analyzer errors**.
-- **Next up:** device QA of §1–§6 → **§7 Education & Pharmacist Support** → §8 Engagement
+- **Committed:** §5 QoL / PRO — "My Well-being" (`54cfe29`).
+- **Built this session, pending device QA + commit:** §7 Education & Pharmacist Support (curated guides + pharmacist tips + ask-pharmacist). Compiles with **0 analyzer errors**.
+- **Next up:** device QA of §1–§7 → **§8 Engagement / Usage Analytics** (last tracker item)
 
 _As each item ships, it gets checked off here._
