@@ -24,6 +24,7 @@ import 'features/glucose/viewmodel/glucose_viewmodel.dart';
 import 'features/medication/viewmodel/medication_viewmodel.dart';
 import 'features/selfcare/viewmodel/self_care_viewmodel.dart';
 import 'features/appointments/viewmodel/appointments_viewmodel.dart';
+import 'features/wellbeing/viewmodel/wellbeing_viewmodel.dart';
 import 'features/auth/screens/login_screen.dart';
 
 class DiaFootApp extends StatelessWidget {
@@ -46,6 +47,7 @@ class DiaFootApp extends StatelessWidget {
             ChangeNotifierProvider(create: (_) => MedicationViewModel()),
             ChangeNotifierProvider(create: (_) => SelfCareViewModel()),
             ChangeNotifierProvider(create: (_) => AppointmentsViewModel()),
+            ChangeNotifierProvider(create: (_) => WellbeingViewModel()),
             ChangeNotifierProvider(create: (_) => SettingsViewModel()),
             ChangeNotifierProvider(create: (_) => ProfileViewModel()),
 

@@ -20,6 +20,7 @@ import '../features/glucose/screens/glucose_screen.dart';
 import '../features/medication/screens/medication_screen.dart';
 import '../features/selfcare/screens/self_care_screen.dart';
 import '../features/appointments/screens/appointments_screen.dart';
+import '../features/wellbeing/screens/wellbeing_screen.dart';
 
 import '../features/shell/screens/main_shell.dart';
 import '../features/wound/capture/screens/capture_screen.dart';
@@ -55,6 +56,7 @@ class AppRoutes {
   static const String medication = '/medication';
   static const String selfCare = '/selfcare';
   static const String appointments = '/appointments';
+  static const String wellbeing = '/wellbeing';
 
 
 
@@ -83,6 +85,7 @@ class AppRoutes {
     medication: (_) => const MedicationScreen(),
     selfCare: (_) => const SelfCareScreen(),
     appointments: (_) => const AppointmentsScreen(),
+    wellbeing: (_) => const WellbeingScreen(),
 
     preview: (context) {
       // For preview, pass XFile via arguments

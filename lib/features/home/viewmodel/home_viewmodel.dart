@@ -209,6 +209,19 @@ class HomeViewModel extends ChangeNotifier {
       bgOffsetY: 0.00,
       bgOpacity: 0.07,
     ),
+
+    ServiceItem(
+      title: "My Well-being",
+      subtitle: "Track pain, mobility and mood over time.",
+      iconAsset: "assets/svg/wellbeing.svg",
+      route: "/wellbeing",
+      isPrimary: false,
+      bgScale: 0.70,
+      bgAlignment: Alignment.centerRight,
+      bgOffsetX: 0.04,
+      bgOffsetY: 0.00,
+      bgOpacity: 0.07,
+    ),
   ];
 
   /// Load the next upcoming reminder

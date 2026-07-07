@@ -74,6 +74,14 @@ class ExportDataScreen extends StatelessWidget {
                   activeColor: t.colorScheme.primary,
                 ),
                 CheckboxListTile(
+                  value: vm.wellbeing,
+                  onChanged: (v) => vm.toggleWellbeing(v ?? false),
+                  title: Text('ds_wellbeing'.tr()),
+                  controlAffinity: ListTileControlAffinity.leading,
+                  contentPadding: EdgeInsets.zero,
+                  activeColor: t.colorScheme.primary,
+                ),
+                CheckboxListTile(
                   value: vm.reminders,
                   onChanged: (v) => vm.toggleReminders(v ?? false),
                   title: Text('ds_reminders'.tr()),

@@ -24,9 +24,11 @@ _Last updated: 2026-07-07_
 - **§1 Glucose** — add a reading → confirm NO red error screen; reading + status + 7-avg update live (crash fix from Issue #1).
 - **§2 Medication** — add a med, tap dose chips → adherence % updates; swipe-to-delete works.
 
-**DB:** schema is now **v8** (glucose=v5, medications+medication_logs=v6, self_care_logs=v7, appointments=v8). Existing installs auto-migrate via `onUpgrade`; no wipe needed.
+4. **§5 QoL / Patient-Reported Outcomes** — new "My Well-being" feature (DB v9 `qol_entries` + `satisfaction_entries`): a periodic QoL check-in (pain / mobility / emotional impact on 0–10 sliders) with a latest-scores card, a burden trend chart, and a swipe-to-delete history; plus a 1–5 Likert satisfaction survey (ease / usefulness / willingness). Home service tile + export section. **QA:** record a check-in → summary + trend update; submit the survey; export with "Well-being" ticked.
 
-**Next feature: §5 QoL / Patient-Reported Outcomes** (the remaining primary clinical-study data source: pain/mobility/emotional-impact scales + a satisfaction survey). Then §7 Education/pharmacist → §8 Engagement analytics.
+**DB:** schema is now **v9** (glucose=v5, medications+medication_logs=v6, self_care_logs=v7, appointments=v8, qol_entries+satisfaction_entries=v9). Existing installs auto-migrate via `onUpgrade`; no wipe needed.
+
+**Next feature: §7 Education & Pharmacist Support** (curated DFU-care articles/tips; the self-care Do's & Don'ts are a start). Then §8 Engagement analytics.
 
 **Build/run gotchas (so we don't rediscover):**
 - Run: `flutter run -d emulator-5554`. adb isn't on PATH → use `C:/Users/jawhara/AppData/Local/Android/Sdk/platform-tools/adb.exe` (set `export MSYS_NO_PATHCONV=1` in Git Bash for `adb shell`).
@@ -93,13 +95,15 @@ Study needs glucose logs as a primary data source.
 - ✅ Self-care summary card on Home (from §3) — today's completion bar + **🔥 streak** + rotating Do/Don't tip, taps → Self-Care (`SelfCareTipCard`)
 - ✅ Next appointment tile (from §6) — soonest upcoming appointment on the hero, taps → Appointments
 
-## 5. Patient-Reported Outcomes (QoL) 🧠  ⬜
+## 5. Patient-Reported Outcomes (QoL) 🧠  🚧 (built — needs QA on device)
 "Standardized scales: pain, mobility, emotional impact."
-- ⬜ Periodic QoL questionnaire (pain 0–10, mobility, emotional impact) — simple standardized scale
-- ⬜ Store responses with date; show trend over time
-- ⬜ Satisfaction survey (ease of use, usefulness, willingness to continue)
-- ⬜ Include QoL + satisfaction in export
-- ⬜ EN/AR localization
+- ✅ Periodic **QoL check-in** — 3 items (foot/wound pain, mobility difficulty, emotional impact) on 0–10 sliders (higher = worse), stored per date (DB v9 `qol_entries`)
+- ✅ Latest-scores summary card + **burden trend chart** (fl_chart, fixed 0–10 axis) + history list with swipe-to-delete
+- ✅ **Satisfaction survey** (1–5 Likert): ease of use, usefulness, willingness to continue (DB v9 `satisfaction_entries`)
+- ✅ QoL + satisfaction in export (CSV/PDF/Excel + a "Well-being" toggle)
+- ✅ Home "My Well-being" service tile (`/wellbeing`) + `WellbeingViewModel` provider + route
+- ✅ EN/AR localization
+- ⬜ QA on device (add a check-in → summary/trend/history update; take the survey; delete a check-in; export)
 
 ## 6. Appointments & Alerts 📅  🚧 (built — needs QA on device)
 - ✅ **Dedicated Appointments feature** (DB table `appointments`, DB v8) — a clean list, not overloaded onto reminders
@@ -155,7 +159,8 @@ Pending on-device QA to confirm the assert is gone.
 ## Progress
 - **Done:** baseline (§0)
 - **Committed:** §1 Glucose Monitoring (+ crash fix), §2 Medication Management (`6a4f39a`).
-- **Built this session, pending device QA + commit:** §3 Self-Care (checklist + streak + Do's/Don'ts tips + export), §4 Home health dashboard (DFU risk + glucose + next-appointment in the hero, self-care summary card), and §6 Appointments (list + reminders + export). Compiles with **0 analyzer errors**.
-- **Next up:** device QA of §1–§4 + §6 → **§5 QoL / PRO survey** → §7 Education → §8 Engagement
+- **Committed:** §3 Self-Care, §4 Home health dashboard, §6 Appointments (`64c312d`).
+- **Built this session, pending device QA + commit:** §5 QoL / PRO — "My Well-being" (QoL check-in + trend + satisfaction survey + export). Compiles with **0 analyzer errors**.
+- **Next up:** device QA of §1–§6 → **§7 Education & Pharmacist Support** → §8 Engagement
 
 _As each item ships, it gets checked off here._

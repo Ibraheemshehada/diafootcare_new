@@ -18,6 +18,7 @@ import '../../../data/repositories/self_care_repository.dart';
 import '../../../data/models/self_care_task.dart';
 import '../../../data/repositories/appointments_repository.dart';
 import '../../../data/models/appointment.dart';
+import '../../../data/repositories/wellbeing_repository.dart';
 import 'package:intl/intl.dart' as intl;
 
 enum ExportFormat { pdf, csv, xlsx }
@@ -30,6 +31,7 @@ class ExportDataViewModel extends ChangeNotifier {
   bool medication = false;
   bool selfCare = false;
   bool appointments = false;
+  bool wellbeing = false;
   bool reminders = true;
 
   ExportFormat format = ExportFormat.pdf;
@@ -41,6 +43,7 @@ class ExportDataViewModel extends ChangeNotifier {
       medication ||
       selfCare ||
       appointments ||
+      wellbeing ||
       reminders;
 
   bool get allSelected =>
@@ -50,11 +53,12 @@ class ExportDataViewModel extends ChangeNotifier {
       medication &&
       selfCare &&
       appointments &&
+      wellbeing &&
       reminders;
 
   void toggleAll(bool v) {
-    woundAI =
-        glucose = notes = medication = selfCare = appointments = reminders = v;
+    woundAI = glucose = notes =
+        medication = selfCare = appointments = wellbeing = reminders = v;
     notifyListeners();
   }
 
@@ -64,6 +68,7 @@ class ExportDataViewModel extends ChangeNotifier {
   void toggleMedication(bool v) { medication = v; notifyListeners(); }
   void toggleSelfCare(bool v) { selfCare = v; notifyListeners(); }
   void toggleAppointments(bool v) { appointments = v; notifyListeners(); }
+  void toggleWellbeing(bool v) { wellbeing = v; notifyListeners(); }
   void toggleReminders(bool v)  { reminders = v; notifyListeners(); }
 
   void setFormat(ExportFormat f) {
@@ -251,6 +256,10 @@ class ExportDataViewModel extends ChangeNotifier {
       await _writeAppointmentsCsv(buffer);
     }
 
+    if (wellbeing) {
+      await _writeWellbeingCsv(buffer);
+    }
+
     return buffer.toString();
   }
 
@@ -337,6 +346,55 @@ class ExportDataViewModel extends ChangeNotifier {
     buffer.writeln('');
   }
 
+  /// Shared CSV/Excel well-being section: QoL check-ins + satisfaction survey.
+  Future<void> _writeWellbeingCsv(StringBuffer buffer) async {
+    final repo = WellbeingRepository();
+
+    buffer.writeln('=== Quality of Life (QoL) ===');
+    buffer.writeln(
+        'Date,Pain (0-10),Mobility difficulty (0-10),Emotional impact (0-10)');
+    try {
+      final entries = await repo.getAllQol();
+      if (entries.isEmpty) {
+        buffer.writeln('(No QoL check-ins available)');
+      } else {
+        for (final e in entries) {
+          buffer.writeln([
+            e.dateTime.toIso8601String(),
+            e.pain.toString(),
+            e.mobility.toString(),
+            e.emotional.toString(),
+          ].join(','));
+        }
+      }
+    } catch (e) {
+      buffer.writeln('Error loading QoL: $e');
+    }
+    buffer.writeln('');
+
+    buffer.writeln('=== App Satisfaction ===');
+    buffer.writeln(
+        'Date,Ease of use (1-5),Usefulness (1-5),Willingness to continue (1-5)');
+    try {
+      final entries = await repo.getAllSatisfaction();
+      if (entries.isEmpty) {
+        buffer.writeln('(No satisfaction responses available)');
+      } else {
+        for (final e in entries) {
+          buffer.writeln([
+            e.dateTime.toIso8601String(),
+            e.ease.toString(),
+            e.usefulness.toString(),
+            e.willingness.toString(),
+          ].join(','));
+        }
+      }
+    } catch (e) {
+      buffer.writeln('Error loading satisfaction: $e');
+    }
+    buffer.writeln('');
+  }
+
   Future<Uint8List> _generatePDF() async {
     final pdf = pw.Document();
     
@@ -390,6 +448,11 @@ class ExportDataViewModel extends ChangeNotifier {
     // Appointments
     if (appointments) {
       allWidgets.addAll(await _buildAppointmentsSection());
+    }
+
+    // Well-being (QoL + satisfaction)
+    if (wellbeing) {
+      allWidgets.addAll(await _buildWellbeingSection());
     }
 
     pdf.addPage(
@@ -702,6 +765,75 @@ class ExportDataViewModel extends ChangeNotifier {
     return widgets;
   }
 
+  Future<List<pw.Widget>> _buildWellbeingSection() async {
+    final repo = WellbeingRepository();
+    final widgets = <pw.Widget>[
+      pw.Header(
+        level: 1,
+        child: pw.Text(
+          'Quality of Life (QoL)',
+          style: pw.TextStyle(fontSize: 18, fontWeight: pw.FontWeight.bold),
+        ),
+      ),
+    ];
+    try {
+      final entries = await repo.getAllQol();
+      if (entries.isEmpty) {
+        widgets.add(pw.Text('No QoL check-ins available.'));
+      } else {
+        widgets.add(
+          pw.TableHelper.fromTextArray(
+            headers: ['Date', 'Pain', 'Mobility', 'Emotional'],
+            data: entries
+                .map((e) => [
+                      e.dateTime.toIso8601String().split('T')[0],
+                      e.pain.toString(),
+                      e.mobility.toString(),
+                      e.emotional.toString(),
+                    ])
+                .toList(),
+          ),
+        );
+      }
+    } catch (e) {
+      widgets.add(pw.Text('Error loading QoL: $e'));
+    }
+    widgets.add(pw.SizedBox(height: 16));
+    widgets.add(
+      pw.Header(
+        level: 1,
+        child: pw.Text(
+          'App Satisfaction',
+          style: pw.TextStyle(fontSize: 18, fontWeight: pw.FontWeight.bold),
+        ),
+      ),
+    );
+    try {
+      final entries = await repo.getAllSatisfaction();
+      if (entries.isEmpty) {
+        widgets.add(pw.Text('No satisfaction responses available.'));
+      } else {
+        widgets.add(
+          pw.TableHelper.fromTextArray(
+            headers: ['Date', 'Ease', 'Usefulness', 'Willingness'],
+            data: entries
+                .map((e) => [
+                      e.dateTime.toIso8601String().split('T')[0],
+                      e.ease.toString(),
+                      e.usefulness.toString(),
+                      e.willingness.toString(),
+                    ])
+                .toList(),
+          ),
+        );
+      }
+    } catch (e) {
+      widgets.add(pw.Text('Error loading satisfaction: $e'));
+    }
+    widgets.add(pw.SizedBox(height: 20));
+    return widgets;
+  }
+
   Future<Uint8List> _generateExcel() async {
     // Generate Excel-compatible CSV format (Excel can open CSV files)
     // This creates a CSV file with UTF-8 BOM that Excel can open properly
@@ -825,6 +957,11 @@ class ExportDataViewModel extends ChangeNotifier {
     // Appointments
     if (appointments) {
       await _writeAppointmentsCsv(buffer);
+    }
+
+    // Well-being
+    if (wellbeing) {
+      await _writeWellbeingCsv(buffer);
     }
 
     // Convert to UTF-8 bytes with BOM

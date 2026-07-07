@@ -18,7 +18,7 @@ class DatabaseHelper {
     final path = join(await getDatabasesPath(), 'diafoot.db');
     return openDatabase(
       path,
-      version: 8, // ⬅️ bumped to 8 to add appointments (clinic visits + reminders)
+      version: 9, // ⬅️ bumped to 9 to add QoL + satisfaction (patient-reported outcomes)
       onCreate: (db, version) async {
         await db.execute('''
           CREATE TABLE wounds (
@@ -68,6 +68,9 @@ class DatabaseHelper {
 
         // ⬇️ Appointments on fresh DB
         await _createAppointmentsTable(db);
+
+        // ⬇️ Patient-reported outcomes (QoL + satisfaction) on fresh DB
+        await _createWellbeingTables(db);
       },
       onUpgrade: (db, oldVersion, newVersion) async {
         if (oldVersion < 2) {
@@ -135,6 +138,9 @@ class DatabaseHelper {
         if (oldVersion < 8) {
           await _createAppointmentsTable(db);
         }
+        if (oldVersion < 9) {
+          await _createWellbeingTables(db);
+        }
       },
       onOpen: (db) async {
         // Extra safety: ensure table exists even if onCreate/onUpgrade didn't run
@@ -166,8 +172,36 @@ class DatabaseHelper {
 
         // Extra safety: ensure appointments table exists
         await _createAppointmentsTable(db);
+
+        // Extra safety: ensure well-being (QoL + satisfaction) tables exist
+        await _createWellbeingTables(db);
       },
     );
+  }
+
+  Future<void> _createWellbeingTables(Database db) async {
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS qol_entries (
+        id        TEXT PRIMARY KEY,
+        dateTime  INTEGER NOT NULL,
+        pain      INTEGER NOT NULL,
+        mobility  INTEGER NOT NULL,
+        emotional INTEGER NOT NULL
+      )
+    ''');
+    await db.execute(
+        'CREATE INDEX IF NOT EXISTS idx_qol_dt ON qol_entries(dateTime DESC)');
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS satisfaction_entries (
+        id          TEXT PRIMARY KEY,
+        dateTime    INTEGER NOT NULL,
+        ease        INTEGER NOT NULL,
+        usefulness  INTEGER NOT NULL,
+        willingness INTEGER NOT NULL
+      )
+    ''');
+    await db.execute(
+        'CREATE INDEX IF NOT EXISTS idx_satisfaction_dt ON satisfaction_entries(dateTime DESC)');
   }
 
   Future<void> _createAppointmentsTable(Database db) async {
