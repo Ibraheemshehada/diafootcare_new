@@ -26,9 +26,16 @@ class _AddAppointmentScreenState extends State<AddAppointmentScreen> {
   @override
   void initState() {
     super.initState();
-    final now = DateTime.now().add(const Duration(hours: 1));
-    _date = DateTime(now.year, now.month, now.day);
-    _time = TimeOfDay(hour: now.hour, minute: 0);
+    // Default to the top of the next hour, keeping a comfortable buffer so a
+    // just-created appointment is never already in the past.
+    final base = DateTime.now();
+    var next = DateTime(base.year, base.month, base.day, base.hour, 0)
+        .add(const Duration(hours: 1));
+    if (next.difference(base) < const Duration(minutes: 30)) {
+      next = next.add(const Duration(hours: 1));
+    }
+    _date = DateTime(next.year, next.month, next.day);
+    _time = TimeOfDay(hour: next.hour, minute: 0);
   }
 
   @override

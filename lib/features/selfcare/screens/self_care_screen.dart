@@ -132,23 +132,17 @@ class _TipCard extends StatelessWidget {
                       fontWeight: FontWeight.w800,
                       color: t.colorScheme.primary)),
               const Spacer(),
-              InkWell(
-                onTap: onShuffle,
-                borderRadius: BorderRadius.circular(20.r),
-                child: Padding(
-                  padding: EdgeInsets.all(4.w),
-                  child: Row(
-                    children: [
-                      Icon(Icons.refresh,
-                          size: 18.sp, color: t.colorScheme.primary),
-                      SizedBox(width: 4.w),
-                      Text('selfcare_tip_next'.tr(),
-                          style: TextStyle(
-                              fontSize: 12.sp,
-                              fontWeight: FontWeight.w600,
-                              color: t.colorScheme.primary)),
-                    ],
-                  ),
+              TextButton.icon(
+                onPressed: onShuffle,
+                icon: Icon(Icons.refresh, size: 18.sp),
+                label: Text('selfcare_tip_next'.tr(),
+                    style: TextStyle(
+                        fontSize: 12.sp, fontWeight: FontWeight.w600)),
+                style: TextButton.styleFrom(
+                  foregroundColor: t.colorScheme.primary,
+                  padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 6.h),
+                  minimumSize: Size(0, 40.h),
+                  visualDensity: VisualDensity.compact,
                 ),
               ),
             ],
