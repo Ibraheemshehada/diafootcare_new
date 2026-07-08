@@ -13,26 +13,29 @@ _Last updated: 2026-07-07_
 
 ## 🔖 RESUME HERE — session handoff (2026-07-07, end of day)
 
-**State: ALL work is committed AND pushed to `origin/main`.** Working tree clean. `flutter analyze` = **0 errors**. All 8 tracker sections (§1–§8) are built and were **device-QA'd this session** on the Pixel_4_API_36 emulator in **Arabic (RTL) + dark mode** — every feature passed (see per-section notes). Latest commit: **`6e6806c`**.
+**State: ALL work is committed AND pushed to `origin/main`. Nothing is blocking.** Working tree clean. `flutter analyze` = **0 errors**. All 8 tracker sections (§1–§8) are built and **device-QA'd** on the Pixel_4_API_36 emulator in **Arabic (RTL), in both dark AND light mode** — every feature passed. Latest commit: **`827eea5`**.
 
 ### What happened this session
 1. **Full on-device QA of §1–§8** — all pass. Highlights verified live: glucose add-reading (crash fix — NO red screen, live update), self-care toggle + ring + color thresholds + tip-on-launch, appointments add → Upcoming/Past + reminder chip, well-being sliders + severity colors + **fl_chart trend chart updates**, education hub + article + pharmacist-verified badge, and **§8 "My Activity" showed real per-feature open counts** (proof analytics logging works end-to-end). Persistence survived app reinstall.
 2. **Fixes applied + pushed (`bd7f4b2`):**
    - **`android/gradle.properties`: heap 8G → 3G** (metaspace 4G→1G, `workers.max=2`). The 8G heap was the cause of the recurring **"Gradle build daemon disappeared" OOM crash** on this 16 GB machine. Clean build now ~18 min; **incremental builds ~30–40 s and reliable.**
    - **Appointment default time** now rounds to the *next* hour with a 30-min buffer (was rounding *down*, so a just-created appointment could show as "Past"). Verified on device: at 1:56 the default correctly became **3:00 PM**.
-   - **Self-care "Another" shuffle** → swapped small `InkWell` for a 40dp `TextButton` (bigger, gesture-robust, better for seniors). See caveat below.
+   - **Self-care "Another" shuffle** → swapped small `InkWell` for a 40dp `TextButton` (bigger, gesture-robust, better for seniors). ✅ **Verified working on device**: the tip rotated from a green "إفعل/Do" tip to a red "لا تفعل/Don't" tip, badge colour flipping correctly. The earlier non-response was the tiny `InkWell` target losing the emulator's synthetic taps to the surrounding scroll view — not a code bug.
    - **`intl` added to `pubspec.yaml`** (was transitive) — clears the `depend_on_referenced_packages` info lints.
-3. **Home tile visuals (`6e6806c`) — NEEDS ON-DEVICE VISUAL CHECK TOMORROW:**
+3. **Home tile visuals (`6e6806c`) — ✅ device-verified:**
    - Redrew **glucose.svg + medication.svg as outline icons**. Reason: the service tile tints icons with a single color (`BlendMode.srcIn`), which **erased the white detail overlays** of the old filled icons (they rendered as flat blobs). Outline style matches the other newer icons and keeps detail.
-   - Added **6 decorative background SVGs** (`bg_glucose/medication/selfcare/appointments/wellbeing/education`) in the faint-tinted style of the original four, and wired `bgSvgAsset` into those `ServiceItem`s in `home_viewmodel.dart`. So **all Home tiles now have background art** (before, only the first four did).
+   - Added **6 decorative background SVGs** (`bg_glucose/medication/selfcare/appointments/wellbeing/education`) and wired `bgSvgAsset` into those `ServiceItem`s. **All 10 Home tiles now have background art** (before, only the first four did).
+4. **Service-tile bg blend-mode bug — found & fixed (`827eea5`):** the tile tinted bg art with **`BlendMode.srcATop`**, which only layers the 6–7% tint *on top* of the artwork, leaving the SVGs' own white/cream fills ~93% opaque. On light cards that passed as "subtle art" by accident; **on dark cards it rendered as glaring white shapes that covered the tile titles.** Changed to **`BlendMode.srcIn`** so the art is fully replaced by the faint tint. ✅ Device-verified in **both light and dark**: every title readable, art reads as subtle texture, icons crisp and consistent across all 10 tiles.
 
-### ⬜ TO DO NEXT SESSION (resume here)
-1. **Visually verify the Home tiles** (main pending item) — build/install and look at the services grid: confirm the 6 new **bg SVGs** look good (right scale/position/faintness) and the redrawn **glucose/medication outline icons** look right and consistent with the others. Tweak any bg art (`assets/svg/bg_*.svg`) or per-tile `bgScale`/`bgOffset*`/`bgOpacity` in `home_viewmodel.dart` if a motif sits awkwardly. *(These were committed compile-clean but not yet seen rendered.)*
-2. **Confirm the self-care shuffle button** on a **real device / clean tap** — during QA the tip never rotated via emulator synthetic taps even after the TextButton change, but the code is correct and the screen provably rebuilds on `notifyListeners` (the ring updates on task-toggle), so this is almost certainly an emulator small-target tap artifact, not a bug. Just confirm a real finger tap rotates the tip.
+### ✅ Nothing blocking — the tracker is complete
+All 8 sections built, committed, pushed, and device-verified. Optional polish only:
+- Pre-existing `withOpacity` → `.withValues()` deprecations across older screens (info lints).
+- Consider a home streak/QoL chip if desired (the hero is already fairly dense).
+- The capture-tips dialog pops over Home on launch; tap "عدم الإظهار مرة أخرى" to suppress. Worth checking whether that's intended on Home (it's the wound-capture tips dialog).
 3. **(Optional) polish backlog:** pre-existing `withOpacity` → `.withValues()` deprecations across older screens; consider a home streak/QoL chip if desired.
 
 ### Commits on origin/main (this push cycle)
-`6a4f39a` §1+§2 · `64c312d` §3+§4+§6 · `54cfe29` §5 · `ed4ff02` §7 · `8ac4fb4` §8 · `bd7f4b2` QA fixes · `6e6806c` tile icons+bg art.
+`6a4f39a` §1+§2 · `64c312d` §3+§4+§6 · `54cfe29` §5 · `ed4ff02` §7 · `8ac4fb4` §8 · `bd7f4b2` QA fixes · `6e6806c` tile icons+bg art · `827eea5` tile bg blend-mode fix (srcIn).
 
 **DB:** schema is **v10** (glucose=v5, meds+med_logs=v6, self_care_logs=v7, appointments=v8, qol+satisfaction=v9, analytics_events=v10). Existing installs auto-migrate via `onUpgrade`; no wipe needed.
 
@@ -172,7 +175,7 @@ Pending on-device QA to confirm the assert is gone.
 ## Progress
 - **Done + committed + pushed:** §0 baseline · §1 Glucose · §2 Medication · §3 Self-Care · §4 Home dashboard · §5 QoL/PRO · §6 Appointments · §7 Education · §8 Engagement.
 - **Device-QA'd this session (all pass, Arabic RTL + dark mode):** §1–§8. Glucose crash (Issue #1) confirmed **fixed**.
-- **All 8 tracker sections are built, committed, and pushed to `origin/main`** (through `6e6806c`).
-- **Only pending:** on-device *visual* check of the new Home tile art (outline icons + 6 bg SVGs) and a real-finger confirm of the self-care shuffle — see the RESUME HERE block at the top. No feature work remains.
+- **All 8 tracker sections are built, committed, and pushed to `origin/main`** (through `827eea5`).
+- **Home tile art device-verified** in light + dark (after the `srcIn` blend-mode fix); self-care shuffle confirmed working. **Nothing is pending** — see RESUME HERE for the optional polish list.
 
 _As each item ships, it gets checked off here._
