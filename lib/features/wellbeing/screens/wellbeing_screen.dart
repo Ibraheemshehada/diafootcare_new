@@ -6,9 +6,11 @@ import 'package:intl/intl.dart' as intl;
 import 'package:provider/provider.dart';
 
 import '../../../data/models/qol_entry.dart';
+import '../../../data/models/sus_entry.dart';
 import '../viewmodel/wellbeing_viewmodel.dart';
 import 'qol_checkin_screen.dart';
 import 'satisfaction_survey_screen.dart';
+import 'sus_survey_screen.dart';
 
 /// Color for a 0–10 QoL score where higher = worse burden.
 Color qolScoreColor(num v) {
@@ -56,6 +58,8 @@ class WellbeingScreen extends StatelessWidget {
                 ],
                 SizedBox(height: 16.h),
                 _SatisfactionCard(latest: vm.latestSatisfaction),
+                SizedBox(height: 12.h),
+                _SusCard(latest: vm.latestSus),
                 SizedBox(height: 16.h),
                 if (vm.qolEntries.isNotEmpty) ...[
                   Text('wellbeing_history'.tr(),
@@ -389,6 +393,75 @@ class _SatisfactionCard extends StatelessWidget {
               label: Text(latest == null
                   ? 'satisfaction_take'.tr()
                   : 'satisfaction_update'.tr()),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// System Usability Scale card: shows the latest computed SUS score (0–100,
+/// 68 = average benchmark) and opens the 10-item questionnaire.
+class _SusCard extends StatelessWidget {
+  final SusEntry? latest;
+  const _SusCard({required this.latest});
+
+  @override
+  Widget build(BuildContext context) {
+    final t = Theme.of(context);
+    final score = latest?.score;
+    final color = score == null
+        ? t.colorScheme.primary
+        : (score >= 68
+            ? Colors.green.shade600
+            : (score >= 51 ? Colors.amber.shade700 : Colors.red.shade600));
+    return Container(
+      padding: EdgeInsets.all(16.w),
+      decoration: BoxDecoration(
+        color: t.cardColor,
+        borderRadius: BorderRadius.circular(16.r),
+        border: Border.all(color: t.dividerColor.withValues(alpha: .3)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.speed_outlined,
+                  color: t.colorScheme.primary, size: 22.sp),
+              SizedBox(width: 8.w),
+              Expanded(
+                child: Text('sus_title'.tr(),
+                    style: TextStyle(
+                        fontSize: 15.sp, fontWeight: FontWeight.w700)),
+              ),
+              if (score != null)
+                Text(score.toStringAsFixed(1),
+                    style: TextStyle(
+                        fontSize: 16.sp,
+                        fontWeight: FontWeight.w800,
+                        color: color)),
+            ],
+          ),
+          SizedBox(height: 6.h),
+          Text(
+            score == null
+                ? 'sus_prompt'.tr()
+                : susAdjectiveKey(score).tr(),
+            style: TextStyle(fontSize: 12.sp, color: t.hintColor),
+          ),
+          SizedBox(height: 12.h),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              onPressed: () => Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const SusSurveyScreen()),
+              ),
+              icon: const Icon(Icons.fact_check_outlined),
+              label: Text(
+                  latest == null ? 'sus_take'.tr() : 'sus_retake'.tr()),
             ),
           ),
         ],

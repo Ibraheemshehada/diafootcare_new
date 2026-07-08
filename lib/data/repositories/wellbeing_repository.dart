@@ -2,6 +2,7 @@ import 'package:sqflite/sqflite.dart';
 
 import '../local/database_helper.dart';
 import '../models/qol_entry.dart';
+import '../models/sus_entry.dart';
 
 class WellbeingRepository {
   final _helper = DatabaseHelper();
@@ -41,5 +42,23 @@ class WellbeingRepository {
   Future<void> deleteSatisfaction(String id) async {
     final db = await _helper.database;
     await db.delete('satisfaction_entries', where: 'id = ?', whereArgs: [id]);
+  }
+
+  // ---- System Usability Scale (SUS) ----
+  Future<List<SusEntry>> getAllSus() async {
+    final db = await _helper.database;
+    final rows = await db.query('sus_responses', orderBy: 'dateTime DESC');
+    return rows.map((e) => SusEntry.fromMap(e)).toList();
+  }
+
+  Future<void> insertSus(SusEntry e) async {
+    final db = await _helper.database;
+    await db.insert('sus_responses', e.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+  }
+
+  Future<void> deleteSus(String id) async {
+    final db = await _helper.database;
+    await db.delete('sus_responses', where: 'id = ?', whereArgs: [id]);
   }
 }

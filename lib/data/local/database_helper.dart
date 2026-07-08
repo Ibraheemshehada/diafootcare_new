@@ -18,7 +18,7 @@ class DatabaseHelper {
     final path = join(await getDatabasesPath(), 'diafoot.db');
     return openDatabase(
       path,
-      version: 10, // ⬅️ bumped to 10 to add analytics_events (engagement/usage)
+      version: 11, // ⬅️ bumped to 11 to add sus_responses (System Usability Scale)
       onCreate: (db, version) async {
         await db.execute('''
           CREATE TABLE wounds (
@@ -74,6 +74,9 @@ class DatabaseHelper {
 
         // ⬇️ Engagement / usage analytics on fresh DB
         await _createAnalyticsTable(db);
+
+        // ⬇️ System Usability Scale responses on fresh DB
+        await _createSusTable(db);
       },
       onUpgrade: (db, oldVersion, newVersion) async {
         if (oldVersion < 2) {
@@ -147,6 +150,9 @@ class DatabaseHelper {
         if (oldVersion < 10) {
           await _createAnalyticsTable(db);
         }
+        if (oldVersion < 11) {
+          await _createSusTable(db);
+        }
       },
       onOpen: (db) async {
         // Extra safety: ensure table exists even if onCreate/onUpgrade didn't run
@@ -184,8 +190,34 @@ class DatabaseHelper {
 
         // Extra safety: ensure analytics table exists
         await _createAnalyticsTable(db);
+
+        // Extra safety: ensure SUS table exists
+        await _createSusTable(db);
       },
     );
+  }
+
+  /// System Usability Scale: raw item responses are stored (q1..q10, each 1–5)
+  /// rather than only the derived score, so the study can re-analyse per item.
+  Future<void> _createSusTable(Database db) async {
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS sus_responses (
+        id       TEXT PRIMARY KEY,
+        dateTime INTEGER NOT NULL,
+        q1  INTEGER NOT NULL,
+        q2  INTEGER NOT NULL,
+        q3  INTEGER NOT NULL,
+        q4  INTEGER NOT NULL,
+        q5  INTEGER NOT NULL,
+        q6  INTEGER NOT NULL,
+        q7  INTEGER NOT NULL,
+        q8  INTEGER NOT NULL,
+        q9  INTEGER NOT NULL,
+        q10 INTEGER NOT NULL
+      )
+    ''');
+    await db.execute(
+        'CREATE INDEX IF NOT EXISTS idx_sus_dt ON sus_responses(dateTime DESC)');
   }
 
   Future<void> _createAnalyticsTable(Database db) async {

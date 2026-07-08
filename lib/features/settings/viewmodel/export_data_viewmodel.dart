@@ -403,6 +403,29 @@ class ExportDataViewModel extends ChangeNotifier {
       buffer.writeln('Error loading satisfaction: $e');
     }
     buffer.writeln('');
+
+    // Raw per-item SUS responses + the derived score, so the study can
+    // re-analyse individual items (not just the composite).
+    buffer.writeln('=== System Usability Scale (SUS) ===');
+    buffer.writeln(
+        'Date,Q1,Q2,Q3,Q4,Q5,Q6,Q7,Q8,Q9,Q10,SUS Score (0-100)');
+    try {
+      final entries = await repo.getAllSus();
+      if (entries.isEmpty) {
+        buffer.writeln('(No SUS responses available)');
+      } else {
+        for (final e in entries) {
+          buffer.writeln([
+            e.dateTime.toIso8601String(),
+            ...e.responses.map((r) => r.toString()),
+            e.score.toStringAsFixed(1),
+          ].join(','));
+        }
+      }
+    } catch (e) {
+      buffer.writeln('Error loading SUS: $e');
+    }
+    buffer.writeln('');
   }
 
   /// Shared CSV/Excel engagement summary: usage metrics + per-feature opens.
@@ -875,6 +898,47 @@ class ExportDataViewModel extends ChangeNotifier {
       }
     } catch (e) {
       widgets.add(pw.Text('Error loading satisfaction: $e'));
+    }
+    widgets.add(pw.SizedBox(height: 16));
+    widgets.add(
+      pw.Header(
+        level: 1,
+        child: pw.Text(
+          'System Usability Scale (SUS)',
+          style: pw.TextStyle(fontSize: 18, fontWeight: pw.FontWeight.bold),
+        ),
+      ),
+    );
+    try {
+      final entries = await repo.getAllSus();
+      if (entries.isEmpty) {
+        widgets.add(pw.Text('No SUS responses available.'));
+      } else {
+        widgets.add(
+          pw.TableHelper.fromTextArray(
+            headers: [
+              'Date',
+              'Q1', 'Q2', 'Q3', 'Q4', 'Q5',
+              'Q6', 'Q7', 'Q8', 'Q9', 'Q10',
+              'Score',
+            ],
+            data: entries
+                .map((e) => [
+                      e.dateTime.toIso8601String().split('T')[0],
+                      ...e.responses.map((r) => r.toString()),
+                      e.score.toStringAsFixed(1),
+                    ])
+                .toList(),
+          ),
+        );
+        widgets.add(pw.SizedBox(height: 8));
+        widgets.add(pw.Text(
+          'SUS score is 0–100 (not a percentage); 68 is the average benchmark.',
+          style: const pw.TextStyle(fontSize: 10),
+        ));
+      }
+    } catch (e) {
+      widgets.add(pw.Text('Error loading SUS: $e'));
     }
     widgets.add(pw.SizedBox(height: 20));
     return widgets;

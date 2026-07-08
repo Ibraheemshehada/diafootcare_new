@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../data/models/qol_entry.dart';
+import '../../../data/models/sus_entry.dart';
 import '../../../data/repositories/wellbeing_repository.dart';
 
 class WellbeingViewModel extends ChangeNotifier {
@@ -8,6 +9,7 @@ class WellbeingViewModel extends ChangeNotifier {
 
   List<QolEntry> _qol = []; // newest first
   List<SatisfactionEntry> _satisfaction = []; // newest first
+  List<SusEntry> _sus = []; // newest first
   bool _isLoading = false;
 
   bool get isLoading => _isLoading;
@@ -19,6 +21,9 @@ class WellbeingViewModel extends ChangeNotifier {
       List.unmodifiable(_satisfaction);
   SatisfactionEntry? get latestSatisfaction =>
       _satisfaction.isEmpty ? null : _satisfaction.first;
+
+  List<SusEntry> get susEntries => List.unmodifiable(_sus);
+  SusEntry? get latestSus => _sus.isEmpty ? null : _sus.first;
 
   /// Composite QoL burden series (oldest → newest) for the trend chart,
   /// limited to the most recent [max] entries.
@@ -38,6 +43,7 @@ class WellbeingViewModel extends ChangeNotifier {
     try {
       _qol = await _repo.getAllQol();
       _satisfaction = await _repo.getAllSatisfaction();
+      _sus = await _repo.getAllSus();
     } catch (e) {
       debugPrint('❌ Error loading well-being data: $e');
     } finally {
@@ -96,5 +102,23 @@ class WellbeingViewModel extends ChangeNotifier {
     } catch (err) {
       debugPrint('❌ Error saving satisfaction entry: $err');
     }
+  }
+
+  /// Save a completed SUS response. [responses] is Q1..Q10, each 1..5.
+  /// Returns the computed SUS score (0..100) so the caller can show it.
+  Future<double> addSus(List<int> responses) async {
+    final e = SusEntry(
+      id: DateTime.now().microsecondsSinceEpoch.toString(),
+      dateTime: DateTime.now(),
+      responses: List<int>.from(responses),
+    );
+    _sus = [e, ..._sus];
+    notifyListeners();
+    try {
+      await _repo.insertSus(e);
+    } catch (err) {
+      debugPrint('❌ Error saving SUS response: $err');
+    }
+    return e.score;
   }
 }
