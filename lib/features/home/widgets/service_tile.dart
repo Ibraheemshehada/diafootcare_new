@@ -89,10 +89,16 @@ class ServiceTile extends StatelessWidget {
                           item.bgSvgAsset!,
                           fit: BoxFit.contain,
                           alignment: item.bgAlignment,
+                          // srcIn (not srcATop): fully REPLACE the artwork's own
+                          // colors with the faint tint. srcATop only layered the
+                          // low-alpha tint on top, so the art's white fills stayed
+                          // ~93% opaque — glaring on dark cards and covering the
+                          // tile title. srcIn yields a subtle silhouette in both
+                          // light and dark themes.
                           colorFilter: ColorFilter.mode(
                             (item.isPrimary ? Colors.white : t.colorScheme.onSurface)
                                 .withOpacity(item.bgOpacity),
-                            BlendMode.srcATop,
+                            BlendMode.srcIn,
                           ),
                         ),
                       ),
