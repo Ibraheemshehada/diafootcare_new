@@ -11,6 +11,7 @@ import '../viewmodel/profile_viewmodel.dart';
 import '../widgets/profile_tile.dart';
 import 'edit_profile_screen.dart';
 import 'change_password_screen.dart';
+import '../../../core/theme/app_colors.dart';
 import 'package:firebase_auth/firebase_auth.dart'; // Import FirebaseAuth
 
 class ProfileScreen extends StatelessWidget {
@@ -34,7 +35,9 @@ class ProfileScreen extends StatelessWidget {
               decoration: BoxDecoration(
                 color: t.cardColor,
                 borderRadius: BorderRadius.circular(14.r),
-                border: Border.all(color: t.colorScheme.outlineVariant.withOpacity(.30)),
+                border: Border.all(
+                  color: t.colorScheme.outlineVariant.withOpacity(.30),
+                ),
               ),
               child: Row(
                 children: [
@@ -50,9 +53,20 @@ class ProfileScreen extends StatelessWidget {
                       children: [
                         Text(profile.fullName, style: t.textTheme.titleMedium),
                         SizedBox(height: 4.h),
-                        Text(profile.email, style: t.textTheme.bodySmall?.copyWith(color: t.colorScheme.onSurfaceVariant)),
+                        Text(
+                          profile.email,
+                          style: t.textTheme.bodySmall?.copyWith(
+                            color: t.colorScheme.onSurfaceVariant,
+                          ),
+                        ),
                         TextButton(
-                          onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const EditProfileScreen())),
+                          onPressed:
+                              () => Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => const EditProfileScreen(),
+                                ),
+                              ),
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
@@ -74,12 +88,22 @@ class ProfileScreen extends StatelessWidget {
           ProfileTile(
             leading: Icons.badge_rounded,
             title: 'edit_personal_info'.tr(),
-            onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const EditProfileScreen())),
+            onTap:
+                () => Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const EditProfileScreen()),
+                ),
           ),
           ProfileTile(
             leading: Icons.lock_rounded,
             title: 'change_password'.tr(),
-            onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ChangePasswordScreen())),
+            onTap:
+                () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => const ChangePasswordScreen(),
+                  ),
+                ),
           ),
 
           // 🔤 Language tile
@@ -91,7 +115,10 @@ class ProfileScreen extends StatelessWidget {
               children: [
                 _LanguageChip(), // shows EN / AR
                 SizedBox(width: 8.w),
-                Icon(Icons.chevron_right_rounded, color: t.colorScheme.onSurfaceVariant),
+                Icon(
+                  Icons.chevron_right_rounded,
+                  color: t.colorScheme.onSurfaceVariant,
+                ),
               ],
             ),
             onTap: () => _openLanguageSheet(context),
@@ -100,7 +127,10 @@ class ProfileScreen extends StatelessWidget {
           ProfileTile(
             leading: Icons.dark_mode_rounded,
             title: 'dark_mode'.tr(),
-            trailing: Switch(value: settings.isDarkPreferred, onChanged: settings.setDarkMode),
+            trailing: Switch(
+              value: settings.isDarkPreferred,
+              onChanged: settings.setDarkMode,
+            ),
           ),
           ProfileTile(
             leading: Icons.notifications_active_rounded,
@@ -113,43 +143,68 @@ class ProfileScreen extends StatelessWidget {
                 } catch (e) {
                   if (context.mounted) {
                     await showAppError(
-                        context, 'dialog_notifications_failed'.tr(),
-                        technicalDetail: e);
+                      context,
+                      'dialog_notifications_failed'.tr(),
+                      technicalDetail: e,
+                    );
                   }
                 }
               },
             ),
             onTap: () => Navigator.pushNamed(context, AppRoutes.notifications),
           ),
-          ProfileTile(leading: Icons.description_rounded, title: 'terms'.tr(), onTap: () {}),
-          ProfileTile(leading: Icons.elderly_rounded, title: 'senior_tips'.tr(), onTap: () {
-            AnalyticsService.I.logHelp('senior_tips'); // help/tutorial usage
-            Navigator.pushNamed(context, AppRoutes.seniorTips);
-          }),
-          ProfileTile(leading: Icons.insights_rounded, title: 'usage_title'.tr(), onTap: () {
-            Navigator.pushNamed(context, AppRoutes.usage);
-          }),
-          ProfileTile(leading: Icons.ios_share_rounded, title: 'export_data'.tr(), onTap: () {
-            Navigator.pushNamed(context, AppRoutes.exportData);
-          }),
+          ProfileTile(
+            leading: Icons.description_rounded,
+            title: 'terms'.tr(),
+            onTap: () {},
+          ),
+          ProfileTile(
+            leading: Icons.elderly_rounded,
+            title: 'senior_tips'.tr(),
+            onTap: () {
+              AnalyticsService.I.logHelp('senior_tips'); // help/tutorial usage
+              Navigator.pushNamed(context, AppRoutes.seniorTips);
+            },
+          ),
+          ProfileTile(
+            leading: Icons.insights_rounded,
+            title: 'usage_title'.tr(),
+            onTap: () {
+              Navigator.pushNamed(context, AppRoutes.usage);
+            },
+          ),
+          ProfileTile(
+            leading: Icons.ios_share_rounded,
+            title: 'export_data'.tr(),
+            onTap: () {
+              Navigator.pushNamed(context, AppRoutes.exportData);
+            },
+          ),
 
           // Log out
           Padding(
             padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.h),
-            child: SizedBox(
-              height: 48.h,
+            child: ConstrainedBox(
+              // minHeight (not an exact height): keeps the >=48dp touch
+              // target while letting the button grow when the user
+              // enlarges the system font. An exact height clipped labels.
+              constraints: BoxConstraints(minHeight: 48.h),
               child: OutlinedButton.icon(
-                style: OutlinedButton.styleFrom(foregroundColor: Colors.red),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: AppColors.of(context).danger,
+                ),
                 onPressed: () async {
                   // Clear "Remember Me" and guest session preferences
                   final prefs = await SharedPreferences.getInstance();
                   await prefs.setBool('rememberMe', false);
                   await prefs.setBool('is_guest', false);
-                  debugPrint('🔓 Remember Me & guest session cleared on logout');
+                  debugPrint(
+                    '🔓 Remember Me & guest session cleared on logout',
+                  );
 
                   // Firebase logout
                   await FirebaseAuth.instance.signOut();
-                  
+
                   // Navigate to login screen
                   Navigator.pushReplacementNamed(context, AppRoutes.login);
                 },
@@ -200,7 +255,9 @@ class ProfileScreen extends StatelessWidget {
     );
 
     if (result != null && result != current) {
-      await context.setLocale(result); // EasyLocalization updates locale + RTL/LTR
+      await context.setLocale(
+        result,
+      ); // EasyLocalization updates locale + RTL/LTR
     }
   }
 }
@@ -219,7 +276,9 @@ class _LanguageChip extends StatelessWidget {
       ),
       child: Text(
         label,
-        style: t.textTheme.labelMedium?.copyWith(color: t.colorScheme.onSecondaryContainer),
+        style: t.textTheme.labelMedium?.copyWith(
+          color: t.colorScheme.onSecondaryContainer,
+        ),
       ),
     );
   }

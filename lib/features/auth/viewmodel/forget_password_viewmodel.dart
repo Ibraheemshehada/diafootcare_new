@@ -1,5 +1,8 @@
 import 'package:cloud_functions/cloud_functions.dart';
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
+
+import '../../../core/widgets/app_dialogs.dart';
 
 class ForgetPasswordViewModel extends ChangeNotifier {
   final emailController = TextEditingController();
@@ -40,9 +43,10 @@ class ForgetPasswordViewModel extends ChangeNotifier {
       await callable.call({'email': emailController.text.trim()});
       return true;
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to send OTP: $e')),
-      );
+      if (context.mounted) {
+        await showAppError(context, 'auth_otp_send_failed'.tr(),
+            technicalDetail: e);
+      }
       return false;
     } finally {
       isLoading = false;

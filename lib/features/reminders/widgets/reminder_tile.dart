@@ -105,6 +105,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:intl/intl.dart' as intl;
 
 import '../../../data/models/reminder.dart';
+import '../../../core/theme/app_colors.dart';
 
 class ReminderTile extends StatelessWidget {
   final Reminder r;
@@ -154,7 +155,7 @@ class ReminderTile extends StatelessWidget {
       background: Container(
         alignment: Alignment.centerRight,
         padding: EdgeInsets.symmetric(horizontal: 20.w),
-        color: Colors.red,
+        color: AppColors.of(context).danger,
         child: const Icon(Icons.delete, color: Colors.white),
       ),
       confirmDismiss: (_) async {

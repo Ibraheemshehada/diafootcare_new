@@ -485,15 +485,19 @@ class _AddReminderScreenState extends State<AddReminderScreen> {
         final localeStr = context.locale.toLanguageTag();
         String message;
         if (_repeat == RepeatMode.daily) {
-          message = 'reminder_saved_daily'
-              .tr(namedArgs: {'time': _time.format(context)});
+          message = 'reminder_saved_daily'.tr(
+            namedArgs: {'time': _time.format(context)},
+          );
         } else if (_repeat == RepeatMode.once) {
-          message = 'reminder_saved_once'.tr(namedArgs: {
-            'when': intl.DateFormat.yMd(localeStr).add_jm().format(when),
-          });
+          message = 'reminder_saved_once'.tr(
+            namedArgs: {
+              'when': intl.DateFormat.yMd(localeStr).add_jm().format(when),
+            },
+          );
         } else {
-          message = 'reminder_saved_custom'
-              .tr(namedArgs: {'time': _time.format(context)});
+          message = 'reminder_saved_custom'.tr(
+            namedArgs: {'time': _time.format(context)},
+          );
         }
         await showAppSuccess(context, message);
       }
@@ -508,8 +512,11 @@ class _AddReminderScreenState extends State<AddReminderScreen> {
 
       // Show a friendly, localized error — never the raw exception.
       if (mounted) {
-        await showAppError(context, 'dialog_reminder_failed'.tr(),
-            technicalDetail: e);
+        await showAppError(
+          context,
+          'dialog_reminder_failed'.tr(),
+          technicalDetail: e,
+        );
       }
     }
   }
@@ -676,8 +683,11 @@ class _AddReminderScreenState extends State<AddReminderScreen> {
             ),
 
             SizedBox(height: 24.h),
-            SizedBox(
-              height: 48.h,
+            ConstrainedBox(
+              // minHeight (not an exact height): keeps the >=48dp touch
+              // target while letting the button grow when the user
+              // enlarges the system font. An exact height clipped labels.
+              constraints: BoxConstraints(minHeight: 48.h),
               child: FilledButton(
                 onPressed: _submit,
                 child: Text('apply'.tr(), style: TextStyle(fontSize: 16.sp)),

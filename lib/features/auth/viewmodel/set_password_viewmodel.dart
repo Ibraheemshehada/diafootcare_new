@@ -1,5 +1,7 @@
 import 'package:cloud_functions/cloud_functions.dart';
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
+import '../../../core/widgets/app_dialogs.dart';
 import '../../../routes/app_routes.dart';
 
 class SetPasswordViewModel extends ChangeNotifier {
@@ -48,17 +50,21 @@ class SetPasswordViewModel extends ChangeNotifier {
         'newPassword': newPasswordController.text.trim(),
       });
 
-      // success
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('password_updated_success')),
-      );
+      // success — was previously showing the raw key 'password_updated_success'
+      if (context.mounted) {
+        await showAppSuccess(context, 'password_updated_successfully'.tr());
+      }
 
       // back to login
-      Navigator.pushNamedAndRemoveUntil(context, AppRoutes.login, (_) => false);
+      if (context.mounted) {
+        Navigator.pushNamedAndRemoveUntil(
+            context, AppRoutes.login, (_) => false);
+      }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('update_failed')),
-      );
+      if (context.mounted) {
+        await showAppError(context, 'password_update_failed'.tr(),
+            technicalDetail: e);
+      }
     } finally {
       isLoading = false; notifyListeners();
     }

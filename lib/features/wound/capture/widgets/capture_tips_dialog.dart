@@ -36,21 +36,30 @@ class CaptureTipsDialog extends StatelessWidget {
             Row(
               children: [
                 Expanded(
-                  child: SizedBox(
-                    height: 44.h,
+                  child: ConstrainedBox(
+                    // minHeight (not an exact height): keeps the >=48dp touch
+                    // target while letting the button grow when the user
+                    // enlarges the system font. An exact height clipped labels.
+                    constraints: BoxConstraints(minHeight: 44.h),
                     child: FilledButton(
                       onPressed: () => Navigator.of(context).pop('ok'),
                       child: FittedBox(
                         fit: BoxFit.scaleDown,
-                        child: Text('ok'.tr(), style: TextStyle(fontSize: 14.sp)),
+                        child: Text(
+                          'ok'.tr(),
+                          style: TextStyle(fontSize: 14.sp),
+                        ),
                       ),
                     ),
                   ),
                 ),
                 SizedBox(width: 12.w),
                 Expanded(
-                  child: SizedBox(
-                    height: 44.h,
+                  child: ConstrainedBox(
+                    // minHeight (not an exact height): keeps the >=48dp touch
+                    // target while letting the button grow when the user
+                    // enlarges the system font. An exact height clipped labels.
+                    constraints: BoxConstraints(minHeight: 44.h),
                     child: OutlinedButton(
                       style: OutlinedButton.styleFrom(
                         padding: EdgeInsets.symmetric(horizontal: 8.w),
@@ -58,13 +67,16 @@ class CaptureTipsDialog extends StatelessWidget {
                       onPressed: () => Navigator.of(context).pop('dont_show'),
                       child: FittedBox(
                         fit: BoxFit.scaleDown,
-                        child: Text('dont_show_again'.tr(), style: TextStyle(fontSize: 14.sp)),
+                        child: Text(
+                          'dont_show_again'.tr(),
+                          style: TextStyle(fontSize: 14.sp),
+                        ),
                       ),
                     ),
                   ),
                 ),
               ],
-            )
+            ),
           ],
         ),
       ),

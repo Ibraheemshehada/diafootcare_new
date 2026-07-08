@@ -5,22 +5,26 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:intl/intl.dart' as intl;
 import 'package:provider/provider.dart';
 
+import '../../../core/theme/app_colors.dart';
 import '../../../core/widgets/app_dialogs.dart';
 import '../../../data/models/glucose_reading.dart';
 import '../viewmodel/glucose_viewmodel.dart';
 
 const _kTags = ['fasting', 'post_meal', 'random'];
 
-Color glucoseStatusColor(GlucoseStatus s) {
+/// WCAG AA colours for the clinical status label. The old raw swatches were
+/// unreadable on white (orange 2.16:1, amber.shade700 2.04:1).
+Color glucoseStatusColor(GlucoseStatus s, BuildContext context) {
+  final c = AppColors.of(context);
   switch (s) {
     case GlucoseStatus.low:
-      return Colors.orange;
+      return c.caution;
     case GlucoseStatus.normal:
-      return Colors.green;
+      return c.success;
     case GlucoseStatus.elevated:
-      return Colors.amber.shade700;
+      return c.warning;
     case GlucoseStatus.high:
-      return Colors.red;
+      return c.danger;
   }
 }
 
@@ -140,7 +144,7 @@ class _GlucoseSummaryCard extends StatelessWidget {
                     padding:
                         EdgeInsets.symmetric(horizontal: 10.w, vertical: 3.h),
                     decoration: BoxDecoration(
-                      color: glucoseStatusColor(latest.status)
+                      color: glucoseStatusColor(latest.status, context)
                           .withValues(alpha: .15),
                       borderRadius: BorderRadius.circular(20.r),
                     ),
@@ -149,7 +153,7 @@ class _GlucoseSummaryCard extends StatelessWidget {
                       style: TextStyle(
                         fontSize: 12.sp,
                         fontWeight: FontWeight.w700,
-                        color: glucoseStatusColor(latest.status),
+                        color: glucoseStatusColor(latest.status, context),
                       ),
                     ),
                   ),
@@ -200,10 +204,10 @@ class GlucoseTile extends StatelessWidget {
         padding: EdgeInsets.only(right: 20.w),
         margin: EdgeInsets.only(bottom: 10.h),
         decoration: BoxDecoration(
-          color: Colors.red.withValues(alpha: .12),
+          color: AppColors.of(context).danger.withValues(alpha: .12),
           borderRadius: BorderRadius.circular(14.r),
         ),
-        child: const Icon(Icons.delete_outline, color: Colors.red),
+        child: Icon(Icons.delete_outline, color: AppColors.of(context).danger),
       ),
       confirmDismiss: (_) async {
         onDelete();
@@ -223,7 +227,7 @@ class GlucoseTile extends StatelessWidget {
               width: 10.w,
               height: 10.w,
               decoration: BoxDecoration(
-                color: glucoseStatusColor(r.status),
+                color: glucoseStatusColor(r.status, context),
                 shape: BoxShape.circle,
               ),
             ),
@@ -248,7 +252,7 @@ class GlucoseTile extends StatelessWidget {
                 style: TextStyle(
                     fontSize: 12.sp,
                     fontWeight: FontWeight.w600,
-                    color: glucoseStatusColor(r.status))),
+                    color: glucoseStatusColor(r.status, context))),
           ],
         ),
       ),

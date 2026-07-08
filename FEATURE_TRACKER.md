@@ -7,56 +7,68 @@ behavior, pharmacist & education support).
 
 **Legend:** ✅ done · 🚧 in progress · ⚠️ partial · ⬜ not started
 
-_Last updated: 2026-07-07_
+_Last updated: 2026-07-08_
 
 ---
 
-## 🔖 RESUME HERE — session handoff (2026-07-08)
+## 🔖 RESUME HERE — session handoff (2026-07-09)
 
-**State:** `flutter analyze` = **0 errors**. §1–§8 built + device-QA'd (Arabic RTL, light + dark). This session added **§9 SUS questionnaire**, **§10 usability-study instrumentation**, and **§11 accessibility + dialogs + voice assistant** — all device-verified. See the ⬜ TODO list below.
+**State:** `flutter analyze lib test` = **0 errors**. `flutter test` = **11/11 new trend tests pass** (1 *pre-existing* failure: `test/widget_test.dart` is still the stock Flutter "Counter increments" template from `a7a885b` and tests a counter this app never had — delete or rewrite it).
 
-> ⚠️ **The app MUST pass the 11-criterion Accessibility Check** (see §11). It does **not** fully pass yet — 4 criteria still need work (contrast, text scaling, TalkBack testing, device coverage). Everything else is green.
+This session: **accessibility push** (contrast, text scaling, dialogs, read-aloud) + **Daily/Weekly/Monthly healing-trend chart**.
+
+> ⚠️ **The app MUST pass the 11-criterion Accessibility Check** (see §11). Now **9/11 green**. Remaining: TalkBack sweep (#5/#11) and device/orientation coverage (#10).
 
 ### ⬜ TODO — next session
-1. **Finish SnackBar → dialog conversion.** 21 `showSnackBar` calls remain in 11 files: `auth/viewmodel/*` (5), `otp_verify_screen`, `notes_screen`, `notifications_screen`, `change_password_screen`, `wound/analysis/ai_result_screen`, `analysis_loading_screen`. Use `showAppSuccess` / `showAppError` from `core/widgets/app_dialogs.dart`. (16 of 37 already converted.)
-2. **Accessibility #2 — contrast.** Measure text/background against WCAG AA (4.5:1). Suspects: `hintColor` body text, and the `.06–.16` alpha tints on cards/badges.
-3. **Accessibility #6 — text scaling.** Set the device font size to Largest and walk the app. Fixed-height containers (`SizedBox(height: 48/50/52.h)`, badge `Container(height: 30.h)`) and `maxLines: 2` + ellipsis will overflow/truncate. Prefer intrinsic heights + `minHeight`.
-4. **Accessibility #5/#11 — TalkBack.** Every icon button now has a tooltip (= its semantics label) and the SUS scale/consent have explicit `Semantics`. **This has never been run under TalkBack.** Enable TalkBack on a real device and sweep the main flows.
-5. **Accessibility #10 — device coverage.** Only Pixel 4 / API 36 has been tested. Try a small phone, a tablet, and (if in scope) iOS.
-6. **Consider raising body text 12sp → 14sp.** Minimum is now 12sp everywhere, but this app's users are elderly diabetics; 14sp body would be kinder.
-7. **Voice assistant polish (optional).** `SpeakButton` is on the education article, the SUS declaration. Consider adding it to self-care tips and the Do's & Don'ts, and a global on/off in Profile.
+1. **🔄 ROTATION / LANDSCAPE — the design has never been tested rotated.** The emulator auto-rotated mid-session and Home clearly was **not designed for landscape**. Check every screen in landscape *and* on a tablet: the Home hero card, the 2-column services grid (`mainAxisExtent` is derived from width — verify it doesn't produce absurdly tall cells in landscape), the trend chart, and all survey forms. Decide explicitly: either **support landscape properly**, or **lock portrait** in `AndroidManifest.xml` (`android:screenOrientation="portrait"`) + iOS equivalent. *Test:* `adb shell settings put system accelerometer_rotation 0; adb shell settings put system user_rotation 1` (1 = landscape, 0 = portrait).
+2. **A11y #5/#11 — TalkBack.** Still never run under a real screen reader. Enable TalkBack, sweep Home → Glucose → Self-Care → SUS. *Tip:* Flutter's semantics tree is not exposed to `uiautomator dump` until an accessibility service is active — enable TalkBack first, then `uiautomator dump` actually shows the nodes, which makes this verifiable.
+3. **A11y #10 — device coverage.** Only Pixel 4 / API 36 tested. Try a small phone, a tablet, and a large-font + landscape combination.
+4. **Restore the emulator DB.** ⚠️ I seeded **9 fake wound rows** into the emulator's `diafoot.db` to render the trend chart (the 3 real rows are all `0.0 × 0.0 cm`, so the chart was legitimately empty). Undo with either:
+   - `adb shell "run-as com.example.daifootcare_new sqlite3 databases/diafoot.db 'delete from wounds where length > 0'"`, or
+   - restore the backup at `%LOCALAPPDATA%\Temp\diafoot_backup_2026-07-08.db` (217 088 bytes) via the base64 pipe below.
+5. **Wound measurements are all `0.0 × 0.0 cm`** on the real rows — the analysis pipeline isn't writing `length`/`width` (uncalibrated?). The trend chart *correctly* renders "no data" for a zero baseline (percent change is undefined), but this means **the healing trend can never plot for real users** until capture writes real cm. Probably the highest-value functional bug open.
+6. **Consider raising body text 12sp → 14sp** for elderly diabetics (minimum is 12sp everywhere now).
+7. **`dart format` divergence.** The repo is *not* dart-formatted (89 of 117 files would change). I formatted the 13 files touched by the fixed-height refactor, so their diffs are larger than the semantic change. Either format the whole repo once, or don't format at all — pick one.
+8. **Voice assistant polish (optional).** `SpeakButton` now sits on the education article, the SUS declaration, and the self-care rotating tip. Consider a global on/off toggle in Profile.
 
 ### What happened this session
-1. **Full on-device QA of §1–§8** — all pass. Highlights verified live: glucose add-reading (crash fix — NO red screen, live update), self-care toggle + ring + color thresholds + tip-on-launch, appointments add → Upcoming/Past + reminder chip, well-being sliders + severity colors + **fl_chart trend chart updates**, education hub + article + pharmacist-verified badge, and **§8 "My Activity" showed real per-feature open counts** (proof analytics logging works end-to-end). Persistence survived app reinstall.
-2. **Fixes applied + pushed (`bd7f4b2`):**
-   - **`android/gradle.properties`: heap 8G → 3G** (metaspace 4G→1G, `workers.max=2`). The 8G heap was the cause of the recurring **"Gradle build daemon disappeared" OOM crash** on this 16 GB machine. Clean build now ~18 min; **incremental builds ~30–40 s and reliable.**
-   - **Appointment default time** now rounds to the *next* hour with a 30-min buffer (was rounding *down*, so a just-created appointment could show as "Past"). Verified on device: at 1:56 the default correctly became **3:00 PM**.
-   - **Self-care "Another" shuffle** → swapped small `InkWell` for a 40dp `TextButton` (bigger, gesture-robust, better for seniors). ✅ **Verified working on device**: the tip rotated from a green "إفعل/Do" tip to a red "لا تفعل/Don't" tip, badge colour flipping correctly. The earlier non-response was the tiny `InkWell` target losing the emulator's synthetic taps to the surrounding scroll view — not a code bug.
-   - **`intl` added to `pubspec.yaml`** (was transitive) — clears the `depend_on_referenced_packages` info lints.
-3. **Home tile visuals (`6e6806c`) — ✅ device-verified:**
-   - Redrew **glucose.svg + medication.svg as outline icons**. Reason: the service tile tints icons with a single color (`BlendMode.srcIn`), which **erased the white detail overlays** of the old filled icons (they rendered as flat blobs). Outline style matches the other newer icons and keeps detail.
-   - Added **6 decorative background SVGs** (`bg_glucose/medication/selfcare/appointments/wellbeing/education`) and wired `bgSvgAsset` into those `ServiceItem`s. **All 10 Home tiles now have background art** (before, only the first four did).
-4. **Service-tile bg blend-mode bug — found & fixed (`827eea5`):** the tile tinted bg art with **`BlendMode.srcATop`**, which only layers the 6–7% tint *on top* of the artwork, leaving the SVGs' own white/cream fills ~93% opaque. On light cards that passed as "subtle art" by accident; **on dark cards it rendered as glaring white shapes that covered the tile titles.** Changed to **`BlendMode.srcIn`** so the art is fully replaced by the faint tint. ✅ Device-verified in **both light and dark**: every title readable, art reads as subtle texture, icons crisp and consistent across all 10 tiles.
+1. **SnackBars → dialogs: complete.** `grep -rl showSnackBar lib/` → **none**. All 21 remaining calls in 11 files converted to `showAppSuccess` / `showAppError`.
+   - Found `set_password_viewmodel.dart` rendering **raw keys** (`Text('password_updated_success')` — no `.tr()`, and the keys didn't exist). Fixed + keys added.
+   - `showAppError` now logs **every** user-facing error, including validation errors — those are exactly what a usability study's error count is meant to capture. (It previously only logged when a `technicalDetail` was passed, so the study's error count read 0.)
+2. **A11y #2 — contrast: measured, not guessed.** Wrote relative-luminance math and checked every semantic colour. Added `lib/core/theme/app_colors.dart` (theme-aware `success/danger/warning/caution/streak`). **All 16 text pairs + 3 icon pairs now pass** (was: `warning` 2.04:1, `caution` 2.16:1, `Colors.red` 3.68:1, hero white-on-blue 3.83:1 — all FAIL).
+   - **Hero card bug (device-measured):** `whats_new_card.dart` tinted its decorative SVGs with `BlendMode.srcATop` at 1% white, so the art's own `#AED1FF` fills stayed opaque. Sampled the real screenshot: **white title on that art = 1.57:1**. Same `srcATop → srcIn` bug as the service tiles. Fixed; re-measured on device: **4.86:1 worst pixel**.
+   - Fixed `Colors.red` logout button (**3.68 → 5.62:1**, confirmed by sampling `#C62828` from a device screenshot), the SUS score band colours, the reminders empty-state icon, and the `ai_result_screen` banners (whose `Colors.red[900]` text was unreadable on a dark card).
+   - `ai_result_screen` also had **two hardcoded English strings** shown to users → localized (`ai_demo_result_banner`, `ai_not_calibrated_banner`).
+3. **A11y #6 — text scaling: verified at `font_scale 2.0`.** Found and fixed **13** `SizedBox(height: X.h, child: SomeButton)` wrappers → `ConstrainedBox(minHeight:)` (an exact height *clips* the label; a min height keeps the 48dp target and lets it grow). The logout button's label was visibly sliced in half.
+   - **The real overflow was the Home services grid:** `childAspectRatio: 1.1` pinned the cell height → *"BOTTOM OVERFLOWED BY 54 PIXELS"*. Now `mainAxisExtent` derives from width **and scales with `MediaQuery.textScalerOf`** (clamped 1.0–2.0); tile title/subtitle bounded at 2 lines each.
+   - Verified empirically: `adb shell settings put system font_scale 2.0` → **0 `overflowed by` events in logcat**, screenshots clean. (Earlier my `maxLines: 2 → 3` change had *made it worse*.)
+4. **Healing-trend chart: Daily / Weekly / Monthly** (was monthly-only).
+   - Extracted the bucketing into a **pure, testable** `computeTrend(entries, range, {now})` in `history_viewmodel.dart`; added `TrendRange` + `TrendSeries`. **11 unit tests** in `test/trend_test.dart` cover daily/weekly/monthly bucketing, same-bucket averaging, Monday week starts, year rollover, DST-safe calendar step-back, negative (wound regrowth) values, and the zero-baseline empty case.
+   - **Bug fixed:** a wound last measured *before* the visible window used to plot as 0 % improvement. The carry-forward is now seeded from the most recent prior measurement.
+   - **Dead code removed:** the chart's `isRtl` check compared Flutter's `TextDirection` against **intl's** `TextDirection.RTL` (which `easy_localization` re-exports) — `unrelated_type_equality_checks`, always `false`. The axis has always run oldest → newest, left → right; that branch never executed.
+   - New `_RangeSelector` (3 `ChoiceChip`s, `MaterialTapTargetSize.padded` → 48dp, `selected` semantics). Kept visible in the empty state so the range is still changeable. Key `weekly` added (en/ar).
+5. **Read-aloud extended** to the self-care rotating tip.
 
-### ✅ Nothing blocking — the tracker is complete
-All 8 sections built, committed, pushed, and device-verified. Optional polish only:
-- Pre-existing `withOpacity` → `.withValues()` deprecations across older screens (info lints).
-- Consider a home streak/QoL chip if desired (the hero is already fairly dense).
-- The capture-tips dialog pops over Home on launch; tap "عدم الإظهار مرة أخرى" to suppress. Worth checking whether that's intended on Home (it's the wound-capture tips dialog).
-3. **(Optional) polish backlog:** pre-existing `withOpacity` → `.withValues()` deprecations across older screens; consider a home streak/QoL chip if desired.
+### Verification evidence (this session)
+- Contrast: sampled real device screenshots with Pillow — hero art `#206FCD` → **4.86:1**, logout glyph `#C62828` → **5.62:1**.
+- Text scaling: `font_scale 2.0` + `logcat | grep -c "overflowed by"` → **0** (was 3 visible overflow banners).
+- Trend logic: `flutter test test/trend_test.dart` → **11/11 pass**.
+- Trend UI: seeded a shrinking wound (20.0 → 2.34 cm²) and rendered the monthly curve rising to **+88 %**, chips يوميًا / أسبوعي / شهري all present.
 
-### Commits on origin/main (this push cycle)
-`6a4f39a` §1+§2 · `64c312d` §3+§4+§6 · `54cfe29` §5 · `ed4ff02` §7 · `8ac4fb4` §8 · `bd7f4b2` QA fixes · `6e6806c` tile icons+bg art · `827eea5` tile bg blend-mode fix (srcIn).
+### Commits on origin/main (previous push cycle)
+`6a4f39a` §1+§2 · `64c312d` §3+§4+§6 · `54cfe29` §5 · `ed4ff02` §7 · `8ac4fb4` §8 · `bd7f4b2` QA fixes · `6e6806c` tile icons+bg art · `827eea5` tile bg blend-mode fix (srcIn) · `402667d` SUS + participant declaration · `69eae4b` usability instrumentation + a11y pass.
 
-**DB:** schema is **v10** (glucose=v5, meds+med_logs=v6, self_care_logs=v7, appointments=v8, qol+satisfaction=v9, analytics_events=v10). Existing installs auto-migrate via `onUpgrade`; no wipe needed.
+**DB:** schema is **v12** (…v10 analytics_events, v11 sus_responses, v12 `analytics_events.value`). Existing installs auto-migrate via `onUpgrade`; no wipe needed.
 
 **Build/run gotchas (so we don't rediscover):**
-- Run: `flutter run -d emulator-5554`. adb isn't on PATH → use `C:/Users/jawhara/AppData/Local/Android/Sdk/platform-tools/adb.exe` (set `export MSYS_NO_PATHCONV=1` in Git Bash for `adb shell`).
-- Launch/install pattern that worked: `flutter emulators --launch Pixel_4_API_36`; wait for `adb shell getprop sys.boot_completed`=1; `adb install -r -d build/app/outputs/flutter-apk/app-debug.apk`; launch with `adb shell monkey -p com.example.daifootcare_new -c android.intent.category.LAUNCHER 1`; screenshot with `adb exec-out screencap -p > out.png`. App opens straight to Home (guest session persists).
-- **Gradle daemon OOM crash** ("daemon has disappeared" / `hs_err_pid*.log`) — was caused by `org.gradle.jvmargs=-Xmx8G`. **FIXED** in `gradle.properties` (now `-Xmx3G`). If it recurs on a low-RAM run: the machine only had ~2.4 GB free with the emulator up — **kill the emulator, build the APK, then relaunch the emulator and `adb install`** (build is the memory-heavy step; install is light).
-- Emulator (Pixel_4_API_36) is **laggy — taps often miss** (especially small targets in scroll views); screenshot after each tap and re-tap. It's 4 GB RAM / 12 GB disk (in its `config.ini`).
-- Models are in **Git LFS** now (clip_backbone is 167 MB > GitHub's 100 MB limit). Pushes work; `git lfs checkout` restores real model files if the working tree shows 134-byte pointers.
-- Login is via **Guest** (`is_guest` pref) — the app opens straight to Home as "Guest"; the old temp bypass was removed.
+- Run: `flutter run -d emulator-5554`. adb isn't on PATH → use `$LOCALAPPDATA/Android/Sdk/platform-tools/adb.exe` (set `export MSYS_NO_PATHCONV=1` in Git Bash, or prefix device paths with `//`, e.g. `//sdcard/u.xml`).
+- **Writing a DB into the app sandbox:** `run-as` **cannot read `/data/local/tmp`** (SELinux). Pipe it instead:
+  `base64 file.db > f.b64; adb shell "run-as <pkg> sh -c 'base64 -d > databases/diafoot.db'" < f.b64` (then delete `-wal`/`-shm`).
+- **Gradle daemon OOM** ("daemon has disappeared") — was `-Xmx8G`; now `-Xmx3G` in `gradle.properties`. Incremental builds ~25–40 s.
+- Emulator (Pixel_4_API_36) is **laggy — taps often miss**; screenshot after each tap and re-tap. It also **auto-rotated to landscape** on its own once (see TODO #1); pin with `settings put system accelerometer_rotation 0`.
+- The emulator **died mid-session** once; `adb kill-server && adb start-server`, then relaunch: `emulator -avd Pixel_4_API_36 -no-snapshot-load`.
+- Models are in **Git LFS** (clip_backbone is 167 MB). `git lfs checkout` restores real files if the tree shows 134-byte pointers.
+- Login is via **Guest** (`is_guest` pref) — the app opens straight to Home as "Guest".
 
 ---
 
@@ -203,20 +215,20 @@ Closes the gaps against the study's "automatic app analytics" list. DB v12 adds 
 - ✅ Surfaced in **My Activity** and the **engagement export** (CSV/PDF/Excel)
 - ⬜ Researcher observation (assistance required, confusion, think-aloud) is **manual by design** — out of app scope
 
-## 11. Accessibility & error handling ♿  🚧 (must pass — 7/11 green)
+## 11. Accessibility & error handling ♿  🚧 (must pass — 9/11 green)
 | # | Criterion | Status | Note |
 |---|---|---|---|
 | 1 | Font size | ✅ Pass | 39 sub-12sp sizes raised; **0 remain < 12sp**. Consider 14sp body (item 6 in TODO) |
-| 2 | Text/background contrast | ⬜ **Not verified** | Needs a WCAG AA (4.5:1) measurement pass |
+| 2 | Text/background contrast | ✅ Pass | **Measured**, not guessed. `core/theme/app_colors.dart`; all 16 text pairs ≥ 4.5:1, 3 icon pairs ≥ 3:1. Device-sampled: hero 4.86:1, logout 5.62:1 |
 | 3 | Touch target size | ✅ Pass | Dialog buttons, SUS circles, `SpeakButton` all 48dp; self-care shuffle 40dp `TextButton` |
 | 4 | Alternative labels for icons | ✅ Pass | **0 IconButtons without a tooltip** (12 added); tooltip = screen-reader label |
-| 5 | Screen reader compatibility | 🚧 **Ready, untested** | Labels + `Semantics` in place; never run under TalkBack |
-| 6 | Text scaling supported | ⬜ **Not verified** | Scaling not blocked, but fixed heights will overflow at large fonts |
+| 5 | Screen reader compatibility | 🚧 **Ready, untested** | Labels + `Semantics` in place; **still never run under TalkBack** |
+| 6 | Text scaling supported | ✅ Pass | 13 fixed-height buttons → `ConstrainedBox(minHeight:)`; services grid scales with `textScalerOf`. Verified at `font_scale 2.0`: **0 overflow events** |
 | 7 | Arabic (RTL) display | ✅ Pass | Device-verified across all features |
 | 8 | English–Arabic switching | ✅ Pass | 527/527 key parity, verified live |
 | 9 | Error messages accessible | ✅ Pass | All user-facing errors are **localized dialogs**; raw exceptions never shown (`ErrorWidget` sanitised); each error logged |
-| 10 | Device compatibility | 🚧 Partial | Only Pixel 4 / API 36 tested |
-| 11 | TalkBack / larger fonts | 🚧 **Ready, untested** | Blocked on #5 + #6 |
+| 10 | Device compatibility | 🚧 Partial | Only Pixel 4 / API 36, **portrait only** — landscape/tablet untested (TODO #1) |
+| 11 | TalkBack / larger fonts | 🚧 Partial | Larger fonts ✅ verified at 2.0×; TalkBack still untested (#5) |
 
 **Save/error UX:** all save confirmations and errors now use **dialogs, not SnackBars** (`core/widgets/app_dialogs.dart`) — a 40sp icon, localized title/body, and a full-width 48dp OK button. Dialogs are announced by screen readers; SnackBars auto-dismiss and are easily missed.
 
@@ -226,6 +238,8 @@ Closes the gaps against the study's "automatic app analytics" list. DB v12 adds 
 - **Done + committed + pushed:** §0 baseline · §1 Glucose · §2 Medication · §3 Self-Care · §4 Home dashboard · §5 QoL/PRO · §6 Appointments · §7 Education · §8 Engagement.
 - **Device-QA'd this session (all pass, Arabic RTL + dark mode):** §1–§8. Glucose crash (Issue #1) confirmed **fixed**.
 - **All 8 tracker sections are built, committed, and pushed to `origin/main`** (through `827eea5`).
-- **Home tile art device-verified** in light + dark (after the `srcIn` blend-mode fix); self-care shuffle confirmed working. **Nothing is pending** — see RESUME HERE for the optional polish list.
+- **Home tile art device-verified** in light + dark (after the `srcIn` blend-mode fix); self-care shuffle confirmed working.
+- **§9 SUS · §10 instrumentation · §11 accessibility** built and device-verified. Accessibility is **9/11**; the two open criteria are a TalkBack sweep and device/orientation coverage.
+- **Open functional bug:** wound `length`/`width` are written as `0.0` — the healing-trend chart therefore has no baseline for real users (see RESUME HERE TODO #5).
 
 _As each item ships, it gets checked off here._

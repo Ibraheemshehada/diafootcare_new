@@ -129,6 +129,7 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:loading_animation_widget/loading_animation_widget.dart';
+import '../../../../core/widgets/app_dialogs.dart';
 import '../services/ai_service.dart';  // ✅ Import AI service
 import 'ai_result_screen.dart';
 
@@ -181,12 +182,7 @@ class _AnalysisLoadingScreenState extends State<AnalysisLoadingScreen> {
       if (!mounted) return;
       
       // Show error message
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('analysis_failed'.tr()),
-          backgroundColor: Colors.red,
-        ),
-      );
+      await showAppError(context, 'analysis_failed'.tr());
       
       // Go back to previous screen
       Navigator.pop(context);

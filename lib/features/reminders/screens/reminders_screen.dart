@@ -7,8 +7,10 @@ import '../viewmodel/reminders_viewmodel.dart';
 import '../widgets/day_chip.dart';
 import '../widgets/reminder_tile.dart';
 import 'package:intl/intl.dart';
+import '../../../core/theme/app_colors.dart';
 
 import 'add_reminder_screen.dart'; // ✅
+
 class RemindersScreen extends StatelessWidget {
   const RemindersScreen({super.key});
 
@@ -28,8 +30,11 @@ class RemindersScreen extends StatelessWidget {
     final week = List.generate(7, (i) => start.add(Duration(days: i)));
 
     return Scaffold(
-      appBar: AppBar(title: Text('daily_reminders'.tr(), style: TextStyle(fontSize: 18.sp)),backgroundColor: t.scaffoldBackgroundColor,),
-      floatingActionButton:FloatingActionButton(
+      appBar: AppBar(
+        title: Text('daily_reminders'.tr(), style: TextStyle(fontSize: 18.sp)),
+        backgroundColor: t.scaffoldBackgroundColor,
+      ),
+      floatingActionButton: FloatingActionButton(
         onPressed: () async {
           final r = await Navigator.push(
             context,
@@ -47,7 +52,12 @@ class RemindersScreen extends StatelessWidget {
           // Tagline
           Padding(
             padding: EdgeInsets.fromLTRB(16.w, 12.h, 16.w, 0),
-            child: Text('care_plan_hint'.tr(), style: t.textTheme.bodyMedium?.copyWith(color: t.colorScheme.primary)),
+            child: Text(
+              'care_plan_hint'.tr(),
+              style: t.textTheme.bodyMedium?.copyWith(
+                color: t.colorScheme.primary,
+              ),
+            ),
           ),
 
           // Week strip
@@ -61,7 +71,10 @@ class RemindersScreen extends StatelessWidget {
                 final d = week[i];
                 return DayChip(
                   date: d,
-                  selected: d.year == vm.selectedDay.year && d.month == vm.selectedDay.month && d.day == vm.selectedDay.day,
+                  selected:
+                      d.year == vm.selectedDay.year &&
+                      d.month == vm.selectedDay.month &&
+                      d.day == vm.selectedDay.day,
                   onTap: () => vm.selectDay(d),
                 );
               },
@@ -78,11 +91,13 @@ class RemindersScreen extends StatelessWidget {
             day: vm.selectedDay, // pass selected day down
           ),
           // Reminders list
-          ...vm.remindersForSelectedDay().map((r) => ReminderTile(
-            r: r,
-            onDelete: () => vm.remove(r.id),
-            onToggle: (v) => vm.toggle(r.id, v),
-          )),
+          ...vm.remindersForSelectedDay().map(
+            (r) => ReminderTile(
+              r: r,
+              onDelete: () => vm.remove(r.id),
+              onToggle: (v) => vm.toggle(r.id, v),
+            ),
+          ),
           SizedBox(height: 24.h),
         ],
       ),
@@ -93,13 +108,20 @@ class RemindersScreen extends StatelessWidget {
 class _ProgressBubble extends StatelessWidget {
   final int done, total;
   final DateTime day; // ✅ add this
-  const _ProgressBubble({required this.done, required this.total, required this.day});
+  const _ProgressBubble({
+    required this.done,
+    required this.total,
+    required this.day,
+  });
 
   @override
   Widget build(BuildContext context) {
     final t = Theme.of(context);
     final locale = context.locale.toLanguageTag();
-    final dayName = DateFormat('EEEE', locale).format(day); // ✅ selected day label
+    final dayName = DateFormat(
+      'EEEE',
+      locale,
+    ).format(day); // ✅ selected day label
 
     return Padding(
       padding: EdgeInsets.symmetric(horizontal: 16.w),
@@ -112,13 +134,26 @@ class _ProgressBubble extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.alarm_rounded, color: Colors.amber.shade600, size: 36.sp),
+            Icon(
+              Icons.alarm_rounded,
+              color: AppColors.of(context).caution,
+              size: 36.sp,
+            ),
             SizedBox(height: 8.h),
             // ✅ shows enabled/total e.g., 1/2
-            Text('$done/$total',
-                style: t.textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w700)),
+            Text(
+              '$done/$total',
+              style: t.textTheme.headlineSmall?.copyWith(
+                fontWeight: FontWeight.w700,
+              ),
+            ),
             SizedBox(height: 6.h),
-            Text(dayName, style: t.textTheme.bodySmall?.copyWith(color: t.colorScheme.onSurfaceVariant)),
+            Text(
+              dayName,
+              style: t.textTheme.bodySmall?.copyWith(
+                color: t.colorScheme.onSurfaceVariant,
+              ),
+            ),
           ],
         ),
       ),

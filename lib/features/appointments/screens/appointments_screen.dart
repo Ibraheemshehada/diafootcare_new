@@ -7,6 +7,7 @@ import 'package:provider/provider.dart';
 import '../../../data/models/appointment.dart';
 import '../viewmodel/appointments_viewmodel.dart';
 import 'add_appointment_screen.dart';
+import '../../../core/theme/app_colors.dart';
 
 class AppointmentsScreen extends StatelessWidget {
   const AppointmentsScreen({super.key});
@@ -137,10 +138,10 @@ class _AppointmentTile extends StatelessWidget {
         padding: EdgeInsets.only(right: 20.w),
         margin: EdgeInsets.only(bottom: 10.h),
         decoration: BoxDecoration(
-          color: Colors.red.withValues(alpha: .12),
+          color: AppColors.of(context).danger.withValues(alpha: .12),
           borderRadius: BorderRadius.circular(14.r),
         ),
-        child: const Icon(Icons.delete_outline, color: Colors.red),
+        child: Icon(Icons.delete_outline, color: AppColors.of(context).danger),
       ),
       confirmDismiss: (_) async {
         onDelete();

@@ -4,6 +4,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:provider/provider.dart';
 
 import '../../../core/services/analytics_service.dart';
+import '../../../core/theme/app_colors.dart';
 import '../../../core/widgets/app_dialogs.dart';
 import '../../../core/widgets/speak_button.dart';
 import '../../../data/models/sus_entry.dart';
@@ -104,14 +105,12 @@ class _SusSurveyScreenState extends State<SusSurveyScreen> {
             style: TextStyle(fontSize: 12.sp, color: t.hintColor),
           ),
           SizedBox(height: 12.h),
-          SizedBox(
-            height: 52.h,
-            child: FilledButton.icon(
-              onPressed: _submit,
-              icon: const Icon(Icons.check),
-              label:
-                  Text('sus_submit'.tr(), style: TextStyle(fontSize: 16.sp)),
-            ),
+          FilledButton.icon(
+            onPressed: _submit,
+            style: FilledButton.styleFrom(
+                minimumSize: Size(double.infinity, 52.h)),
+            icon: const Icon(Icons.check),
+            label: Text('sus_submit'.tr(), style: TextStyle(fontSize: 16.sp)),
           ),
           SizedBox(height: 16.h),
           // Attribution required when reproducing the SUS instrument.
@@ -318,9 +317,8 @@ class _SusResultDialog extends StatelessWidget {
   Widget build(BuildContext context) {
     final t = Theme.of(context);
     final band = susAdjectiveKey(score).tr();
-    final color = score >= 68
-        ? Colors.green.shade600
-        : (score >= 51 ? Colors.amber.shade700 : Colors.red.shade600);
+    final ac = AppColors.of(context);
+    final color = score >= 68 ? ac.success : (score >= 51 ? ac.warning : ac.danger);
     return AlertDialog(
       title: Text('sus_result_title'.tr()),
       content: Column(

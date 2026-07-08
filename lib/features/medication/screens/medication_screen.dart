@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:provider/provider.dart';
 
+import '../../../core/theme/app_colors.dart';
 import '../../../core/widgets/app_dialogs.dart';
 import '../../../data/models/medication.dart';
 import '../viewmodel/medication_viewmodel.dart';
@@ -83,9 +84,8 @@ class _AdherenceCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final t = Theme.of(context);
     final pct = vm.adherenceTodayPct;
-    final color = pct >= 80
-        ? Colors.green
-        : (pct >= 50 ? Colors.amber.shade700 : Colors.red);
+    final ac = AppColors.of(context);
+    final color = pct >= 80 ? ac.success : (pct >= 50 ? ac.warning : ac.danger);
     return Container(
       padding: EdgeInsets.all(18.w),
       decoration: BoxDecoration(
@@ -166,10 +166,10 @@ class MedicationTile extends StatelessWidget {
         padding: EdgeInsets.only(right: 20.w),
         margin: EdgeInsets.only(bottom: 10.h),
         decoration: BoxDecoration(
-          color: Colors.red.withValues(alpha: .12),
+          color: AppColors.of(context).danger.withValues(alpha: .12),
           borderRadius: BorderRadius.circular(14.r),
         ),
-        child: const Icon(Icons.delete_outline, color: Colors.red),
+        child: Icon(Icons.delete_outline, color: AppColors.of(context).danger),
       ),
       confirmDismiss: (_) async {
         onDelete();

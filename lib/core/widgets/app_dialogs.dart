@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
+import '../theme/app_colors.dart';
 import '../services/analytics_service.dart';
 
 enum AppMessageKind { success, error, info }
@@ -79,11 +80,11 @@ class _AppMessageDialog extends StatelessWidget {
     late final IconData icon;
     switch (kind) {
       case AppMessageKind.success:
-        color = Colors.green.shade600;
+        color = AppColors.of(context).success;
         icon = Icons.check_circle_outline;
         break;
       case AppMessageKind.error:
-        color = Colors.red.shade600;
+        color = AppColors.of(context).danger;
         icon = Icons.error_outline;
         break;
       case AppMessageKind.info:
@@ -106,14 +107,15 @@ class _AppMessageDialog extends StatelessWidget {
       ),
       actionsAlignment: MainAxisAlignment.center,
       actions: [
-        SizedBox(
-          width: double.infinity,
-          height: 48.h, // accessible touch target
-          child: FilledButton(
-            onPressed: () => Navigator.pop(context),
-            style: FilledButton.styleFrom(backgroundColor: color),
-            child: Text('ok'.tr(), style: TextStyle(fontSize: 15.sp)),
+        // minimumSize (not a fixed SizedBox height): keeps the 48dp touch
+        // target but lets the button GROW when the user enlarges system fonts.
+        FilledButton(
+          onPressed: () => Navigator.pop(context),
+          style: FilledButton.styleFrom(
+            backgroundColor: color,
+            minimumSize: Size(double.infinity, 48.h),
           ),
+          child: Text('ok'.tr(), style: TextStyle(fontSize: 15.sp)),
         ),
       ],
     );

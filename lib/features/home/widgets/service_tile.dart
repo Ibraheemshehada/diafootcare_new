@@ -118,12 +118,20 @@ class ServiceTile extends StatelessWidget {
                         color: iconColor,
                       ),
                       SizedBox(height: 10.h),
-                      Text(
-                        item.title.tr(),
-                        style: (item.isPrimary
-                            ? t.textTheme.titleMedium?.copyWith(
-                            color: Colors.white, fontWeight: FontWeight.w700)
-                            : t.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700)),
+                      // The grid cell grows with the user's text scale (see
+                      // home_screen), but bound both labels anyway so no font
+                      // size can overflow the tile. The title was previously
+                      // unbounded and wrapped indefinitely.
+                      Flexible(
+                        child: Text(
+                          item.title.tr(),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: (item.isPrimary
+                              ? t.textTheme.titleMedium?.copyWith(
+                              color: Colors.white, fontWeight: FontWeight.w700)
+                              : t.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700)),
+                        ),
                       ),
                       SizedBox(height: 6.h),
                       Flexible(

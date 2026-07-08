@@ -1,7 +1,9 @@
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../../core/widgets/app_dialogs.dart';
 import '../../../routes/app_routes.dart';
 
 class LoginViewModel extends ChangeNotifier {
@@ -89,28 +91,25 @@ class LoginViewModel extends ChangeNotifier {
       Navigator.pushReplacementNamed(context, AppRoutes.mainShell);
 
     } on FirebaseAuthException catch (e) {
-      // Handle Firebase errors
-      String errorMessage = 'An error occurred. Please try again later.';
-
+      // Localized, non-technical messages — never expose the Firebase code.
+      String errorMessage = 'auth_error_generic'.tr();
       if (e.code == 'user-not-found') {
-        errorMessage = 'No user found for that email.';
+        errorMessage = 'auth_user_not_found'.tr();
       } else if (e.code == 'wrong-password') {
-        errorMessage = 'Incorrect password.';
+        errorMessage = 'auth_wrong_password'.tr();
       } else if (e.code == 'invalid-email') {
-        errorMessage = 'Invalid email format.';
+        errorMessage = 'auth_invalid_email'.tr();
       } else if (e.code == 'invalid-credential') {
-        errorMessage = 'Invalid email or password.';
+        errorMessage = 'auth_invalid_credential'.tr();
       }
-
-      // Show the error message
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(errorMessage)),
-      );
+      if (context.mounted) {
+        await showAppError(context, errorMessage, technicalDetail: e.code);
+      }
     } catch (e) {
-      // Handle other errors
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Unexpected error: $e')),
-      );
+      if (context.mounted) {
+        await showAppError(context, 'auth_error_generic'.tr(),
+            technicalDetail: e);
+      }
     } finally {
       isLoading = false;
       notifyListeners();

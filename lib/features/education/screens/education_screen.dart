@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 import '../../../core/services/analytics_service.dart';
+import '../../../core/theme/app_colors.dart';
 import '../../../data/models/education_article.dart';
 import 'education_article_screen.dart';
 
@@ -147,13 +148,13 @@ class _PharmacistTipsCard extends StatelessWidget {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Icon(Icons.verified,
-                        size: 13.sp, color: Colors.green.shade700),
+                        size: 13.sp, color: AppColors.of(context).success),
                     SizedBox(width: 4.w),
                     Text('edu_verified'.tr(),
                         style: TextStyle(
                             fontSize: 12.sp,
                             fontWeight: FontWeight.w700,
-                            color: Colors.green.shade700)),
+                            color: AppColors.of(context).success)),
                   ],
                 ),
               ),

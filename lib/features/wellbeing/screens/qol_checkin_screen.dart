@@ -76,14 +76,13 @@ class _QolCheckInScreenState extends State<QolCheckInScreen> {
             onChanged: (v) => setState(() => _emotional = v),
           ),
           SizedBox(height: 24.h),
-          SizedBox(
-            height: 50.h,
-            child: FilledButton.icon(
-              onPressed: _save,
-              icon: const Icon(Icons.check),
-              label: Text('wellbeing_save_checkin'.tr(),
-                  style: TextStyle(fontSize: 16.sp)),
-            ),
+          FilledButton.icon(
+            onPressed: _save,
+            style: FilledButton.styleFrom(
+                minimumSize: Size(double.infinity, 50.h)),
+            icon: const Icon(Icons.check),
+            label: Text('wellbeing_save_checkin'.tr(),
+                style: TextStyle(fontSize: 16.sp)),
           ),
         ],
       ),
@@ -106,7 +105,7 @@ class _ScaleSlider extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final t = Theme.of(context);
-    final color = qolScoreColor(value);
+    final color = qolScoreColor(value, context);
     return Padding(
       padding: EdgeInsets.only(bottom: 18.h),
       child: Column(
@@ -120,8 +119,10 @@ class _ScaleSlider extends StatelessWidget {
                         fontSize: 15.sp, fontWeight: FontWeight.w700)),
               ),
               Container(
-                width: 40.w,
-                height: 30.h,
+                // Padding + minWidth instead of a fixed box, so the number
+                // stays visible when the system font size is increased.
+                constraints: BoxConstraints(minWidth: 40.w, minHeight: 30.h),
+                padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 4.h),
                 alignment: Alignment.center,
                 decoration: BoxDecoration(
                   color: color.withValues(alpha: .14),

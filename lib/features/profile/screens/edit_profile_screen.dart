@@ -51,14 +51,22 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                 CircleAvatar(
                   radius: 48.r,
                   backgroundImage: vm.avatarImageProvider,
-                  child: vm.hasPhoto ? null : const Icon(Icons.person, size: 32),
+                  child:
+                      vm.hasPhoto ? null : const Icon(Icons.person, size: 32),
                 ),
                 InkWell(
                   onTap: () => vm.pickPhotoWithSource(context),
                   child: Container(
                     padding: EdgeInsets.all(6.w),
-                    decoration: BoxDecoration(color: t.colorScheme.primary, shape: BoxShape.circle),
-                    child: const Icon(Icons.camera_alt_rounded, color: Colors.white, size: 16),
+                    decoration: BoxDecoration(
+                      color: t.colorScheme.primary,
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(
+                      Icons.camera_alt_rounded,
+                      color: Colors.white,
+                      size: 16,
+                    ),
                   ),
                 ),
               ],
@@ -79,26 +87,45 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
               children: [
                 Text('first_name'.tr(), style: t.textTheme.labelLarge),
                 SizedBox(height: 6.h),
-                TextFormField(controller: _first, validator: _notEmpty, decoration: InputDecoration(hintText: 'first_name'.tr())),
+                TextFormField(
+                  controller: _first,
+                  validator: _notEmpty,
+                  decoration: InputDecoration(hintText: 'first_name'.tr()),
+                ),
                 SizedBox(height: 12.h),
                 Text('last_name'.tr(), style: t.textTheme.labelLarge),
                 SizedBox(height: 6.h),
-                TextFormField(controller: _last, validator: _notEmpty, decoration: InputDecoration(hintText: 'last_name'.tr())),
+                TextFormField(
+                  controller: _last,
+                  validator: _notEmpty,
+                  decoration: InputDecoration(hintText: 'last_name'.tr()),
+                ),
                 SizedBox(height: 12.h),
                 Text('email_or_phone'.tr(), style: t.textTheme.labelLarge),
                 SizedBox(height: 6.h),
-                TextFormField(controller: _email, validator: _notEmpty, decoration: InputDecoration(hintText: 'email_or_phone'.tr())),
+                TextFormField(
+                  controller: _email,
+                  validator: _notEmpty,
+                  decoration: InputDecoration(hintText: 'email_or_phone'.tr()),
+                ),
               ],
             ),
           ),
 
           SizedBox(height: 20.h),
-          SizedBox(
-            height: 48.h,
+          ConstrainedBox(
+            // minHeight (not an exact height): keeps the >=48dp touch
+            // target while letting the button grow when the user
+            // enlarges the system font. An exact height clipped labels.
+            constraints: BoxConstraints(minHeight: 48.h),
             child: FilledButton(
               onPressed: () {
                 if (!_formKey.currentState!.validate()) return;
-                vm.updateInfo(first: _first.text, last: _last.text, mail: _email.text);
+                vm.updateInfo(
+                  first: _first.text,
+                  last: _last.text,
+                  mail: _email.text,
+                );
                 Navigator.pop(context);
               },
               child: Text('edit'.tr(), style: TextStyle(fontSize: 16.sp)),
@@ -109,5 +136,6 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     );
   }
 
-  String? _notEmpty(String? v) => (v == null || v.trim().isEmpty) ? 'required'.tr() : null;
+  String? _notEmpty(String? v) =>
+      (v == null || v.trim().isEmpty) ? 'required'.tr() : null;
 }

@@ -167,13 +167,12 @@ class _AddAppointmentScreenState extends State<AddAppointmentScreen> {
             }).toList(),
           ),
           SizedBox(height: 28.h),
-          SizedBox(
-            height: 50.h,
-            child: FilledButton.icon(
-              onPressed: _save,
-              icon: const Icon(Icons.check),
-              label: Text('appt_save'.tr(), style: TextStyle(fontSize: 16.sp)),
-            ),
+          FilledButton.icon(
+            onPressed: _save,
+            style: FilledButton.styleFrom(
+                minimumSize: Size(double.infinity, 50.h)),
+            icon: const Icon(Icons.check),
+            label: Text('appt_save'.tr(), style: TextStyle(fontSize: 16.sp)),
           ),
         ],
       ),

@@ -41,8 +41,9 @@ class _PreviewScreenState extends State<PreviewScreen> {
               TextField(
                 controller: ctrl,
                 autofocus: true,
-                keyboardType:
-                    const TextInputType.numberWithOptions(decimal: true),
+                keyboardType: const TextInputType.numberWithOptions(
+                  decimal: true,
+                ),
                 inputFormatters: [
                   FilteringTextInputFormatter.allow(RegExp(r'[0-9.]')),
                 ],
@@ -74,17 +75,18 @@ class _PreviewScreenState extends State<PreviewScreen> {
     ctrl.dispose();
     return result;
   }
-  
+
   Future<String> _saveImageToLocal() async {
     try {
       // Get app documents directory
       final Directory appDocDir = await getApplicationDocumentsDirectory();
-      final String fileName = 'wound_photo_${DateTime.now().millisecondsSinceEpoch}.jpg';
+      final String fileName =
+          'wound_photo_${DateTime.now().millisecondsSinceEpoch}.jpg';
       final String savedPath = path.join(appDocDir.path, fileName);
 
       // Copy the file to app directory
       await File(widget.file.path).copy(savedPath);
-      
+
       debugPrint('✅ Image saved to: $savedPath');
       return savedPath;
     } catch (e) {
@@ -99,7 +101,10 @@ class _PreviewScreenState extends State<PreviewScreen> {
     final t = Theme.of(context);
     return Scaffold(
       appBar: AppBar(
-        title: Text('preview_your_photo'.tr(), style: TextStyle(fontSize: 18.sp)),
+        title: Text(
+          'preview_your_photo'.tr(),
+          style: TextStyle(fontSize: 18.sp),
+        ),
       ),
       body: Padding(
         padding: EdgeInsets.fromLTRB(16.w, 12.h, 16.w, 16.h),
@@ -140,8 +145,11 @@ class _PreviewScreenState extends State<PreviewScreen> {
             Row(
               children: [
                 Expanded(
-                  child: SizedBox(
-                    height: 48.h,
+                  child: ConstrainedBox(
+                    // minHeight (not an exact height): keeps the >=48dp touch
+                    // target while letting the button grow when the user
+                    // enlarges the system font. An exact height clipped labels.
+                    constraints: BoxConstraints(minHeight: 48.h),
                     child: ElevatedButton.icon(
                       onPressed: () async {
                         // Show loading
@@ -149,7 +157,10 @@ class _PreviewScreenState extends State<PreviewScreen> {
                           showDialog(
                             context: context,
                             barrierDismissible: false,
-                            builder: (_) => const Center(child: CircularProgressIndicator()),
+                            builder:
+                                (_) => const Center(
+                                  child: CircularProgressIndicator(),
+                                ),
                           );
                         }
 
@@ -164,8 +175,10 @@ class _PreviewScreenState extends State<PreviewScreen> {
                         final pixelsPerCm = await Navigator.push<double?>(
                           context,
                           MaterialPageRoute(
-                            builder: (_) =>
-                                ScaleCalibrationScreen(imagePath: imagePath),
+                            builder:
+                                (_) => ScaleCalibrationScreen(
+                                  imagePath: imagePath,
+                                ),
                           ),
                         );
 
@@ -178,27 +191,37 @@ class _PreviewScreenState extends State<PreviewScreen> {
                         Navigator.pushReplacement(
                           context,
                           MaterialPageRoute(
-                            builder: (_) => AnalysisLoadingScreen(
-                              imagePath: imagePath,
-                              pixelsPerCm: pixelsPerCm,
-                              manualDepthCm: manualDepthCm,
-                            ),
+                            builder:
+                                (_) => AnalysisLoadingScreen(
+                                  imagePath: imagePath,
+                                  pixelsPerCm: pixelsPerCm,
+                                  manualDepthCm: manualDepthCm,
+                                ),
                           ),
                         );
                       },
                       icon: const Icon(Icons.bookmark_add_outlined),
-                      label: Text('save_and_continue'.tr(), style: TextStyle(fontSize: 14.sp)),
+                      label: Text(
+                        'save_and_continue'.tr(),
+                        style: TextStyle(fontSize: 14.sp),
+                      ),
                     ),
                   ),
                 ),
                 SizedBox(width: 12.w),
                 Expanded(
-                  child: SizedBox(
-                    height: 48.h,
+                  child: ConstrainedBox(
+                    // minHeight (not an exact height): keeps the >=48dp touch
+                    // target while letting the button grow when the user
+                    // enlarges the system font. An exact height clipped labels.
+                    constraints: BoxConstraints(minHeight: 48.h),
                     child: OutlinedButton.icon(
                       onPressed: () => Navigator.pop(context),
                       icon: const Icon(Icons.refresh),
-                      label: Text('retake_photo'.tr(), style: TextStyle(fontSize: 14.sp)),
+                      label: Text(
+                        'retake_photo'.tr(),
+                        style: TextStyle(fontSize: 14.sp),
+                      ),
                     ),
                   ),
                 ),

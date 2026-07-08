@@ -79,14 +79,13 @@ class _SatisfactionSurveyScreenState extends State<SatisfactionSurveyScreen> {
             onChanged: (v) => setState(() => _willingness = v),
           ),
           SizedBox(height: 20.h),
-          SizedBox(
-            height: 50.h,
-            child: FilledButton.icon(
-              onPressed: _save,
-              icon: const Icon(Icons.check),
-              label: Text('satisfaction_submit'.tr(),
-                  style: TextStyle(fontSize: 16.sp)),
-            ),
+          FilledButton.icon(
+            onPressed: _save,
+            style: FilledButton.styleFrom(
+                minimumSize: Size(double.infinity, 50.h)),
+            icon: const Icon(Icons.check),
+            label: Text('satisfaction_submit'.tr(),
+                style: TextStyle(fontSize: 16.sp)),
           ),
         ],
       ),

@@ -65,7 +65,11 @@ class _WoundHistoryScreenState extends State<WoundHistoryScreen> {
                   improvementPct: vm.overallImprovementPct,
                   inflammationTrend: vm.inflammationTrend,
                 ),
-                TrendChartCard(monthlyTrend: vm.monthlyTrend),
+                TrendChartCard(
+                  series: vm.trend,
+                  range: vm.range,
+                  onRangeChanged: vm.setRange,
+                ),
                 Padding(
                   padding: EdgeInsets.fromLTRB(16.w, 12.h, 16.w, 6.h),
                   child: Text("recent".tr(), style: t.textTheme.titleMedium),

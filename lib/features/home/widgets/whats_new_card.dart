@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
+import '../../../core/theme/light_theme.dart' show kPrimaryLight;
+
 class WhatsNewCard extends StatelessWidget {
   final TimeOfDay? nextReminder;
   final String? nextReminderTitle;
@@ -59,8 +61,8 @@ class WhatsNewCard extends StatelessWidget {
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                   colors: [
-                    const Color(0xff077FFF).withOpacity(.95),
-                    const Color(0xff077FFF),
+                    kPrimaryLight.withOpacity(.95),
+                    kPrimaryLight,
                   ],
                 ),
               ),
@@ -76,9 +78,15 @@ class WhatsNewCard extends StatelessWidget {
                         'assets/svg/whats_bg_top_right.svg',
                         fit: BoxFit.contain,
                         alignment: Alignment.topRight,
+                        // srcIn (not srcATop): REPLACE the artwork's own fills
+                        // with a faint white tint. srcATop only layered 1% white
+                        // over the art, leaving its opaque #AED1FF shapes to show
+                        // through — white title text on those measured 1.57:1
+                        // (WCAG AA needs 4.5:1). srcIn keeps it a subtle
+                        // silhouette that never competes with the text.
                         colorFilter: ColorFilter.mode(
-                          Colors.white.withOpacity(0.01),
-                          BlendMode.srcATop,
+                          Colors.white.withOpacity(0.07),
+                          BlendMode.srcIn,
                         ),
                       ),
                     ),
@@ -93,9 +101,15 @@ class WhatsNewCard extends StatelessWidget {
                         'assets/svg/whats_bg_bottom_left.svg',
                         fit: BoxFit.contain,
                         alignment: Alignment.bottomLeft,
+                        // srcIn (not srcATop): REPLACE the artwork's own fills
+                        // with a faint white tint. srcATop only layered 1% white
+                        // over the art, leaving its opaque #AED1FF shapes to show
+                        // through — white title text on those measured 1.57:1
+                        // (WCAG AA needs 4.5:1). srcIn keeps it a subtle
+                        // silhouette that never competes with the text.
                         colorFilter: ColorFilter.mode(
-                          Colors.white.withOpacity(0.01),
-                          BlendMode.srcATop,
+                          Colors.white.withOpacity(0.07),
+                          BlendMode.srcIn,
                         ),
                       ),
                     ),
@@ -123,7 +137,11 @@ class WhatsNewCard extends StatelessWidget {
                             Expanded(
                               child: Text(
                                 nextReminder != null
-                                    ? 'Next Reminder: ${nextReminderTitle ?? 'Reminder'} at ${nextReminder!.format(context)}'
+                                    ? 'home_next_reminder'.tr(namedArgs: {
+                                        'title': nextReminderTitle ??
+                                            'type_other'.tr(),
+                                        'time': nextReminder!.format(context),
+                                      })
                                     : 'no_upcoming_reminders'.tr(),
                                 style: t.textTheme.bodyMedium?.copyWith(color: Colors.white),
                               ),

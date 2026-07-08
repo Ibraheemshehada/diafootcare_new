@@ -4,6 +4,8 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:fl_chart/fl_chart.dart';
 
+import '../../../../core/theme/app_colors.dart';
+import '../../../../core/widgets/app_dialogs.dart';
 import '../viewmodel/analysis_result.dart';
 import '../../../../data/repositories/wounds_repository.dart';
 import '../../../../data/models/wound_entry.dart';
@@ -76,61 +78,19 @@ class _AiResultScreenState extends State<AiResultScreen> {
             SizedBox(height: 12.h),
 
             if (!result.isFromModel) ...[
-              Container(
-                padding: EdgeInsets.all(12.w),
-                decoration: BoxDecoration(
-                  color: Colors.red.withOpacity(.08),
-                  borderRadius: BorderRadius.circular(12.r),
-                  border: Border.all(color: Colors.red.withOpacity(.4)),
-                ),
-                child: Row(
-                  children: [
-                    Icon(Icons.warning_amber_rounded,
-                        color: Colors.red[800], size: 20.sp),
-                    SizedBox(width: 10.w),
-                    Expanded(
-                      child: Text(
-                        'Demo result — the AI models could not run on this '
-                        'device, so these values are simulated and do NOT '
-                        'describe your photo.',
-                        style: t.textTheme.bodySmall?.copyWith(
-                          fontSize: 12.sp,
-                          color: Colors.red[900],
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
+              _Banner(
+                icon: Icons.warning_amber_rounded,
+                color: AppColors.of(context).danger,
+                message: 'ai_demo_result_banner'.tr(),
               ),
               SizedBox(height: 12.h),
             ],
 
             if (!result.isCalibrated && result.isFromModel) ...[
-              Container(
-                padding: EdgeInsets.all(12.w),
-                decoration: BoxDecoration(
-                  color: Colors.orange.withOpacity(.10),
-                  borderRadius: BorderRadius.circular(12.r),
-                  border: Border.all(color: Colors.orange.withOpacity(.4)),
-                ),
-                child: Row(
-                  children: [
-                    Icon(Icons.info_outline,
-                        color: Colors.orange[800], size: 20.sp),
-                    SizedBox(width: 10.w),
-                    Expanded(
-                      child: Text(
-                        'Not calibrated — cm values are approximate. Track the '
-                        'relative trend, or set a scale with a reference object '
-                        'for true measurements.',
-                        style: t.textTheme.bodySmall?.copyWith(
-                          fontSize: 12.sp,
-                          color: Colors.orange[900],
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
+              _Banner(
+                icon: Icons.info_outline,
+                color: AppColors.of(context).warning,
+                message: 'ai_not_calibrated_banner'.tr(),
               ),
               SizedBox(height: 12.h),
             ],
@@ -215,8 +175,11 @@ class _AiResultScreenState extends State<AiResultScreen> {
             ),
 
             SizedBox(height: 28.h),
-            SizedBox(
-              height: 52.h,
+            ConstrainedBox(
+              // minHeight (not an exact height): keeps the >=48dp touch
+              // target while letting the button grow when the user
+              // enlarges the system font. An exact height clipped labels.
+              constraints: BoxConstraints(minHeight: 52.h),
               child: FilledButton(
                 onPressed: () async {
                   try {
@@ -243,13 +206,7 @@ class _AiResultScreenState extends State<AiResultScreen> {
                       Navigator.pop(context); // Close loading dialog
 
                       // Show success message
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text('result_saved'.tr()),
-                          backgroundColor: Colors.green,
-                          duration: const Duration(seconds: 2),
-                        ),
-                      );
+                      await showAppSuccess(context, 'result_saved'.tr());
 
                       // Navigate back to home
                       Navigator.popUntil(context, (r) => r.isFirst);
@@ -258,13 +215,7 @@ class _AiResultScreenState extends State<AiResultScreen> {
                     if (context.mounted) {
                       Navigator.pop(context); // Close loading dialog
 
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text('save_error'.tr()),
-                          backgroundColor: Colors.red,
-                          duration: const Duration(seconds: 3),
-                        ),
-                      );
+                      await showAppError(context, 'save_error'.tr());
                     }
                   }
                 },
@@ -363,7 +314,8 @@ class _StatCard extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                valueText ?? '${value.toStringAsFixed(1)} ${unit.isEmpty ? "" : unit}',
+                valueText ??
+                    '${value.toStringAsFixed(1)} ${unit.isEmpty ? "" : unit}',
                 style: t.textTheme.titleMedium?.copyWith(
                   fontWeight: FontWeight.w700,
                   fontSize: 16.sp,
@@ -907,6 +859,51 @@ class _ProgressChart extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// Inline advisory banner. Both the icon tint and the body text use the same
+/// theme-aware semantic colour (see [AppColors]), so the pair keeps its >=4.5:1
+/// text contrast against the faint tinted background in light *and* dark mode.
+/// The previous hardcoded `Colors.red[900]` was unreadable on a dark card.
+class _Banner extends StatelessWidget {
+  final IconData icon;
+  final Color color;
+  final String message;
+  const _Banner({
+    required this.icon,
+    required this.color,
+    required this.message,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final t = Theme.of(context);
+    return Container(
+      padding: EdgeInsets.all(12.w),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: .08),
+        borderRadius: BorderRadius.circular(12.r),
+        border: Border.all(color: color.withValues(alpha: .4)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          ExcludeSemantics(child: Icon(icon, color: color, size: 20.sp)),
+          SizedBox(width: 10.w),
+          Expanded(
+            child: Text(
+              message,
+              style: t.textTheme.bodySmall?.copyWith(
+                fontSize: 12.sp,
+                height: 1.4,
+                color: color,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

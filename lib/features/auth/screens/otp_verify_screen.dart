@@ -4,6 +4,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:provider/provider.dart';
 
+import '../../../core/widgets/app_dialogs.dart';
 import '../../../routes/app_routes.dart';
 import '../viewmodel/otp_verify_viewmodel.dart';
 
@@ -84,11 +85,7 @@ class OtpVerifyScreen extends StatelessWidget {
                         : () {
                       final code = vm.code; // from VM getter
                       if (code.length != 6) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                              content:
-                              Text('Enter the full 6-digit code')),
-                        );
+                        showAppError(context, 'auth_code_incomplete'.tr());
                         return;
                       }
                       // go to set password with email + code

@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
+import '../../../core/widgets/app_dialogs.dart';
+
 class ChangePasswordScreen extends StatefulWidget {
   const ChangePasswordScreen({super.key});
 
@@ -48,9 +50,15 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
                   decoration: InputDecoration(
                     hintText: 'enter_old_password'.tr(),
                     suffixIcon: IconButton(
-                      tooltip: _oldObscure ? 'a11y_show_password'.tr() : 'a11y_hide_password'.tr(),
-                      icon: Icon(_oldObscure ? Icons.visibility : Icons.visibility_off),
-                      onPressed: () => setState(() => _oldObscure = !_oldObscure),
+                      tooltip:
+                          _oldObscure
+                              ? 'a11y_show_password'.tr()
+                              : 'a11y_hide_password'.tr(),
+                      icon: Icon(
+                        _oldObscure ? Icons.visibility : Icons.visibility_off,
+                      ),
+                      onPressed:
+                          () => setState(() => _oldObscure = !_oldObscure),
                     ),
                   ),
                 ),
@@ -63,9 +71,15 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
                   validator: _min6,
                   decoration: InputDecoration(
                     suffixIcon: IconButton(
-                      tooltip: _newObscure ? 'a11y_show_password'.tr() : 'a11y_hide_password'.tr(),
-                      icon: Icon(_newObscure ? Icons.visibility : Icons.visibility_off),
-                      onPressed: () => setState(() => _newObscure = !_newObscure),
+                      tooltip:
+                          _newObscure
+                              ? 'a11y_show_password'.tr()
+                              : 'a11y_hide_password'.tr(),
+                      icon: Icon(
+                        _newObscure ? Icons.visibility : Icons.visibility_off,
+                      ),
+                      onPressed:
+                          () => setState(() => _newObscure = !_newObscure),
                     ),
                   ),
                 ),
@@ -78,9 +92,19 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
                   validator: (v) => v != _new.text ? 'doesnt_match'.tr() : null,
                   decoration: InputDecoration(
                     suffixIcon: IconButton(
-                      tooltip: _confirmObscure ? 'a11y_show_password'.tr() : 'a11y_hide_password'.tr(),
-                      icon: Icon(_confirmObscure ? Icons.visibility : Icons.visibility_off),
-                      onPressed: () => setState(() => _confirmObscure = !_confirmObscure),
+                      tooltip:
+                          _confirmObscure
+                              ? 'a11y_show_password'.tr()
+                              : 'a11y_hide_password'.tr(),
+                      icon: Icon(
+                        _confirmObscure
+                            ? Icons.visibility
+                            : Icons.visibility_off,
+                      ),
+                      onPressed:
+                          () => setState(
+                            () => _confirmObscure = !_confirmObscure,
+                          ),
                     ),
                   ),
                 ),
@@ -88,18 +112,27 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
             ),
           ),
           SizedBox(height: 20.h),
-          SizedBox(
-            height: 48.h,
-            width: double.infinity,
+          ConstrainedBox(
+            // minHeight (not an exact height): keeps the >=48dp touch
+            // target while letting the button grow when the user
+            // enlarges the system font. An exact height clipped labels.
+            constraints: BoxConstraints(
+              minWidth: double.infinity,
+              minHeight: 48.h,
+            ),
             child: FilledButton(
               onPressed: _isLoading ? null : _updatePassword,
-              child: _isLoading
-                  ? SizedBox(
-                      height: 20.sp,
-                      width: 20.sp,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : Text('update_password'.tr(), style: TextStyle(fontSize: 16.sp)),
+              child:
+                  _isLoading
+                      ? SizedBox(
+                        height: 20.sp,
+                        width: 20.sp,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                      : Text(
+                        'update_password'.tr(),
+                        style: TextStyle(fontSize: 16.sp),
+                      ),
             ),
           ),
         ],
@@ -107,8 +140,12 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
     );
   }
 
-  String? _required(String? v) => (v == null || v.isEmpty) ? 'required'.tr() : null;
-  String? _min6(String? v) => (v == null || v.length < 6) ? 'min_chars'.tr(namedArgs: {'n': '6'}) : null;
+  String? _required(String? v) =>
+      (v == null || v.isEmpty) ? 'required'.tr() : null;
+  String? _min6(String? v) =>
+      (v == null || v.length < 6)
+          ? 'min_chars'.tr(namedArgs: {'n': '6'})
+          : null;
 
   Future<void> _updatePassword() async {
     if (!_formKey.currentState!.validate()) return;
@@ -116,9 +153,7 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null || user.email == null) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('user_not_logged_in'.tr())),
-      );
+      await showAppError(context, 'user_not_logged_in'.tr());
       return;
     }
 
@@ -137,17 +172,13 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
       await user.reload();
 
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('password_updated_successfully'.tr()),
-          backgroundColor: Colors.green,
-        ),
-      );
+      await showAppSuccess(context, 'password_updated_successfully'.tr());
+      if (!mounted) return;
       Navigator.pop(context);
     } on FirebaseAuthException catch (e) {
       if (!mounted) return;
       String errorMessage = 'password_update_failed'.tr();
-      
+
       if (e.code == 'wrong-password') {
         errorMessage = 'incorrect_old_password'.tr();
       } else if (e.code == 'weak-password') {
@@ -156,13 +187,13 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
         errorMessage = 'requires_recent_login'.tr();
       }
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(errorMessage)),
-      );
+      await showAppError(context, errorMessage);
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('password_update_failed'.tr() + ': $e')),
+      await showAppError(
+        context,
+        'password_update_failed'.tr(),
+        technicalDetail: e,
       );
     } finally {
       if (mounted) {

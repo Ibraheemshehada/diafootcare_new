@@ -97,7 +97,7 @@ class HomeScreen extends StatelessWidget {
                           : glucoseStatusLabel(latestGlucose.status),
                       latestGlucoseColor: latestGlucose == null
                           ? null
-                          : glucoseStatusColor(latestGlucose.status),
+                          : glucoseStatusColor(latestGlucose.status, context),
                       onGlucoseTap: () =>
                           Navigator.pushNamed(context, AppRoutes.glucose),
                       dfuStatusLabel: dfu?.label,
@@ -156,23 +156,38 @@ class HomeScreen extends StatelessWidget {
                     // Services grid (2x2)
                     Padding(
                       padding: EdgeInsets.symmetric(horizontal: 16.w),
-                      child: GridView.builder(
-                        physics: const NeverScrollableScrollPhysics(),
-                        shrinkWrap: true,
-                        itemCount: vm.services.length,
-                        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                          crossAxisCount: 2,
-                          mainAxisSpacing: 12.h,
-                          crossAxisSpacing: 12.w,
-                          childAspectRatio: 1.1,
-                        ),
-                        itemBuilder: (context, i) {
-                          final s = vm.services[i];
-                          return ServiceTile(
-                            item: s,
-                            onTap: () {
-                              AnalyticsService.I.logFeature(s.route);
-                              Navigator.pushNamed(context, s.route);
+                      child: LayoutBuilder(
+                        builder: (context, c) {
+                          // A fixed childAspectRatio pins the cell height, so a
+                          // large system font overflowed the tile's title +
+                          // subtitle (measured: 54px at font_scale 2.0). Derive
+                          // the height instead and let it grow with the user's
+                          // text scale. Clamped at 2.0 so extreme scales don't
+                          // leave the grid mostly empty space.
+                          final cellW = (c.maxWidth - 12.w) / 2;
+                          final ts = MediaQuery.textScalerOf(context)
+                              .scale(1.0)
+                              .clamp(1.0, 2.0);
+                          return GridView.builder(
+                            physics: const NeverScrollableScrollPhysics(),
+                            shrinkWrap: true,
+                            itemCount: vm.services.length,
+                            gridDelegate:
+                                SliverGridDelegateWithFixedCrossAxisCount(
+                              crossAxisCount: 2,
+                              mainAxisSpacing: 12.h,
+                              crossAxisSpacing: 12.w,
+                              mainAxisExtent: (cellW / 1.1) * ts,
+                            ),
+                            itemBuilder: (context, i) {
+                              final s = vm.services[i];
+                              return ServiceTile(
+                                item: s,
+                                onTap: () {
+                                  AnalyticsService.I.logFeature(s.route);
+                                  Navigator.pushNamed(context, s.route);
+                                },
+                              );
                             },
                           );
                         },
@@ -206,16 +221,16 @@ _DfuStatus? _dfuStatus(String? badge) {
     case null:
       return null;
     case 'High Risk':
-      return _DfuStatus('badge_high_risk'.tr(), const Color(0xFFD64545),
+      return _DfuStatus('badge_high_risk'.tr(), const Color(0xFFFFB4AB),
           Icons.warning_amber_rounded);
     case 'Infection Detected':
-      return _DfuStatus('badge_infection'.tr(), const Color(0xFFE8A317),
+      return _DfuStatus('badge_infection'.tr(), const Color(0xFFFFD54F),
           Icons.coronavirus_outlined);
     case 'Impaired Blood Flow':
-      return _DfuStatus('badge_ischaemia'.tr(), const Color(0xFFE8A317),
+      return _DfuStatus('badge_ischaemia'.tr(), const Color(0xFFFFD54F),
           Icons.bloodtype_outlined);
     default: // Normal
-      return _DfuStatus('badge_normal'.tr(), const Color(0xFF2E9E6B),
+      return _DfuStatus('badge_normal'.tr(), const Color(0xFFA5E8C6),
           Icons.check_circle_outline);
   }
 }

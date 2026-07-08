@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:provider/provider.dart';
 
+import '../../../core/theme/app_colors.dart';
+import '../../../core/widgets/speak_button.dart';
 import '../../../data/models/self_care_task.dart';
 import '../viewmodel/self_care_viewmodel.dart';
 
@@ -75,13 +77,13 @@ class SelfCareScreen extends StatelessWidget {
                       _AdviceCard(
                         title: 'selfcare_do_title'.tr(),
                         icon: Icons.check_circle,
-                        color: Colors.green.shade600,
+                        color: AppColors.of(context).success,
                         itemKeys: selfCareDoKeys,
                       ),
                       _AdviceCard(
                         title: 'selfcare_dont_title'.tr(),
                         icon: Icons.cancel,
-                        color: Colors.red.shade600,
+                        color: AppColors.of(context).danger,
                         itemKeys: selfCareDontKeys,
                       ),
                     ],
@@ -105,7 +107,8 @@ class _TipCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final t = Theme.of(context);
     final isDo = tip.isDo;
-    final color = isDo ? Colors.green.shade600 : Colors.red.shade600;
+    final ac = AppColors.of(context);
+    final color = isDo ? ac.success : ac.danger;
     final badgeIcon = isDo ? Icons.check_circle : Icons.cancel;
     final badgeLabel =
         isDo ? 'selfcare_do_title'.tr() : 'selfcare_dont_title'.tr();
@@ -125,6 +128,8 @@ class _TipCard extends StatelessWidget {
             children: [
               Icon(Icons.lightbulb_outline,
                   color: t.colorScheme.primary, size: 20.sp),
+              // Read the tip aloud (senior-friendly).
+              SpeakButton(text: tip.messageKey.tr(), analyticsName: 'selfcare_tip'),
               SizedBox(width: 8.w),
               Text('selfcare_tip_label'.tr(),
                   style: TextStyle(
@@ -265,9 +270,8 @@ class _SummaryCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final t = Theme.of(context);
     final pct = vm.adherenceTodayPct;
-    final color = pct >= 80
-        ? Colors.green
-        : (pct >= 50 ? Colors.amber.shade700 : Colors.red);
+    final ac = AppColors.of(context);
+    final color = pct >= 80 ? ac.success : (pct >= 50 ? ac.warning : ac.danger);
     return Container(
       padding: EdgeInsets.all(18.w),
       decoration: BoxDecoration(
@@ -321,14 +325,14 @@ class _SummaryCard extends StatelessWidget {
                     padding:
                         EdgeInsets.symmetric(horizontal: 10.w, vertical: 4.h),
                     decoration: BoxDecoration(
-                      color: Colors.deepOrange.withValues(alpha: .12),
+                      color: AppColors.of(context).streak.withValues(alpha: .12),
                       borderRadius: BorderRadius.circular(20.r),
                     ),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Icon(Icons.local_fire_department,
-                            size: 16.sp, color: Colors.deepOrange),
+                            size: 16.sp, color: AppColors.of(context).streak),
                         SizedBox(width: 4.w),
                         Text(
                           'selfcare_streak'.tr(
@@ -336,7 +340,7 @@ class _SummaryCard extends StatelessWidget {
                           style: TextStyle(
                             fontSize: 12.sp,
                             fontWeight: FontWeight.w700,
-                            color: Colors.deepOrange,
+                            color: AppColors.of(context).streak,
                           ),
                         ),
                       ],

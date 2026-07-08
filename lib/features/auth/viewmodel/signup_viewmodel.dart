@@ -1,7 +1,9 @@
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../../../core/services/auth_services.dart';
+import '../../../core/widgets/app_dialogs.dart';
 import '../../../routes/app_routes.dart';
 
 class SignUpViewModel extends ChangeNotifier {
@@ -103,49 +105,37 @@ class SignUpViewModel extends ChangeNotifier {
         if (context.mounted) {
           // Give a small delay to ensure data is saved before navigating
           await Future.delayed(const Duration(milliseconds: 100));
-          
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Signed up successfully'),
-              backgroundColor: Colors.green,
-              duration: const Duration(seconds: 2),
-            ),
-          );
-          
+
+          await showAppSuccess(context, 'auth_signup_success'.tr());
+
           // Navigate to main shell (home screen) - this will create fresh ViewModels that load the saved data
-          Navigator.pushReplacementNamed(context, AppRoutes.mainShell);
+          if (context.mounted) {
+            Navigator.pushReplacementNamed(context, AppRoutes.mainShell);
+          }
         }
       } else {
         if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Sign-up failed. Please try again.'),
-              backgroundColor: Colors.red,
-            ),
-          );
+          await showAppError(context, 'auth_signup_failed'.tr());
         }
       }
     } on FirebaseAuthException catch (e) {
-      String errorMessage = 'Sign-up failed. Please try again.';
+      String errorMessage = 'auth_signup_failed'.tr();
       if (e.code == 'email-already-in-use') {
-        errorMessage = 'This email is already registered.';
+        errorMessage = 'auth_email_in_use'.tr();
       } else if (e.code == 'invalid-email') {
-        errorMessage = 'Invalid email format.';
+        errorMessage = 'auth_invalid_email'.tr();
       } else if (e.code == 'weak-password') {
-        errorMessage = 'Password is too weak.';
+        errorMessage = 'password_too_weak'.tr();
       }
-      
+
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(errorMessage), backgroundColor: Colors.red),
-        );
+        await showAppError(context, errorMessage, technicalDetail: e.code);
       }
     } catch (e) {
       debugPrint('Sign-up error: $e');
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Unexpected error: $e'), backgroundColor: Colors.red),
-        );
+        await showAppError(context, 'auth_error_generic'.tr(),
+            technicalDetail: e);
       }
     } finally {
       isLoading = false;

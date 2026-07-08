@@ -1,4 +1,8 @@
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
+
+import '../../../core/widgets/app_dialogs.dart';
+
 class OtpVerifyViewModel extends ChangeNotifier {
   // 6 controllers (not 5)
   final List<TextEditingController> controllers =
@@ -25,13 +29,14 @@ class OtpVerifyViewModel extends ChangeNotifier {
       // (If you already wrote this elsewhere, call it from here)
       // Example:
       // await FirebaseFunctions.instance.httpsCallable('requestPasswordOtp').call({'email': email});
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('A new code was sent')),
-      );
+      if (context.mounted) {
+        await showAppSuccess(context, 'auth_otp_sent'.tr());
+      }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to resend: $e')),
-      );
+      if (context.mounted) {
+        await showAppError(context, 'auth_otp_resend_failed'.tr(),
+            technicalDetail: e);
+      }
     } finally {
       isLoading = false; notifyListeners();
     }

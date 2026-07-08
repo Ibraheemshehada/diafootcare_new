@@ -2,6 +2,7 @@ import 'package:easy_localization/easy_localization.dart' hide TextDirection;
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
+import '../../../core/theme/app_colors.dart';
 import '../../../data/models/self_care_task.dart';
 
 /// Home dashboard summary for the Self-Care feature: today's completion +
@@ -28,7 +29,8 @@ class SelfCareTipCard extends StatelessWidget {
     final isRtl = Directionality.of(context) == TextDirection.rtl;
     final primary = t.colorScheme.primary;
     final isDo = tip.isDo;
-    final accent = isDo ? Colors.green.shade600 : Colors.red.shade600;
+    final ac = AppColors.of(context);
+    final accent = isDo ? ac.success : ac.danger;
     final badgeIcon = isDo ? Icons.check_circle : Icons.cancel;
     final badgeLabel =
         isDo ? 'selfcare_do_title'.tr() : 'selfcare_dont_title'.tr();
@@ -75,14 +77,14 @@ class SelfCareTipCard extends StatelessWidget {
                         padding: EdgeInsets.symmetric(
                             horizontal: 8.w, vertical: 3.h),
                         decoration: BoxDecoration(
-                          color: Colors.deepOrange.withValues(alpha: .12),
+                          color: ac.streak.withValues(alpha: .12),
                           borderRadius: BorderRadius.circular(20.r),
                         ),
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             Icon(Icons.local_fire_department,
-                                size: 14.sp, color: Colors.deepOrange),
+                                size: 14.sp, color: ac.streak),
                             SizedBox(width: 3.w),
                             Text(
                               'selfcare_streak'
@@ -90,7 +92,7 @@ class SelfCareTipCard extends StatelessWidget {
                               style: TextStyle(
                                   fontSize: 12.sp,
                                   fontWeight: FontWeight.w700,
-                                  color: Colors.deepOrange),
+                                  color: ac.streak),
                             ),
                           ],
                         ),
@@ -113,7 +115,7 @@ class SelfCareTipCard extends StatelessWidget {
                           minHeight: 7.h,
                           backgroundColor: t.dividerColor.withValues(alpha: .3),
                           valueColor: AlwaysStoppedAnimation(
-                              progress >= 1 ? Colors.green.shade600 : primary),
+                              progress >= 1 ? ac.success : primary),
                         ),
                       ),
                     ),

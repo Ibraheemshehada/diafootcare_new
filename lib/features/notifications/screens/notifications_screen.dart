@@ -1,6 +1,7 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import '../../../core/widgets/app_dialogs.dart';
 import '../../../data/models/reminder.dart';
 import '../../../data/repositories/reminders_repo.dart';
 
@@ -33,9 +34,8 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     } catch (e) {
       setState(() => _isLoading = false);
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error loading notifications: $e')),
-        );
+        await showAppError(context, 'notifications_load_failed'.tr(),
+            technicalDetail: e);
       }
     }
   }

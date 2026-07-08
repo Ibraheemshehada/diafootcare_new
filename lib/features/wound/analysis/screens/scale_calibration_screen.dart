@@ -152,55 +152,60 @@ class _ScaleCalibrationScreenState extends State<ScaleCalibrationScreen> {
           ),
         ],
       ),
-      body: _loading
-          ? const Center(child: CircularProgressIndicator())
-          : _displayBytes == null
+      body:
+          _loading
+              ? const Center(child: CircularProgressIndicator())
+              : _displayBytes == null
               ? Center(child: Text('could_not_load_image'.tr()))
               : Column(
-                  children: [
-                    Padding(
-                      padding: EdgeInsets.fromLTRB(16.w, 10.h, 16.w, 4.h),
-                      child: Text(
-                        'calib_instruction'.tr(),
-                        style: t.textTheme.bodyMedium?.copyWith(fontSize: 13.sp),
-                      ),
+                children: [
+                  Padding(
+                    padding: EdgeInsets.fromLTRB(16.w, 10.h, 16.w, 4.h),
+                    child: Text(
+                      'calib_instruction'.tr(),
+                      style: t.textTheme.bodyMedium?.copyWith(fontSize: 13.sp),
                     ),
-                    Expanded(
-                      child: Padding(
-                        padding: EdgeInsets.all(12.w),
-                        child: LayoutBuilder(
-                          builder: (context, constraints) {
-                            _box = Size(
-                                constraints.maxWidth, constraints.maxHeight);
-                            return GestureDetector(
-                              onTapDown: _onTapDown,
-                              child: Stack(
-                                fit: StackFit.expand,
-                                children: [
-                                  Image.memory(_displayBytes!,
-                                      fit: BoxFit.contain),
-                                  CustomPaint(
-                                    painter: _MarkerPainter(
-                                      List.of(_points),
-                                      t.colorScheme.primary,
-                                    ),
+                  ),
+                  Expanded(
+                    child: Padding(
+                      padding: EdgeInsets.all(12.w),
+                      child: LayoutBuilder(
+                        builder: (context, constraints) {
+                          _box = Size(
+                            constraints.maxWidth,
+                            constraints.maxHeight,
+                          );
+                          return GestureDetector(
+                            onTapDown: _onTapDown,
+                            child: Stack(
+                              fit: StackFit.expand,
+                              children: [
+                                Image.memory(
+                                  _displayBytes!,
+                                  fit: BoxFit.contain,
+                                ),
+                                CustomPaint(
+                                  painter: _MarkerPainter(
+                                    List.of(_points),
+                                    t.colorScheme.primary,
                                   ),
-                                ],
-                              ),
-                            );
-                          },
-                        ),
+                                ),
+                              ],
+                            ),
+                          );
+                        },
                       ),
                     ),
-                    _controls(t),
-                  ],
-                ),
+                  ),
+                  _controls(t),
+                ],
+              ),
     );
   }
 
   Widget _controls(ThemeData t) {
-    final ready = _points.length == 2 &&
-        (_referenceCm != null && _referenceCm! > 0);
+    final ready =
+        _points.length == 2 && (_referenceCm != null && _referenceCm! > 0);
     return SafeArea(
       top: false,
       child: Padding(
@@ -209,8 +214,10 @@ class _ScaleCalibrationScreenState extends State<ScaleCalibrationScreen> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('reference_length'.tr(),
-                style: t.textTheme.labelLarge?.copyWith(fontSize: 13.sp)),
+            Text(
+              'reference_length'.tr(),
+              style: t.textTheme.labelLarge?.copyWith(fontSize: 13.sp),
+            ),
             SizedBox(height: 6.h),
             Wrap(
               spacing: 8.w,
@@ -230,8 +237,9 @@ class _ScaleCalibrationScreenState extends State<ScaleCalibrationScreen> {
               SizedBox(height: 8.h),
               TextField(
                 controller: _customCtrl,
-                keyboardType:
-                    const TextInputType.numberWithOptions(decimal: true),
+                keyboardType: const TextInputType.numberWithOptions(
+                  decimal: true,
+                ),
                 inputFormatters: [
                   FilteringTextInputFormatter.allow(RegExp(r'[0-9.]')),
                 ],
@@ -244,9 +252,14 @@ class _ScaleCalibrationScreenState extends State<ScaleCalibrationScreen> {
               ),
             ],
             SizedBox(height: 10.h),
-            SizedBox(
-              width: double.infinity,
-              height: 48.h,
+            ConstrainedBox(
+              // minHeight (not an exact height): keeps the >=48dp touch
+              // target while letting the button grow when the user
+              // enlarges the system font. An exact height clipped labels.
+              constraints: BoxConstraints(
+                minWidth: double.infinity,
+                minHeight: 48.h,
+              ),
               child: FilledButton(
                 onPressed: ready ? _confirm : null,
                 child: Text(
@@ -272,10 +285,11 @@ class _MarkerPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final dot = Paint()..color = color;
-    final line = Paint()
-      ..color = color
-      ..strokeWidth = 3
-      ..style = PaintingStyle.stroke;
+    final line =
+        Paint()
+          ..color = color
+          ..strokeWidth = 3
+          ..style = PaintingStyle.stroke;
     if (points.length == 2) canvas.drawLine(points[0], points[1], line);
     for (final p in points) {
       canvas.drawCircle(p, 7, Paint()..color = Colors.white);
