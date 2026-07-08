@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:provider/provider.dart';
 
+import '../../../core/widgets/app_dialogs.dart';
 import '../../../data/models/medication.dart';
 import '../viewmodel/medication_viewmodel.dart';
 
@@ -263,9 +264,7 @@ class _AddMedicationDialogState extends State<_AddMedicationDialog> {
   void _submit() {
     final name = _nameCtrl.text.trim();
     if (name.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('medication_name_required'.tr())),
-      );
+      showAppError(context, 'medication_name_required'.tr());
       return;
     }
     FocusScope.of(context).unfocus();

@@ -2,6 +2,7 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
+import '../../../core/widgets/speak_button.dart';
 import '../../../data/models/education_article.dart';
 
 class EducationArticleScreen extends StatelessWidget {
@@ -13,12 +14,22 @@ class EducationArticleScreen extends StatelessWidget {
     final t = Theme.of(context);
     final primary = t.colorScheme.primary;
 
+    // Full article as one utterance for the read-aloud assistant.
+    final spoken = [
+      article.titleKey.tr(),
+      article.introKey.tr(),
+      ...article.bulletKeys.map((k) => k.tr()),
+    ].join('. ');
+
     return Scaffold(
       appBar: AppBar(
         title: Text(article.titleKey.tr(),
             style: TextStyle(fontSize: 17.sp),
             maxLines: 1,
             overflow: TextOverflow.ellipsis),
+        actions: [
+          SpeakButton(text: spoken, analyticsName: 'education_article'),
+        ],
       ),
       body: ListView(
         padding: EdgeInsets.fromLTRB(16.w, 16.h, 16.w, 24.h),
@@ -80,7 +91,7 @@ class EducationArticleScreen extends StatelessWidget {
                 SizedBox(width: 10.w),
                 Expanded(
                   child: Text('edu_disclaimer'.tr(),
-                      style: TextStyle(fontSize: 11.sp, color: t.hintColor)),
+                      style: TextStyle(fontSize: 12.sp, color: t.hintColor)),
                 ),
               ],
             ),

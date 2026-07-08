@@ -88,7 +88,7 @@ class SelfCareTipCard extends StatelessWidget {
                               'selfcare_streak'
                                   .tr(namedArgs: {'days': streak.toString()}),
                               style: TextStyle(
-                                  fontSize: 10.sp,
+                                  fontSize: 12.sp,
                                   fontWeight: FontWeight.w700,
                                   color: Colors.deepOrange),
                             ),
@@ -146,7 +146,7 @@ class SelfCareTipCard extends StatelessWidget {
                           SizedBox(width: 3.w),
                           Text(badgeLabel,
                               style: TextStyle(
-                                  fontSize: 10.sp,
+                                  fontSize: 12.sp,
                                   fontWeight: FontWeight.w700,
                                   color: accent)),
                         ],

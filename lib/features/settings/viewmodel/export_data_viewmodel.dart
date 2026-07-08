@@ -21,6 +21,7 @@ import '../../../data/models/appointment.dart';
 import '../../../data/repositories/wellbeing_repository.dart';
 import '../../../data/repositories/analytics_repository.dart';
 import '../../../core/services/analytics_service.dart';
+import '../../../core/widgets/app_dialogs.dart';
 import 'package:intl/intl.dart' as intl;
 
 enum ExportFormat { pdf, csv, xlsx }
@@ -122,12 +123,7 @@ class ExportDataViewModel extends ChangeNotifier {
         }
 
         if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('export_completed'.tr()),
-              backgroundColor: Colors.green,
-            ),
-          );
+          await showAppSuccess(context, 'export_completed'.tr());
         }
       } else {
         throw Exception('Failed to create export file');
@@ -135,9 +131,7 @@ class ExportDataViewModel extends ChangeNotifier {
     } catch (e) {
       debugPrint('Export error: $e');
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('export_failed'.tr() + ': $e')),
-        );
+        await showAppError(context, 'export_failed'.tr(), technicalDetail: e);
       }
     } finally {
       isLoading = false;
@@ -441,6 +435,14 @@ class ExportDataViewModel extends ChangeNotifier {
       buffer.writeln('Active days,${s.activeDays}');
       buffer.writeln('Current streak (days),${s.currentStreak}');
       buffer.writeln('App opens,${s.appOpens}');
+      // Usability-study metrics.
+      buffer.writeln('Tasks started,${s.taskStarts}');
+      buffer.writeln('Tasks completed,${s.taskCompletes}');
+      final rate = s.taskCompletionRate;
+      buffer.writeln('Task completion rate,'
+          '${rate == null ? 'N/A' : '${(rate * 100).toStringAsFixed(1)}%'}');
+      buffer.writeln('Errors logged,${s.errorCount}');
+      buffer.writeln('Help/tutorial opens,${s.helpOpens}');
       buffer.writeln('');
       buffer.writeln('Feature,Opens');
       if (s.features.isEmpty) {
@@ -450,6 +452,20 @@ class ExportDataViewModel extends ChangeNotifier {
           buffer.writeln([
             '"${analyticsFeatureLabel(f.route).replaceAll('"', '""')}"',
             f.count.toString(),
+          ].join(','));
+        }
+      }
+      buffer.writeln('');
+      buffer.writeln('Screen (navigation log),Visits,Total time (s),Avg time-on-task (s)');
+      if (s.screenTimes.isEmpty) {
+        buffer.writeln('(No time-on-task recorded)');
+      } else {
+        for (final st in s.screenTimes) {
+          buffer.writeln([
+            '"${st.route.replaceAll('"', '""')}"',
+            st.opens.toString(),
+            (st.totalMs / 1000).toStringAsFixed(1),
+            (st.avgMs / 1000).toStringAsFixed(1),
           ].join(','));
         }
       }
@@ -958,6 +974,7 @@ class ExportDataViewModel extends ChangeNotifier {
       final s = await AnalyticsRepository().getSummary();
       String fmt(DateTime? d) =>
           d == null ? 'N/A' : intl.DateFormat('yyyy-MM-dd').format(d);
+      final rate = s.taskCompletionRate;
       widgets.add(
         pw.TableHelper.fromTextArray(
           headers: ['Metric', 'Value'],
@@ -967,6 +984,14 @@ class ExportDataViewModel extends ChangeNotifier {
             ['Active days', s.activeDays.toString()],
             ['Current streak (days)', s.currentStreak.toString()],
             ['App opens', s.appOpens.toString()],
+            ['Tasks started', s.taskStarts.toString()],
+            ['Tasks completed', s.taskCompletes.toString()],
+            [
+              'Task completion rate',
+              rate == null ? 'N/A' : '${(rate * 100).toStringAsFixed(1)}%'
+            ],
+            ['Errors logged', s.errorCount.toString()],
+            ['Help/tutorial opens', s.helpOpens.toString()],
           ],
         ),
       );
@@ -978,6 +1003,22 @@ class ExportDataViewModel extends ChangeNotifier {
             data: s.features
                 .map((f) =>
                     [analyticsFeatureLabel(f.route), f.count.toString()])
+                .toList(),
+          ),
+        );
+      }
+      if (s.screenTimes.isNotEmpty) {
+        widgets.add(pw.SizedBox(height: 10));
+        widgets.add(
+          pw.TableHelper.fromTextArray(
+            headers: ['Screen', 'Visits', 'Total (s)', 'Avg time-on-task (s)'],
+            data: s.screenTimes
+                .map((st) => [
+                      st.route,
+                      st.opens.toString(),
+                      (st.totalMs / 1000).toStringAsFixed(1),
+                      (st.avgMs / 1000).toStringAsFixed(1),
+                    ])
                 .toList(),
           ),
         );

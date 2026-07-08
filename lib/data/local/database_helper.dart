@@ -18,7 +18,7 @@ class DatabaseHelper {
     final path = join(await getDatabasesPath(), 'diafoot.db');
     return openDatabase(
       path,
-      version: 11, // ⬅️ bumped to 11 to add sus_responses (System Usability Scale)
+      version: 12, // ⬅️ bumped to 12: analytics_events.value (durations / task metrics)
       onCreate: (db, version) async {
         await db.execute('''
           CREATE TABLE wounds (
@@ -153,6 +153,16 @@ class DatabaseHelper {
         if (oldVersion < 11) {
           await _createSusTable(db);
         }
+        if (oldVersion < 12) {
+          // `value` carries a numeric payload: screen dwell time in ms for
+          // screen_close events, and is null for plain counter events.
+          try {
+            await db.execute(
+                'ALTER TABLE analytics_events ADD COLUMN value INTEGER');
+          } catch (e) {
+            debugPrint('Note: analytics_events.value may already exist: $e');
+          }
+        }
       },
       onOpen: (db) async {
         // Extra safety: ensure table exists even if onCreate/onUpgrade didn't run
@@ -223,10 +233,11 @@ class DatabaseHelper {
   Future<void> _createAnalyticsTable(Database db) async {
     await db.execute('''
       CREATE TABLE IF NOT EXISTS analytics_events (
-        id   INTEGER PRIMARY KEY AUTOINCREMENT,
-        type TEXT NOT NULL,
-        name TEXT,
-        ts   INTEGER NOT NULL
+        id    INTEGER PRIMARY KEY AUTOINCREMENT,
+        type  TEXT NOT NULL,
+        name  TEXT,
+        ts    INTEGER NOT NULL,
+        value INTEGER
       )
     ''');
     await db.execute(

@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'package:sqflite/sqflite.dart';
 
 import '../local/database_helper.dart';
 import '../models/analytics_summary.dart';
@@ -6,19 +7,28 @@ import '../models/analytics_summary.dart';
 class AnalyticsRepository {
   final _helper = DatabaseHelper();
 
-  /// Record one event. [type] is e.g. 'app_open' | 'feature_open'; [name] is the
-  /// feature route for feature_open. Best-effort: never throws to the caller.
-  Future<void> log(String type, [String? name]) async {
+  /// Record one event. [type] is e.g. 'app_open' | 'feature_open' |
+  /// 'screen_open' | 'screen_close' | 'error' | 'help_open' | 'task_start' |
+  /// 'task_complete'. [value] carries a numeric payload (screen dwell time in
+  /// ms for screen_close). Best-effort: never throws to the caller.
+  Future<void> log(String type, [String? name, int? value]) async {
     try {
       final db = await _helper.database;
       await db.insert('analytics_events', {
         'type': type,
         'name': name,
         'ts': DateTime.now().millisecondsSinceEpoch,
+        'value': value,
       });
     } catch (e) {
       debugPrint('⚠️ analytics log failed: $e');
     }
+  }
+
+  Future<int> _countOfType(Database db, String type) async {
+    final rows = await db.rawQuery(
+        'SELECT COUNT(*) c FROM analytics_events WHERE type = ?', [type]);
+    return (rows.first['c'] as int?) ?? 0;
   }
 
   Future<AnalyticsSummary> getSummary() async {
@@ -47,6 +57,19 @@ class AnalyticsRepository {
           .map((r) => FeatureCount(r['name'] as String, (r['c'] as int?) ?? 0))
           .toList();
 
+      // Time-on-task: dwell time is recorded on screen_close as `value` (ms).
+      final timeRows = await db.rawQuery(
+          "SELECT name, COUNT(*) opens, SUM(value) total FROM analytics_events "
+          "WHERE type = 'screen_close' AND name IS NOT NULL AND value IS NOT NULL "
+          "GROUP BY name ORDER BY total DESC");
+      final screenTimes = timeRows
+          .map((r) => ScreenTime(
+                r['name'] as String,
+                (r['opens'] as int?) ?? 0,
+                ((r['total'] as num?) ?? 0).toInt(),
+              ))
+          .toList();
+
       return AnalyticsSummary(
         appOpens: appOpens,
         activeDays: days.length,
@@ -54,6 +77,11 @@ class AnalyticsRepository {
         firstUse: mn == null ? null : DateTime.fromMillisecondsSinceEpoch(mn),
         lastActive: mx == null ? null : DateTime.fromMillisecondsSinceEpoch(mx),
         features: features,
+        errorCount: await _countOfType(db, 'error'),
+        helpOpens: await _countOfType(db, 'help_open'),
+        taskStarts: await _countOfType(db, 'task_start'),
+        taskCompletes: await _countOfType(db, 'task_complete'),
+        screenTimes: screenTimes,
       );
     } catch (e) {
       debugPrint('⚠️ analytics summary failed: $e');

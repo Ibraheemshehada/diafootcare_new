@@ -159,7 +159,7 @@ class TrendChartCard extends StatelessWidget {
                           (value % interval == 0)
                               ? (value >= 0 ? '+${value.toStringAsFixed(0)}' : value.toStringAsFixed(0))
                               : '',
-                          style: TextStyle(fontSize: 10.sp, color: t.colorScheme.onSurface.withOpacity(.6)),
+                          style: TextStyle(fontSize: 12.sp, color: t.colorScheme.onSurface.withOpacity(.6)),
                         ),
                       ),
                     ),
@@ -174,7 +174,7 @@ class TrendChartCard extends StatelessWidget {
                             padding: EdgeInsets.only(top: 6.h),
                             child: Text(
                               xLabels[idx],
-                              style: TextStyle(fontSize: 10.sp, color: t.colorScheme.onSurface.withOpacity(.7)),
+                              style: TextStyle(fontSize: 12.sp, color: t.colorScheme.onSurface.withOpacity(.7)),
                             ),
                           );
                         },
@@ -194,7 +194,7 @@ class TrendChartCard extends StatelessWidget {
                           (it.y >= 0 ? '+$val' : val),
                           TextStyle(
                             color: t.colorScheme.onSurface,
-                            fontSize: 11.sp,
+                            fontSize: 12.sp,
                             fontWeight: FontWeight.w600,
                           ),
                         );

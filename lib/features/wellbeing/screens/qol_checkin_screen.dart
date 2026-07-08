@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:provider/provider.dart';
 
+import '../../../core/services/analytics_service.dart';
+import '../../../core/widgets/app_dialogs.dart';
 import '../viewmodel/wellbeing_viewmodel.dart';
 import 'wellbeing_screen.dart' show qolScoreColor;
 
@@ -18,19 +20,29 @@ class _QolCheckInScreenState extends State<QolCheckInScreen> {
   double _mobility = 0;
   double _emotional = 0;
 
+  @override
+  void initState() {
+    super.initState();
+    AnalyticsService.I.logTaskStart('qol_checkin');
+  }
+
   Future<void> _save() async {
-    await context.read<WellbeingViewModel>().addQol(
-          pain: _pain.round(),
-          mobility: _mobility.round(),
-          emotional: _emotional.round(),
-        );
+    try {
+      await context.read<WellbeingViewModel>().addQol(
+            pain: _pain.round(),
+            mobility: _mobility.round(),
+            emotional: _emotional.round(),
+          );
+    } catch (e) {
+      if (!mounted) return;
+      await showAppError(context, 'dialog_save_failed'.tr(),
+          technicalDetail: e);
+      return;
+    }
+    AnalyticsService.I.logTaskComplete('qol_checkin');
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('wellbeing_saved'.tr()),
-        backgroundColor: Colors.green,
-      ),
-    );
+    await showAppSuccess(context, 'wellbeing_saved'.tr());
+    if (!mounted) return;
     Navigator.pop(context);
   }
 
@@ -123,7 +135,7 @@ class _ScaleSlider extends StatelessWidget {
               ),
             ],
           ),
-          Text(hint, style: TextStyle(fontSize: 11.sp, color: t.hintColor)),
+          Text(hint, style: TextStyle(fontSize: 12.sp, color: t.hintColor)),
           SliderTheme(
             data: SliderTheme.of(context).copyWith(
               activeTrackColor: color,

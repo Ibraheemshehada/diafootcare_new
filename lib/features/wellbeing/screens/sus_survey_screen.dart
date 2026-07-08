@@ -3,6 +3,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:provider/provider.dart';
 
+import '../../../core/services/analytics_service.dart';
+import '../../../core/widgets/app_dialogs.dart';
+import '../../../core/widgets/speak_button.dart';
 import '../../../data/models/sus_entry.dart';
 import '../viewmodel/wellbeing_viewmodel.dart';
 
@@ -25,23 +28,37 @@ class _SusSurveyScreenState extends State<SusSurveyScreen> {
   bool get _complete => !_answers.contains(0);
   int get _answeredCount => _answers.where((a) => a > 0).length;
 
+  @override
+  void initState() {
+    super.initState();
+    AnalyticsService.I.logTaskStart('sus_survey');
+  }
+
   Future<void> _submit() async {
     if (!_consented) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('sus_consent_required'.tr())),
-      );
+      await showAppError(context, 'sus_consent_required'.tr());
       return;
     }
     if (!_complete) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('sus_incomplete'.tr(
-              namedArgs: {'answered': '$_answeredCount', 'total': '$susItemCount'})),
-        ),
+      await showAppError(
+        context,
+        'sus_incomplete'.tr(namedArgs: {
+          'answered': '$_answeredCount',
+          'total': '$susItemCount',
+        }),
       );
       return;
     }
-    final score = await context.read<WellbeingViewModel>().addSus(_answers);
+    double score;
+    try {
+      score = await context.read<WellbeingViewModel>().addSus(_answers);
+    } catch (e) {
+      if (!mounted) return;
+      await showAppError(context, 'dialog_save_failed'.tr(),
+          technicalDetail: e);
+      return;
+    }
+    AnalyticsService.I.logTaskComplete('sus_survey');
     if (!mounted) return;
     await showDialog<void>(
       context: context,
@@ -100,7 +117,7 @@ class _SusSurveyScreenState extends State<SusSurveyScreen> {
           // Attribution required when reproducing the SUS instrument.
           Text('sus_copyright'.tr(),
               textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 11.sp, color: t.hintColor)),
+              style: TextStyle(fontSize: 12.sp, color: t.hintColor)),
         ],
       ),
     );
@@ -136,6 +153,12 @@ class _DeclarationCard extends StatelessWidget {
                 child: Text('sus_declaration_title'.tr(),
                     style: TextStyle(
                         fontSize: 14.sp, fontWeight: FontWeight.w800)),
+              ),
+              // Read the declaration aloud — consent text must be understood.
+              SpeakButton(
+                text: '${'sus_declaration_title'.tr()}. '
+                    '${'sus_declaration_body'.tr()}',
+                analyticsName: 'sus_declaration',
               ),
             ],
           ),
@@ -326,7 +349,7 @@ class _SusResultDialog extends StatelessWidget {
           SizedBox(height: 12.h),
           Text('sus_benchmark_note'.tr(),
               textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 11.sp, color: t.hintColor)),
+              style: TextStyle(fontSize: 12.sp, color: t.hintColor)),
         ],
       ),
       actions: [

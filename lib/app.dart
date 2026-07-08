@@ -6,6 +6,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:provider/provider.dart';
 
+import 'core/services/analytics_service.dart';
 import 'core/services/auth_services.dart';
 import 'core/theme/dark_theme.dart';
 import 'core/theme/light_theme.dart';
@@ -64,6 +65,9 @@ class DiaFootApp extends StatelessWidget {
                 localizationsDelegates: inner.localizationDelegates,
                 supportedLocales: inner.supportedLocales,
                 locale: inner.locale,
+
+                // Navigation logs + time-on-task for the usability study.
+                navigatorObservers: [AnalyticsRouteObserver()],
 
                 initialRoute: AppRoutes.splash,
                 routes: AppRoutes.routes,

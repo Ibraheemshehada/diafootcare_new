@@ -5,6 +5,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:intl/intl.dart' as intl;
 import 'package:provider/provider.dart';
 
+import '../../../core/widgets/app_dialogs.dart';
 import '../../../data/models/glucose_reading.dart';
 import '../viewmodel/glucose_viewmodel.dart';
 
@@ -146,7 +147,7 @@ class _GlucoseSummaryCard extends StatelessWidget {
                     child: Text(
                       glucoseStatusLabel(latest.status),
                       style: TextStyle(
-                        fontSize: 11.sp,
+                        fontSize: 12.sp,
                         fontWeight: FontWeight.w700,
                         color: glucoseStatusColor(latest.status),
                       ),
@@ -167,7 +168,7 @@ class _GlucoseSummaryCard extends StatelessWidget {
                     style: TextStyle(
                         fontSize: 18.sp, fontWeight: FontWeight.w700)),
                 Text('glucose_avg7'.tr(),
-                    style: TextStyle(fontSize: 10.sp, color: t.hintColor)),
+                    style: TextStyle(fontSize: 12.sp, color: t.hintColor)),
               ],
             ),
         ],
@@ -245,7 +246,7 @@ class GlucoseTile extends StatelessWidget {
             ),
             Text(glucoseStatusLabel(r.status),
                 style: TextStyle(
-                    fontSize: 11.sp,
+                    fontSize: 12.sp,
                     fontWeight: FontWeight.w600,
                     color: glucoseStatusColor(r.status))),
           ],
@@ -282,9 +283,7 @@ class _AddGlucoseDialogState extends State<_AddGlucoseDialog> {
   void _submit() {
     final v = double.tryParse(_ctrl.text.trim());
     if (v == null || v <= 0) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('glucose_invalid'.tr())),
-      );
+      showAppError(context, 'glucose_invalid'.tr());
       return;
     }
     // Drop focus before the route pops so the TextField's focus node isn't

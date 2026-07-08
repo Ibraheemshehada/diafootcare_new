@@ -63,7 +63,7 @@ class ForgetPasswordScreen extends StatelessWidget {
                     SizedBox(height: 12.h),
                     Text(
                       tr('reset_warning'),
-                      style: TextStyle(fontSize: 10.sp, color: Colors.grey),
+                      style: TextStyle(fontSize: 12.sp, color: Colors.grey),
                     ),
                     SizedBox(height: 40.h),
                   ],

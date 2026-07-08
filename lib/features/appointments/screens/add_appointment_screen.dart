@@ -4,6 +4,8 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:intl/intl.dart' as intl;
 import 'package:provider/provider.dart';
 
+import '../../../core/services/analytics_service.dart';
+import '../../../core/widgets/app_dialogs.dart';
 import '../../../data/models/appointment.dart';
 import '../viewmodel/appointments_viewmodel.dart';
 
@@ -26,6 +28,7 @@ class _AddAppointmentScreenState extends State<AddAppointmentScreen> {
   @override
   void initState() {
     super.initState();
+    AnalyticsService.I.logTaskStart('add_appointment');
     // Default to the top of the next hour, keeping a comfortable buffer so a
     // just-created appointment is never already in the past.
     final base = DateTime.now();
@@ -69,26 +72,28 @@ class _AddAppointmentScreenState extends State<AddAppointmentScreen> {
   Future<void> _save() async {
     final title = _titleCtrl.text.trim();
     if (title.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('appt_title_required'.tr())),
-      );
+      await showAppError(context, 'appt_title_required'.tr());
       return;
     }
     FocusScope.of(context).unfocus();
-    await context.read<AppointmentsViewModel>().add(
-          title: title,
-          dateTime: _combined,
-          location: _locationCtrl.text.trim(),
-          notes: _notesCtrl.text.trim(),
-          reminderLead: _reminderLead,
-        );
+    try {
+      await context.read<AppointmentsViewModel>().add(
+            title: title,
+            dateTime: _combined,
+            location: _locationCtrl.text.trim(),
+            notes: _notesCtrl.text.trim(),
+            reminderLead: _reminderLead,
+          );
+    } catch (e) {
+      if (!mounted) return;
+      await showAppError(context, 'dialog_save_failed'.tr(),
+          technicalDetail: e);
+      return;
+    }
+    AnalyticsService.I.logTaskComplete('add_appointment');
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('appt_saved'.tr()),
-        backgroundColor: Colors.green,
-      ),
-    );
+    await showAppSuccess(context, 'appt_saved'.tr());
+    if (!mounted) return;
     Navigator.pop(context);
   }
 

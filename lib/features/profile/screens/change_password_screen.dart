@@ -48,6 +48,7 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
                   decoration: InputDecoration(
                     hintText: 'enter_old_password'.tr(),
                     suffixIcon: IconButton(
+                      tooltip: _oldObscure ? 'a11y_show_password'.tr() : 'a11y_hide_password'.tr(),
                       icon: Icon(_oldObscure ? Icons.visibility : Icons.visibility_off),
                       onPressed: () => setState(() => _oldObscure = !_oldObscure),
                     ),
@@ -62,6 +63,7 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
                   validator: _min6,
                   decoration: InputDecoration(
                     suffixIcon: IconButton(
+                      tooltip: _newObscure ? 'a11y_show_password'.tr() : 'a11y_hide_password'.tr(),
                       icon: Icon(_newObscure ? Icons.visibility : Icons.visibility_off),
                       onPressed: () => setState(() => _newObscure = !_newObscure),
                     ),
@@ -76,6 +78,7 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
                   validator: (v) => v != _new.text ? 'doesnt_match'.tr() : null,
                   decoration: InputDecoration(
                     suffixIcon: IconButton(
+                      tooltip: _confirmObscure ? 'a11y_show_password'.tr() : 'a11y_hide_password'.tr(),
                       icon: Icon(_confirmObscure ? Icons.visibility : Icons.visibility_off),
                       onPressed: () => setState(() => _confirmObscure = !_confirmObscure),
                     ),

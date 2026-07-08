@@ -164,7 +164,7 @@ class _TipCard extends StatelessWidget {
                     SizedBox(width: 4.w),
                     Text(badgeLabel,
                         style: TextStyle(
-                            fontSize: 11.sp,
+                            fontSize: 12.sp,
                             fontWeight: FontWeight.w700,
                             color: color)),
                   ],
@@ -334,7 +334,7 @@ class _SummaryCard extends StatelessWidget {
                           'selfcare_streak'.tr(
                               namedArgs: {'days': vm.streak.toString()}),
                           style: TextStyle(
-                            fontSize: 11.sp,
+                            fontSize: 12.sp,
                             fontWeight: FontWeight.w700,
                             color: Colors.deepOrange,
                           ),

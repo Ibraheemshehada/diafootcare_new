@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:provider/provider.dart';
 
+import '../../../core/services/analytics_service.dart';
+import '../../../core/widgets/app_dialogs.dart';
 import '../viewmodel/wellbeing_viewmodel.dart';
 
 class SatisfactionSurveyScreen extends StatefulWidget {
@@ -20,25 +22,33 @@ class _SatisfactionSurveyScreenState extends State<SatisfactionSurveyScreen> {
 
   bool get _complete => _ease > 0 && _usefulness > 0 && _willingness > 0;
 
+  @override
+  void initState() {
+    super.initState();
+    AnalyticsService.I.logTaskStart('satisfaction_survey');
+  }
+
   Future<void> _save() async {
     if (!_complete) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('satisfaction_incomplete'.tr())),
-      );
+      await showAppError(context, 'satisfaction_incomplete'.tr());
       return;
     }
-    await context.read<WellbeingViewModel>().addSatisfaction(
-          ease: _ease,
-          usefulness: _usefulness,
-          willingness: _willingness,
-        );
+    try {
+      await context.read<WellbeingViewModel>().addSatisfaction(
+            ease: _ease,
+            usefulness: _usefulness,
+            willingness: _willingness,
+          );
+    } catch (e) {
+      if (!mounted) return;
+      await showAppError(context, 'dialog_save_failed'.tr(),
+          technicalDetail: e);
+      return;
+    }
+    AnalyticsService.I.logTaskComplete('satisfaction_survey');
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('satisfaction_saved'.tr()),
-        backgroundColor: Colors.green,
-      ),
-    );
+    await showAppSuccess(context, 'satisfaction_saved'.tr());
+    if (!mounted) return;
     Navigator.pop(context);
   }
 
@@ -142,9 +152,9 @@ class _LikertItem extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text('satisfaction_disagree'.tr(),
-                  style: TextStyle(fontSize: 10.sp, color: t.hintColor)),
+                  style: TextStyle(fontSize: 12.sp, color: t.hintColor)),
               Text('satisfaction_agree'.tr(),
-                  style: TextStyle(fontSize: 10.sp, color: t.hintColor)),
+                  style: TextStyle(fontSize: 12.sp, color: t.hintColor)),
             ],
           ),
         ],

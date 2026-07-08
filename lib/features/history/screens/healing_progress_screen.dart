@@ -285,7 +285,7 @@
 //                 interval: 400,
 //                 getTitlesWidget: (value, meta) => Text(
 //                   value.toInt().toString(),
-//                   style: TextStyle(fontSize: 10.sp, color: t.colorScheme.onSurface.withOpacity(.6)),
+//                   style: TextStyle(fontSize: 12.sp, color: t.colorScheme.onSurface.withOpacity(.6)),
 //                 ),
 //               ),
 //             ),
@@ -298,7 +298,7 @@
 //                   final idx = value.toInt().clamp(0, labels.length - 1);
 //                   return Padding(
 //                     padding: EdgeInsets.only(top: 6.h),
-//                     child: Text(labels[idx], style: TextStyle(fontSize: 10.sp, color: t.colorScheme.onSurface.withOpacity(.7))),
+//                     child: Text(labels[idx], style: TextStyle(fontSize: 12.sp, color: t.colorScheme.onSurface.withOpacity(.7))),
 //                   );
 //                 },
 //               ),
@@ -312,7 +312,7 @@
 //                 final series = it.barIndex == 0 ? 'Treatment' : 'Control';
 //                 return LineTooltipItem(
 //                   '$series\n${it.y.toStringAsFixed(0)} mm²',
-//                   TextStyle(color: t.colorScheme.onSurface, fontSize: 11.sp, fontWeight: FontWeight.w600),
+//                   TextStyle(color: t.colorScheme.onSurface, fontSize: 12.sp, fontWeight: FontWeight.w600),
 //                 );
 //               }).toList(),
 //             ),
@@ -852,7 +852,7 @@ class _ProgressLineChart extends StatelessWidget {
                     (value, meta) => Text(
                       value.toInt().toString(),
                       style: TextStyle(
-                        fontSize: 10.sp,
+                        fontSize: 12.sp,
                         color: t.colorScheme.onSurface.withOpacity(.6),
                       ),
                     ),
@@ -868,7 +868,7 @@ class _ProgressLineChart extends StatelessWidget {
             //         padding: EdgeInsets.only(top: 6.h),
             //         child: Text(
             //           monthLabels[idx],
-            //           style: TextStyle(fontSize: 10.sp, color: t.colorScheme.onSurface.withOpacity(.7)),
+            //           style: TextStyle(fontSize: 12.sp, color: t.colorScheme.onSurface.withOpacity(.7)),
             //         ),
             //       );
             //     },
@@ -889,7 +889,7 @@ class _ProgressLineChart extends StatelessWidget {
                       child: Text(
                         monthName,
                         style: TextStyle(
-                          fontSize: 10.sp,
+                          fontSize: 12.sp,
                           color: t.colorScheme.onSurface.withOpacity(.7),
                         ),
                       ),
@@ -917,7 +917,7 @@ class _ProgressLineChart extends StatelessWidget {
                               ),
                           TextStyle(
                             color: t.colorScheme.onSurface,
-                            fontSize: 11.sp,
+                            fontSize: 12.sp,
                             fontWeight: FontWeight.w600,
                           ),
                         );

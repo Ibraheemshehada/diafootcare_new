@@ -78,6 +78,7 @@ class SignUpForm extends StatelessWidget {
                   hintText: tr('password'),
                   errorText: vm.passwordError != null ? tr(vm.passwordError!) : null,
                   suffixIcon: IconButton(
+                    tooltip: vm.isPasswordVisible ? 'a11y_hide_password'.tr() : 'a11y_show_password'.tr(),
                     icon: Icon(vm.isPasswordVisible ? Icons.visibility_off : Icons.visibility),
                     onPressed: vm.togglePasswordVisibility,
                   ),
@@ -95,6 +96,7 @@ class SignUpForm extends StatelessWidget {
                   hintText: tr('confirm_password'),
                   errorText: vm.confirmPasswordError != null ? tr(vm.confirmPasswordError!) : null,
                   suffixIcon: IconButton(
+                    tooltip: vm.isPasswordVisible ? 'a11y_hide_password'.tr() : 'a11y_show_password'.tr(),
                     icon: Icon(vm.isPasswordVisible ? Icons.visibility_off : Icons.visibility),
                     onPressed: vm.togglePasswordVisibility,
                   ),

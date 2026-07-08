@@ -53,6 +53,7 @@ class HomeHeader extends StatelessWidget {
             ),
           ),
           IconButton(
+            tooltip: 'notifications'.tr(),
             onPressed: onNotifications,
             icon: const Icon(Icons.notifications_none_rounded),
           )

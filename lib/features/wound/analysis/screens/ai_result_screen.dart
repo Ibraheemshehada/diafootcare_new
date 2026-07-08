@@ -94,7 +94,7 @@ class _AiResultScreenState extends State<AiResultScreen> {
                         'device, so these values are simulated and do NOT '
                         'describe your photo.',
                         style: t.textTheme.bodySmall?.copyWith(
-                          fontSize: 11.5.sp,
+                          fontSize: 12.sp,
                           color: Colors.red[900],
                         ),
                       ),
@@ -124,7 +124,7 @@ class _AiResultScreenState extends State<AiResultScreen> {
                         'relative trend, or set a scale with a reference object '
                         'for true measurements.',
                         style: t.textTheme.bodySmall?.copyWith(
-                          fontSize: 11.5.sp,
+                          fontSize: 12.sp,
                           color: Colors.orange[900],
                         ),
                       ),
@@ -815,7 +815,7 @@ class _ProgressChart extends StatelessWidget {
                     (value, meta) => Text(
                       value.toInt().toString(),
                       style: TextStyle(
-                        fontSize: 10.sp,
+                        fontSize: 12.sp,
                         color: t.colorScheme.onSurface.withOpacity(.6),
                       ),
                     ),
@@ -836,7 +836,7 @@ class _ProgressChart extends StatelessWidget {
                       child: Text(
                         monthName,
                         style: TextStyle(
-                          fontSize: 10.sp,
+                          fontSize: 12.sp,
                           color: t.colorScheme.onSurface.withOpacity(.7),
                         ),
                       ),
@@ -850,7 +850,7 @@ class _ProgressChart extends StatelessWidget {
                       child: Text(
                         monthName,
                         style: TextStyle(
-                          fontSize: 10.sp,
+                          fontSize: 12.sp,
                           color: t.colorScheme.onSurface.withOpacity(.7),
                           fontWeight: FontWeight.w600,
                         ),
@@ -873,7 +873,7 @@ class _ProgressChart extends StatelessWidget {
                           '${'area_mm2'.tr(namedArgs: {'value': it.y.toStringAsFixed(0)})}\n${isCurrent ? 'current'.tr() : 'historical'.tr()}',
                           TextStyle(
                             color: t.colorScheme.onSurface,
-                            fontSize: 11.sp,
+                            fontSize: 12.sp,
                             fontWeight: FontWeight.w600,
                           ),
                         );

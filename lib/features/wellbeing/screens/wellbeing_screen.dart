@@ -37,7 +37,10 @@ class WellbeingScreen extends StatelessWidget {
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => Navigator.push(
           context,
-          MaterialPageRoute(builder: (_) => const QolCheckInScreen()),
+          MaterialPageRoute(
+            settings: const RouteSettings(name: '/wellbeing/qol-checkin'),
+            builder: (_) => const QolCheckInScreen(),
+          ),
         ),
         icon: const Icon(Icons.add),
         label: Text('wellbeing_new_checkin'.tr()),
@@ -116,7 +119,7 @@ class _LatestQolCard extends StatelessWidget {
                     const Spacer(),
                     Text(
                       intl.DateFormat.yMMMd(locale).format(latest!.dateTime),
-                      style: TextStyle(fontSize: 11.sp, color: t.hintColor),
+                      style: TextStyle(fontSize: 12.sp, color: t.hintColor),
                     ),
                   ],
                 ),
@@ -218,7 +221,7 @@ class _QolTrendChart extends StatelessWidget {
                   getTitlesWidget: (value, meta) => Text(
                     value.toStringAsFixed(0),
                     style: TextStyle(
-                        fontSize: 10.sp,
+                        fontSize: 12.sp,
                         color: t.colorScheme.onSurface.withValues(alpha: .6)),
                   ),
                 ),
@@ -329,7 +332,7 @@ class _MiniScore extends StatelessWidget {
                   fontSize: 13.sp, fontWeight: FontWeight.w800, color: color)),
         ),
         SizedBox(height: 3.h),
-        Text(label, style: TextStyle(fontSize: 9.sp, color: Colors.grey)),
+        Text(label, style: TextStyle(fontSize: 12.sp, color: Colors.grey)),
       ],
     );
   }
@@ -387,6 +390,7 @@ class _SatisfactionCard extends StatelessWidget {
               onPressed: () => Navigator.push(
                 context,
                 MaterialPageRoute(
+                    settings: const RouteSettings(name: '/wellbeing/satisfaction'),
                     builder: (_) => const SatisfactionSurveyScreen()),
               ),
               icon: const Icon(Icons.edit_outlined),
@@ -457,7 +461,10 @@ class _SusCard extends StatelessWidget {
             child: OutlinedButton.icon(
               onPressed: () => Navigator.push(
                 context,
-                MaterialPageRoute(builder: (_) => const SusSurveyScreen()),
+                MaterialPageRoute(
+                  settings: const RouteSettings(name: '/wellbeing/sus'),
+                  builder: (_) => const SusSurveyScreen(),
+                ),
               ),
               icon: const Icon(Icons.fact_check_outlined),
               label: Text(

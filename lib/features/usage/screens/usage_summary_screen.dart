@@ -104,6 +104,42 @@ class _UsageSummaryScreenState extends State<UsageSummaryScreen> {
                         .add_jm()
                         .format(s.lastActive!),
               ),
+              SizedBox(height: 12.h),
+              // ---- Usability-study metrics ----
+              _InfoRow(
+                icon: Icons.task_alt_outlined,
+                label: 'usage_task_rate'.tr(),
+                value: s.taskCompletionRate == null
+                    ? '—'
+                    : '${(s.taskCompletionRate! * 100).toStringAsFixed(0)}%'
+                        ' (${s.taskCompletes}/${s.taskStarts})',
+              ),
+              SizedBox(height: 8.h),
+              _InfoRow(
+                icon: Icons.help_outline,
+                label: 'usage_help_opens'.tr(),
+                value: '${s.helpOpens}',
+              ),
+              SizedBox(height: 8.h),
+              _InfoRow(
+                icon: Icons.bug_report_outlined,
+                label: 'usage_errors'.tr(),
+                value: '${s.errorCount}',
+              ),
+              if (s.screenTimes.isNotEmpty) ...[
+                SizedBox(height: 20.h),
+                Text('usage_time_on_task'.tr(),
+                    style: t.textTheme.titleMedium
+                        ?.copyWith(fontWeight: FontWeight.w700)),
+                SizedBox(height: 10.h),
+                ...s.screenTimes.take(6).map((st) => _InfoRow(
+                      icon: Icons.timer_outlined,
+                      label: analyticsFeatureLabel(st.route),
+                      value: 'usage_seconds'.tr(namedArgs: {
+                        'sec': (st.avgMs / 1000).toStringAsFixed(1),
+                      }),
+                    )),
+              ],
               SizedBox(height: 20.h),
               Text('usage_features'.tr(),
                   style: t.textTheme.titleMedium
@@ -161,7 +197,7 @@ class _StatCard extends StatelessWidget {
             SizedBox(height: 2.h),
             Text(label,
                 textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 11.sp, color: t.hintColor)),
+                style: TextStyle(fontSize: 12.sp, color: t.hintColor)),
           ],
         ),
       ),

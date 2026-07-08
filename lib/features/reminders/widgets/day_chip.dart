@@ -86,7 +86,7 @@ class DayChip extends StatelessWidget {
               dayAbbr, // already short (e.g., WED / أربع)
               maxLines: 1,
               overflow: TextOverflow.fade,
-              style: t.textTheme.labelSmall?.copyWith(color: t.colorScheme.onSurfaceVariant, fontSize: 10.sp),
+              style: t.textTheme.labelSmall?.copyWith(color: t.colorScheme.onSurfaceVariant, fontSize: 12.sp),
             ),
           ],
         ),

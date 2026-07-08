@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../../../core/services/analytics_service.dart';
+import '../../../core/widgets/app_dialogs.dart';
 import '../../../routes/app_routes.dart';
 import '../../settings/viewmodel/settings_viewmodel.dart';
 import '../viewmodel/profile_viewmodel.dart';
@@ -110,9 +112,9 @@ class ProfileScreen extends StatelessWidget {
                   await settings.setNotifications(v);
                 } catch (e) {
                   if (context.mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('Failed to update notifications: $e')),
-                    );
+                    await showAppError(
+                        context, 'dialog_notifications_failed'.tr(),
+                        technicalDetail: e);
                   }
                 }
               },
@@ -121,6 +123,7 @@ class ProfileScreen extends StatelessWidget {
           ),
           ProfileTile(leading: Icons.description_rounded, title: 'terms'.tr(), onTap: () {}),
           ProfileTile(leading: Icons.elderly_rounded, title: 'senior_tips'.tr(), onTap: () {
+            AnalyticsService.I.logHelp('senior_tips'); // help/tutorial usage
             Navigator.pushNamed(context, AppRoutes.seniorTips);
           }),
           ProfileTile(leading: Icons.insights_rounded, title: 'usage_title'.tr(), onTap: () {

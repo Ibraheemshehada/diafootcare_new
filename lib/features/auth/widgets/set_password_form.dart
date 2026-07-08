@@ -30,6 +30,7 @@ class SetPasswordForm extends StatelessWidget {
                 borderSide: const BorderSide(color: Colors.blue, width: 2),
               ),
               suffixIcon: IconButton(
+                tooltip: vm.isPasswordVisible ? 'a11y_hide_password'.tr() : 'a11y_show_password'.tr(),
                 icon: Icon(vm.isPasswordVisible ? Icons.visibility : Icons.visibility_off),
                 onPressed: vm.togglePasswordVisibility,
               ),
@@ -51,6 +52,7 @@ class SetPasswordForm extends StatelessWidget {
                 borderSide: const BorderSide(color: Colors.blue, width: 2),
               ),
               suffixIcon: IconButton(
+                tooltip: vm.isPasswordVisible ? 'a11y_hide_password'.tr() : 'a11y_show_password'.tr(),
                 icon: Icon(vm.isPasswordVisible ? Icons.visibility : Icons.visibility_off),
                 onPressed: vm.togglePasswordVisibility,
               ),

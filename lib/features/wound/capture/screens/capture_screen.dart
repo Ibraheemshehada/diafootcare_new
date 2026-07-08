@@ -9,6 +9,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../viewmodel/capture_viewmodel.dart';
 import '../widgets/shutter_button.dart';
 import '../widgets/capture_tips_dialog.dart';
+import '../../../../core/services/analytics_service.dart';
 import 'preview_screen.dart';
 
 class CaptureScreen extends StatefulWidget {
@@ -41,7 +42,10 @@ class _CaptureScreenState extends State<CaptureScreen> with WidgetsBindingObserv
     if (!mounted) return;
     
     debugPrint('📋 Showing capture tips dialog');
-    
+
+    // Study metric: help/tutorial usage.
+    AnalyticsService.I.logHelp('capture_tips');
+
     final result = await showDialog<String>(
       context: context,
       barrierDismissible: false,

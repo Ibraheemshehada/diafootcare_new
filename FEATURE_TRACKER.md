@@ -11,9 +11,20 @@ _Last updated: 2026-07-07_
 
 ---
 
-## 🔖 RESUME HERE — session handoff (2026-07-07, end of day)
+## 🔖 RESUME HERE — session handoff (2026-07-08)
 
-**State: ALL work is committed AND pushed to `origin/main`. Nothing is blocking.** Working tree clean. `flutter analyze` = **0 errors**. All 8 tracker sections (§1–§8) are built and **device-QA'd** on the Pixel_4_API_36 emulator in **Arabic (RTL), in both dark AND light mode** — every feature passed. Latest commit: **`827eea5`**.
+**State:** `flutter analyze` = **0 errors**. §1–§8 built + device-QA'd (Arabic RTL, light + dark). This session added **§9 SUS questionnaire**, **§10 usability-study instrumentation**, and **§11 accessibility + dialogs + voice assistant** — all device-verified. See the ⬜ TODO list below.
+
+> ⚠️ **The app MUST pass the 11-criterion Accessibility Check** (see §11). It does **not** fully pass yet — 4 criteria still need work (contrast, text scaling, TalkBack testing, device coverage). Everything else is green.
+
+### ⬜ TODO — next session
+1. **Finish SnackBar → dialog conversion.** 21 `showSnackBar` calls remain in 11 files: `auth/viewmodel/*` (5), `otp_verify_screen`, `notes_screen`, `notifications_screen`, `change_password_screen`, `wound/analysis/ai_result_screen`, `analysis_loading_screen`. Use `showAppSuccess` / `showAppError` from `core/widgets/app_dialogs.dart`. (16 of 37 already converted.)
+2. **Accessibility #2 — contrast.** Measure text/background against WCAG AA (4.5:1). Suspects: `hintColor` body text, and the `.06–.16` alpha tints on cards/badges.
+3. **Accessibility #6 — text scaling.** Set the device font size to Largest and walk the app. Fixed-height containers (`SizedBox(height: 48/50/52.h)`, badge `Container(height: 30.h)`) and `maxLines: 2` + ellipsis will overflow/truncate. Prefer intrinsic heights + `minHeight`.
+4. **Accessibility #5/#11 — TalkBack.** Every icon button now has a tooltip (= its semantics label) and the SUS scale/consent have explicit `Semantics`. **This has never been run under TalkBack.** Enable TalkBack on a real device and sweep the main flows.
+5. **Accessibility #10 — device coverage.** Only Pixel 4 / API 36 has been tested. Try a small phone, a tablet, and (if in scope) iOS.
+6. **Consider raising body text 12sp → 14sp.** Minimum is now 12sp everywhere, but this app's users are elderly diabetics; 14sp body would be kinder.
+7. **Voice assistant polish (optional).** `SpeakButton` is on the education article, the SUS declaration. Consider adding it to self-care tips and the Do's & Don'ts, and a global on/off in Profile.
 
 ### What happened this session
 1. **Full on-device QA of §1–§8** — all pass. Highlights verified live: glucose add-reading (crash fix — NO red screen, live update), self-care toggle + ring + color thresholds + tip-on-launch, appointments add → Upcoming/Past + reminder chip, well-being sliders + severity colors + **fl_chart trend chart updates**, education hub + article + pharmacist-verified badge, and **§8 "My Activity" showed real per-feature open counts** (proof analytics logging works end-to-end). Persistence survived app reinstall.
@@ -171,6 +182,45 @@ Pending on-device QA to confirm the assert is gone.
   4. Compare against the **reminders** feature which does add/delete via a provider with no such crash: it uses a full-page `Navigator.push` for adding (not a modal sheet) and `context.watch` on a plain `ListView(children: map(...))`.
   5. Try removing the `Dismissible` from the reading tile to rule it out.
 - **Files:** `lib/features/glucose/screens/glucose_screen.dart` (UI + `_showAddSheet`), `lib/features/glucose/viewmodel/glucose_viewmodel.dart`, provider registered in `lib/app.dart`.
+
+## 9. Post-test questionnaire (SUS) 🧪  ✅ (device-verified)
+Required by the study's usability protocol (SUS + satisfaction ratings).
+- ✅ **10-item System Usability Scale**, statements verbatim, EN/AR (DB v11 `sus_responses`)
+- ✅ **Official scoring**: odd items `r−1`, even items `5−r`, ×2.5 → 0–100. **Verified against the DB**: all-5s ⇒ **50.0** (a naive impl gives 100), all-1s ⇒ 50.0, `[5,1,5,2,5,4,5,2,5,2]` ⇒ 85.0
+- ✅ **Raw Q1..Q10 stored + exported** (not just the composite) so items can be re-analysed
+- ✅ **Participant declaration** (voluntary / anonymous / not linked to medical data / on-device) with a **required consent checkbox that gates submission** — verified: unchecked ⇒ blocked
+- ✅ `© Digital Equipment Corporation, 1986` attribution (required to reproduce SUS)
+- ✅ 48dp touch targets + `Semantics` on the 1–5 scale; result dialog with adjective band (68 = average)
+- ✅ Satisfaction ratings (3-item Likert) — already existed in §5
+
+## 10. Usability-study instrumentation 📈  ✅ (device-verified)
+Closes the gaps against the study's "automatic app analytics" list. DB v12 adds `analytics_events.value`.
+- ✅ **Navigation logs** — `AnalyticsRouteObserver` (a `NavigatorObserver`) logs every route push/pop; pushed routes are named (`/wellbeing/sus`, `/appointments/add`, …)
+- ✅ **Time-on-task** — dwell time (ms) recorded on `screen_close`; per-screen totals + averages in "My Activity" and the export
+- ✅ **Error logs** — `FlutterError.onError` + `ErrorWidget.builder` + every `showAppError` (so *user* errors like failed validation are counted too)
+- ✅ **Help/tutorial usage** — capture-tips dialog, senior tips, education articles, and `read_aloud:*`
+- ✅ **Task completion rate** — `task_start` on opening a flow, `task_complete` on successful save; rate = complete/start
+- ✅ Surfaced in **My Activity** and the **engagement export** (CSV/PDF/Excel)
+- ⬜ Researcher observation (assistance required, confusion, think-aloud) is **manual by design** — out of app scope
+
+## 11. Accessibility & error handling ♿  🚧 (must pass — 7/11 green)
+| # | Criterion | Status | Note |
+|---|---|---|---|
+| 1 | Font size | ✅ Pass | 39 sub-12sp sizes raised; **0 remain < 12sp**. Consider 14sp body (item 6 in TODO) |
+| 2 | Text/background contrast | ⬜ **Not verified** | Needs a WCAG AA (4.5:1) measurement pass |
+| 3 | Touch target size | ✅ Pass | Dialog buttons, SUS circles, `SpeakButton` all 48dp; self-care shuffle 40dp `TextButton` |
+| 4 | Alternative labels for icons | ✅ Pass | **0 IconButtons without a tooltip** (12 added); tooltip = screen-reader label |
+| 5 | Screen reader compatibility | 🚧 **Ready, untested** | Labels + `Semantics` in place; never run under TalkBack |
+| 6 | Text scaling supported | ⬜ **Not verified** | Scaling not blocked, but fixed heights will overflow at large fonts |
+| 7 | Arabic (RTL) display | ✅ Pass | Device-verified across all features |
+| 8 | English–Arabic switching | ✅ Pass | 527/527 key parity, verified live |
+| 9 | Error messages accessible | ✅ Pass | All user-facing errors are **localized dialogs**; raw exceptions never shown (`ErrorWidget` sanitised); each error logged |
+| 10 | Device compatibility | 🚧 Partial | Only Pixel 4 / API 36 tested |
+| 11 | TalkBack / larger fonts | 🚧 **Ready, untested** | Blocked on #5 + #6 |
+
+**Save/error UX:** all save confirmations and errors now use **dialogs, not SnackBars** (`core/widgets/app_dialogs.dart`) — a 40sp icon, localized title/body, and a full-width 48dp OK button. Dialogs are announced by screen readers; SnackBars auto-dismiss and are easily missed.
+
+**Voice assistant:** `flutter_tts` (`core/services/voice_assistant_service.dart`) + a 48dp `SpeakButton`. **Device-verified**: logcat showed `TTS: Utterance ID has started` and the engine requested the **Arabic** voice (`ar-xa`) when the app was in Arabic. ⚠️ *Important:* TalkBack/VoiceOver are the real accessibility path (driven by `Semantics`); read-aloud is a **complement** for elderly users who never enable a screen reader — it does not by itself satisfy criteria #5/#11.
 
 ## Progress
 - **Done + committed + pushed:** §0 baseline · §1 Glucose · §2 Medication · §3 Self-Care · §4 Home dashboard · §5 QoL/PRO · §6 Appointments · §7 Education · §8 Engagement.

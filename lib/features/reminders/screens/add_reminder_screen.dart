@@ -298,6 +298,7 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:intl/intl.dart' as intl;
+import '../../../core/widgets/app_dialogs.dart';
 import '../../../data/models/reminder.dart';
 import '../../../data/repositories/reminders_repo.dart';
 import '../../../core/services/notification_service.dart';
@@ -427,9 +428,7 @@ class _AddReminderScreenState extends State<AddReminderScreen> {
           if (_weekdays.isEmpty) {
             if (mounted) {
               Navigator.pop(context); // Close loading
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text('Please select at least one day'.tr())),
-              );
+              await showAppError(context, 'reminder_select_day'.tr());
             }
             return;
           }
@@ -457,15 +456,7 @@ class _AddReminderScreenState extends State<AddReminderScreen> {
         if (!granted) {
           if (mounted) {
             Navigator.pop(context); // Close loading
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: const Text(
-                  '⚠️ Notification permission is required for reminders. Please enable it in Settings.',
-                ),
-                duration: const Duration(seconds: 5),
-                backgroundColor: Colors.orange,
-              ),
-            );
+            await showAppError(context, 'dialog_notif_permission'.tr());
           }
           return;
         }
@@ -494,22 +485,17 @@ class _AddReminderScreenState extends State<AddReminderScreen> {
         final localeStr = context.locale.toLanguageTag();
         String message;
         if (_repeat == RepeatMode.daily) {
-          message = '⏰ Daily reminder scheduled for ${_time.format(context)}';
+          message = 'reminder_saved_daily'
+              .tr(namedArgs: {'time': _time.format(context)});
         } else if (_repeat == RepeatMode.once) {
-          message =
-              '⏰ Reminder scheduled for ${intl.DateFormat.yMd(localeStr).add_jm().format(when)}';
+          message = 'reminder_saved_once'.tr(namedArgs: {
+            'when': intl.DateFormat.yMd(localeStr).add_jm().format(when),
+          });
         } else {
-          message =
-              '⏰ Reminder scheduled for selected days at ${_time.format(context)}';
+          message = 'reminder_saved_custom'
+              .tr(namedArgs: {'time': _time.format(context)});
         }
-
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(message),
-            duration: const Duration(seconds: 3),
-            backgroundColor: Colors.green,
-          ),
-        );
+        await showAppSuccess(context, message);
       }
 
       // Return reminder to parent screen
@@ -520,15 +506,10 @@ class _AddReminderScreenState extends State<AddReminderScreen> {
       // Close loading dialog
       if (mounted) Navigator.pop(context);
 
-      // Show error message
+      // Show a friendly, localized error — never the raw exception.
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error scheduling reminder: $e'),
-            backgroundColor: Colors.red,
-            duration: const Duration(seconds: 3),
-          ),
-        );
+        await showAppError(context, 'dialog_reminder_failed'.tr(),
+            technicalDetail: e);
       }
     }
   }

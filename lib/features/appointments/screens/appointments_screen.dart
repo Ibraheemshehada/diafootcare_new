@@ -27,7 +27,10 @@ class AppointmentsScreen extends StatelessWidget {
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => Navigator.push(
           context,
-          MaterialPageRoute(builder: (_) => const AddAppointmentScreen()),
+          MaterialPageRoute(
+            settings: const RouteSettings(name: '/appointments/add'),
+            builder: (_) => const AddAppointmentScreen(),
+          ),
         ),
         icon: const Icon(Icons.add),
         label: Text('appt_add'.tr()),
@@ -173,7 +176,7 @@ class _AppointmentTile extends StatelessWidget {
                             color: blockColor)),
                     Text(monthAbbr.toUpperCase(),
                         style: TextStyle(
-                            fontSize: 11.sp,
+                            fontSize: 12.sp,
                             fontWeight: FontWeight.w700,
                             color: blockColor)),
                   ],
@@ -224,7 +227,7 @@ class _AppointmentTile extends StatelessWidget {
                           SizedBox(width: 4.w),
                           Text(appointmentLeadKey(appt.reminderLead).tr(),
                               style: TextStyle(
-                                  fontSize: 11.sp,
+                                  fontSize: 12.sp,
                                   fontWeight: FontWeight.w600,
                                   color: primary)),
                         ],

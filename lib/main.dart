@@ -57,13 +57,43 @@ Future<void> requestCameraPermission() async {
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
+  // Record every framework error locally (study "error logs") and show the
+  // user a calm, readable message instead of a raw exception string.
+  FlutterError.onError = (FlutterErrorDetails details) {
+    FlutterError.presentError(details);
+    AnalyticsService.I.logError(details.exceptionAsString());
+  };
+
   ErrorWidget.builder = (FlutterErrorDetails details) {
+    AnalyticsService.I.logError(details.exceptionAsString());
+    // Never surface a raw exception/stack trace to the patient. Guard the
+    // lookup: this can run before localization is ready, or above MaterialApp.
+    String message;
+    try {
+      message = 'dialog_error_generic'.tr();
+    } catch (_) {
+      message = 'Something went wrong. Please try again.';
+    }
+    // MaterialApp supplies Directionality/Theme/MediaQuery, which the error
+    // widget may otherwise lack when the failure is near the tree root.
     return MaterialApp(
+      debugShowCheckedModeBanner: false,
       home: Scaffold(
         body: Center(
-          child: Text(
-            details.exceptionAsString(),
-            style: TextStyle(color: Colors.red, fontSize: 16),
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.error_outline, size: 44, color: Colors.red),
+                const SizedBox(height: 12),
+                Text(
+                  message,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(fontSize: 16),
+                ),
+              ],
+            ),
           ),
         ),
       ),

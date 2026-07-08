@@ -2,6 +2,7 @@ import 'package:easy_localization/easy_localization.dart' hide TextDirection;
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
+import '../../../core/services/analytics_service.dart';
 import '../../../data/models/education_article.dart';
 import 'education_article_screen.dart';
 
@@ -51,11 +52,16 @@ class _ArticleCard extends StatelessWidget {
       child: Material(
         color: Colors.transparent,
         child: InkWell(
-          onTap: () => Navigator.push(
-            context,
-            MaterialPageRoute(
-                builder: (_) => EducationArticleScreen(article: article)),
-          ),
+          onTap: () {
+            // Study metric: help/tutorial usage.
+            AnalyticsService.I.logHelp('education_article:${article.key}');
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                  settings: const RouteSettings(name: '/education/article'),
+                  builder: (_) => EducationArticleScreen(article: article)),
+            );
+          },
           borderRadius: BorderRadius.circular(14.r),
           child: Container(
             padding: EdgeInsets.all(14.w),
@@ -145,7 +151,7 @@ class _PharmacistTipsCard extends StatelessWidget {
                     SizedBox(width: 4.w),
                     Text('edu_verified'.tr(),
                         style: TextStyle(
-                            fontSize: 10.sp,
+                            fontSize: 12.sp,
                             fontWeight: FontWeight.w700,
                             color: Colors.green.shade700)),
                   ],

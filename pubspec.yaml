@@ -63,6 +63,7 @@ dependencies:
   share_plus: ^10.0.0
   pdf: ^3.11.1
   printing: ^5.13.0
+  flutter_tts: ^4.2.5
 
 dev_dependencies:
   flutter_test:

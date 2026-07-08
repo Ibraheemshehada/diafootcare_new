@@ -219,7 +219,7 @@ class _ScaleCalibrationScreenState extends State<ScaleCalibrationScreen> {
                   label: Text(
                     _options[i].labelKey.tr(),
                     textAlign: TextAlign.center,
-                    style: TextStyle(fontSize: 11.sp),
+                    style: TextStyle(fontSize: 12.sp),
                   ),
                   selected: _selected == i,
                   onSelected: (_) => setState(() => _selected = i),
