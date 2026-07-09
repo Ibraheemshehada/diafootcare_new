@@ -13,7 +13,7 @@ _Last updated: 2026-07-08_
 
 ## 🔖 RESUME HERE — session handoff (2026-07-09)
 
-**State:** `flutter analyze lib test` = **0 errors**. `flutter test` = **11/11 new trend tests pass** (1 *pre-existing* failure: `test/widget_test.dart` is still the stock Flutter "Counter increments" template from `a7a885b` and tests a counter this app never had — delete or rewrite it).
+**State:** `flutter analyze lib test` = **0 errors**. `flutter test` = **23/23 pass** (12 SUS + 11 trend). The old stock "Counter increments" template (`test/widget_test.dart`) that always failed has been deleted and replaced with `test/sus_test.dart`.
 
 This session: **accessibility push** (contrast, text scaling, dialogs, read-aloud) + **Daily/Weekly/Monthly healing-trend chart**.
 
