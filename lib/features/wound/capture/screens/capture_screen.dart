@@ -10,6 +10,7 @@ import '../viewmodel/capture_viewmodel.dart';
 import '../widgets/shutter_button.dart';
 import '../widgets/capture_tips_dialog.dart';
 import '../../../../core/services/analytics_service.dart';
+import '../../analysis/services/ai_service.dart';
 import 'preview_screen.dart';
 
 class CaptureScreen extends StatefulWidget {
@@ -64,7 +65,13 @@ class _CaptureScreenState extends State<CaptureScreen> with WidgetsBindingObserv
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    
+
+    // Warm up the TFLite models NOW, while the user is framing the shot, so the
+    // ~2 s first-time model load isn't paid during the post-capture analysis
+    // (where it made the loading screen look frozen). Fire-and-forget; init()
+    // is idempotent (guards on _initialized) and the analysis awaits it anyway.
+    AiService.instance.init();
+
     // Show tips after screen is built
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
