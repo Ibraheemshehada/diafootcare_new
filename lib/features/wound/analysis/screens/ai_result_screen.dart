@@ -6,6 +6,7 @@ import 'package:fl_chart/fl_chart.dart';
 
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/widgets/app_dialogs.dart';
+import '../chart_bounds.dart';
 import '../viewmodel/analysis_result.dart';
 import '../../../../data/repositories/wounds_repository.dart';
 import '../../../../data/models/wound_entry.dart';
@@ -676,6 +677,9 @@ class _ProgressChart extends StatelessWidget {
         currentResult.width,
       );
       final singlePoint = [FlSpot(0.0, currentArea)];
+      // Guard against a zero-height range (currentArea == 0 -> maxY == 0),
+      // which makes fl_chart divide by zero. See chartYBounds.
+      final bounds = chartYBounds([currentArea]);
 
       return Container(
         height: 220.h,
@@ -685,8 +689,8 @@ class _ProgressChart extends StatelessWidget {
           LineChartData(
             minX: 0,
             maxX: 0,
-            minY: 0,
-            maxY: currentArea * 1.5,
+            minY: bounds.min,
+            maxY: bounds.max,
             gridData: FlGridData(show: false),
             titlesData: FlTitlesData(show: false),
             borderData: FlBorderData(show: false),
@@ -715,18 +719,13 @@ class _ProgressChart extends StatelessWidget {
       );
     }
 
-    // Calculate min/max for chart scaling
-    double maxY = 1200.0;
-    double minY = 0.0;
-
-    if (dataPoints.isNotEmpty) {
-      final areas = dataPoints.map((spot) => spot.y).toList();
-      final maxArea = areas.reduce((a, b) => a > b ? a : b);
-      final minArea = areas.reduce((a, b) => a < b ? a : b);
-
-      maxY = ((maxArea * 1.2) / 100).ceil() * 100.0;
-      minY = (minArea * 0.8).clamp(0.0, double.infinity);
-    }
+    // Calculate min/max for chart scaling. chartYBounds guarantees a
+    // non-degenerate, finite range so fl_chart never divides by a zero span
+    // (which produced "OVERFLOWED BY Infinity PIXELS" + a crash when every
+    // recorded wound area was 0, e.g. uncalibrated 0×0 cm captures).
+    final bounds = chartYBounds(dataPoints.map((spot) => spot.y));
+    final double maxY = bounds.max;
+    final double minY = bounds.min;
 
     final maxX =
         dataPoints.isNotEmpty ? (dataPoints.length - 1).toDouble() : 0.0;

@@ -32,29 +32,34 @@ class _PreviewScreenState extends State<PreviewScreen> {
       builder: (ctx) {
         return AlertDialog(
           title: Text('wound_depth'.tr()),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text('wound_depth_hint'.tr(), style: TextStyle(fontSize: 13.sp)),
-              SizedBox(height: 14.h),
-              TextField(
-                controller: ctrl,
-                autofocus: true,
-                keyboardType: const TextInputType.numberWithOptions(
-                  decimal: true,
+          // Scrollable so the on-screen keyboard shrinking the dialog can never
+          // overflow the content column.
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('wound_depth_hint'.tr(),
+                    style: TextStyle(fontSize: 13.sp)),
+                SizedBox(height: 14.h),
+                TextField(
+                  controller: ctrl,
+                  autofocus: true,
+                  keyboardType: const TextInputType.numberWithOptions(
+                    decimal: true,
+                  ),
+                  inputFormatters: [
+                    FilteringTextInputFormatter.allow(RegExp(r'[0-9.]')),
+                  ],
+                  decoration: InputDecoration(
+                    isDense: true,
+                    border: const OutlineInputBorder(),
+                    labelText: 'wound_depth_cm'.tr(),
+                    suffixText: 'cm',
+                  ),
                 ),
-                inputFormatters: [
-                  FilteringTextInputFormatter.allow(RegExp(r'[0-9.]')),
-                ],
-                decoration: InputDecoration(
-                  isDense: true,
-                  border: const OutlineInputBorder(),
-                  labelText: 'wound_depth_cm'.tr(),
-                  suffixText: 'cm',
-                ),
-              ),
-            ],
+              ],
+            ),
           ),
           actions: [
             TextButton(
