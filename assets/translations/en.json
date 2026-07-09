@@ -579,5 +579,7 @@
   "home_next_reminder": "Next reminder: {title} at {time}",
   "ai_demo_result_banner": "Demo result — the AI models could not run on this device, so these values are simulated and do NOT describe your photo.",
   "ai_not_calibrated_banner": "Not calibrated — cm values are approximate. Track the relative trend, or set a scale with a reference object for true measurements.",
-  "weekly": "Weekly"
+  "weekly": "Weekly",
+  "no_wound_title": "No wound detected",
+  "no_wound_message": "We couldn’t find a wound in this photo. Please retake a clear, well-lit close-up of the wound, filling most of the frame."
 }

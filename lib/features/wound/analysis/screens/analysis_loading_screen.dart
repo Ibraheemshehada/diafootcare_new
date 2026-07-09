@@ -167,6 +167,26 @@ class _AnalysisLoadingScreenState extends State<AnalysisLoadingScreen> {
       );
 
       if (!mounted) return;
+
+      // The segmentation model ran but found no wound region (empty mask ->
+      // length == width == 0). That means the photo isn't a foot wound (or the
+      // wound is out of frame / too blurry). Don't save a 0×0 record or show a
+      // meaningless result — tell the user and send them back to retake.
+      final noWoundDetected =
+          result.isFromModel && (result.length * result.width) <= 0;
+      if (noWoundDetected) {
+        debugPrint('ℹ️  No wound detected in image (0×0) — prompting retake.');
+        await showAppMessage(
+          context,
+          title: 'no_wound_title'.tr(),
+          message: 'no_wound_message'.tr(),
+          kind: AppMessageKind.warning,
+        );
+        if (!mounted) return;
+        Navigator.pop(context); // back to the camera to retake
+        return;
+      }
+
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(

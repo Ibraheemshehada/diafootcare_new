@@ -6,7 +6,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import '../theme/app_colors.dart';
 import '../services/analytics_service.dart';
 
-enum AppMessageKind { success, error, info }
+enum AppMessageKind { success, error, warning, info }
 
 /// App-wide message dialogs used instead of SnackBars for **save confirmations
 /// and error messages**.
@@ -86,6 +86,10 @@ class _AppMessageDialog extends StatelessWidget {
       case AppMessageKind.error:
         color = AppColors.of(context).danger;
         icon = Icons.error_outline;
+        break;
+      case AppMessageKind.warning:
+        color = AppColors.of(context).warning;
+        icon = Icons.warning_amber_rounded;
         break;
       case AppMessageKind.info:
         color = t.colorScheme.primary;
