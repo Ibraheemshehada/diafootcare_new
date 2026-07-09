@@ -1,6 +1,7 @@
 import 'dart:io' show Platform;
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter/services.dart' show SystemChrome, DeviceOrientation;
 
 import 'package:firebase_core/firebase_core.dart';
 import 'core/services/notification_service.dart';
@@ -56,6 +57,17 @@ Future<void> requestCameraPermission() async {
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Portrait-only. Every screen (Home hero, 2-column services grid, charts,
+  // surveys, wound-capture camera) is designed for a tall viewport; landscape
+  // left the services grid unreachable behind an oversized hero card. This is
+  // a focused health app for elderly users, so we lock orientation rather than
+  // maintain a second landscape layout. The Android manifest also pins
+  // `screenOrientation="portrait"` to avoid the activity being recreated on
+  // rotation before Flutter even starts.
+  await SystemChrome.setPreferredOrientations(
+    const [DeviceOrientation.portraitUp],
+  );
 
   // Record every framework error locally (study "error logs") and show the
   // user a calm, readable message instead of a raw exception string.

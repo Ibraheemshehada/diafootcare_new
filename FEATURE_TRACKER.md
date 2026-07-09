@@ -15,23 +15,20 @@ _Last updated: 2026-07-08_
 
 **State:** `flutter analyze lib test` = **0 errors**. `flutter test` = **23/23 pass** (12 SUS + 11 trend). The old stock "Counter increments" template (`test/widget_test.dart`) that always failed has been deleted and replaced with `test/sus_test.dart`.
 
-This session: **accessibility push** (contrast, text scaling, dialogs, read-aloud) + **Daily/Weekly/Monthly healing-trend chart**.
+This session: **accessibility push** (contrast, text scaling, dialogs, read-aloud) + **Daily/Weekly/Monthly healing-trend chart**. **Follow-up (same handoff): locked the app to portrait** and restored the emulator DB.
 
-> ⚠️ **The app MUST pass the 11-criterion Accessibility Check** (see §11). Now **9/11 green**. Remaining: TalkBack sweep (#5/#11) and device/orientation coverage (#10).
+> ⚠️ **The app MUST pass the 11-criterion Accessibility Check** (see §11). Now **9/11 green**. Remaining: TalkBack sweep (#5/#11) and multi-device coverage (#10). Orientation is resolved (portrait-locked).
 
 ### ⬜ TODO — next session
-1. **🔄 ROTATION / LANDSCAPE — the design has never been tested rotated.** The emulator auto-rotated mid-session and Home clearly was **not designed for landscape**. Check every screen in landscape *and* on a tablet: the Home hero card, the 2-column services grid (`mainAxisExtent` is derived from width — verify it doesn't produce absurdly tall cells in landscape), the trend chart, and all survey forms. Decide explicitly: either **support landscape properly**, or **lock portrait** in `AndroidManifest.xml` (`android:screenOrientation="portrait"`) + iOS equivalent. *Test:* `adb shell settings put system accelerometer_rotation 0; adb shell settings put system user_rotation 1` (1 = landscape, 0 = portrait).
-2. **A11y #5/#11 — TalkBack.** Still never run under a real screen reader. Enable TalkBack, sweep Home → Glucose → Self-Care → SUS. *Tip:* Flutter's semantics tree is not exposed to `uiautomator dump` until an accessibility service is active — enable TalkBack first, then `uiautomator dump` actually shows the nodes, which makes this verifiable.
-3. **A11y #10 — device coverage.** Only Pixel 4 / API 36 tested. Try a small phone, a tablet, and a large-font + landscape combination.
-4. **Restore the emulator DB.** ⚠️ I seeded **9 fake wound rows** into the emulator's `diafoot.db` to render the trend chart (the 3 real rows are all `0.0 × 0.0 cm`, so the chart was legitimately empty). Undo with either:
-   - `adb shell "run-as com.example.daifootcare_new sqlite3 databases/diafoot.db 'delete from wounds where length > 0'"`, or
-   - restore the backup at `%LOCALAPPDATA%\Temp\diafoot_backup_2026-07-08.db` (217 088 bytes) via the base64 pipe below.
-5. **Wound measurements are all `0.0 × 0.0 cm`** on the real rows — the analysis pipeline isn't writing `length`/`width` (uncalibrated?). The trend chart *correctly* renders "no data" for a zero baseline (percent change is undefined), but this means **the healing trend can never plot for real users** until capture writes real cm. Probably the highest-value functional bug open.
-6. **Consider raising body text 12sp → 14sp** for elderly diabetics (minimum is 12sp everywhere now).
-7. **`dart format` divergence.** The repo is *not* dart-formatted (89 of 117 files would change). I formatted the 13 files touched by the fixed-height refactor, so their diffs are larger than the semantic change. Either format the whole repo once, or don't format at all — pick one.
-8. **Voice assistant polish (optional).** `SpeakButton` now sits on the education article, the SUS declaration, and the self-care rotating tip. Consider a global on/off toggle in Profile.
+1. **A11y #5/#11 — TalkBack.** Still never run under a real screen reader. Enable TalkBack, sweep Home → Glucose → Self-Care → SUS. *Tip:* Flutter's semantics tree is not exposed to `uiautomator dump` until an accessibility service is active — enable TalkBack first, then `uiautomator dump` actually shows the nodes, which makes this verifiable.
+2. **A11y #10 — device coverage.** Only Pixel 4 / API 36 tested. Try a small phone and a tablet (both portrait now). Large-font already verified at 2.0×.
+3. **🩹 Wound measurements are all `0.0 × 0.0 cm` — root cause found, fix open.** The 3 real rows carry Model 2/3 outputs (`tissueType='Callus'`, `infection='Present'`) but `length=width=0`. In `ai_service.dart`, `length`/`width` are only set inside `if (_model1Loaded)`; the CLIP-backbone heads (Models 2/3) loaded but **Model 1 (segmentation) did not**, so measurements stayed 0 and were saved silently. Two things to do: (a) get device model-load logs to see *why* `model1.tflite` failed to load while the others succeeded; (b) **defensive fix** — when `isFromModel` but `length*width == 0`, don't silently persist a 0×0 wound (block the save with a clear message, or mark it "not measured" so it never pollutes the trend baseline). This is the highest-value functional bug: the healing trend can never plot for real users until capture writes real cm.
+4. **Consider raising body text 12sp → 14sp** for elderly diabetics (minimum is 12sp everywhere now).
+5. **`dart format` divergence.** The repo is *not* dart-formatted (89 of 117 files would change). I formatted the 13 files touched by the fixed-height refactor, so their diffs are larger than the semantic change. Either format the whole repo once, or don't format at all — pick one.
+6. **Voice assistant polish (optional).** `SpeakButton` now sits on the education article, the SUS declaration, and the self-care rotating tip. Consider a global on/off toggle in Profile.
 
 ### What happened this session
+0. **🔄 Orientation locked to portrait — device-verified.** Landscape was broken app-wide: the Home hero card alone filled the entire short viewport, leaving the services grid unreachable (every screen — hero, 2-col grid, charts, surveys, wound-capture camera — assumes a tall viewport). Decision (with the user): lock portrait rather than maintain a second layout. Pinned in **three** places — `AndroidManifest.xml` (`android:screenOrientation="portrait"`, stops the activity being recreated on rotation), `main.dart` (`SystemChrome.setPreferredOrientations([portraitUp])`, cross-platform + foldables), and `ios/Runner/Info.plist` (portrait-only for iphone + ipad). **Verified:** with `user_rotation 1` (device physically landscape) the app screenshot came back **1080×2280 (portrait)** and rendered correctly. **Emulator DB restored** to the original 3 rows (my 9 seeded trend rows removed) via the `%LOCALAPPDATA%\Temp\diafoot_backup_2026-07-08.db` base64 pipe.
 1. **SnackBars → dialogs: complete.** `grep -rl showSnackBar lib/` → **none**. All 21 remaining calls in 11 files converted to `showAppSuccess` / `showAppError`.
    - Found `set_password_viewmodel.dart` rendering **raw keys** (`Text('password_updated_success')` — no `.tr()`, and the keys didn't exist). Fixed + keys added.
    - `showAppError` now logs **every** user-facing error, including validation errors — those are exactly what a usability study's error count is meant to capture. (It previously only logged when a `technicalDetail` was passed, so the study's error count read 0.)
@@ -227,7 +224,7 @@ Closes the gaps against the study's "automatic app analytics" list. DB v12 adds 
 | 7 | Arabic (RTL) display | ✅ Pass | Device-verified across all features |
 | 8 | English–Arabic switching | ✅ Pass | 527/527 key parity, verified live |
 | 9 | Error messages accessible | ✅ Pass | All user-facing errors are **localized dialogs**; raw exceptions never shown (`ErrorWidget` sanitised); each error logged |
-| 10 | Device compatibility | 🚧 Partial | Only Pixel 4 / API 36, **portrait only** — landscape/tablet untested (TODO #1) |
+| 10 | Device compatibility | 🚧 Partial | Only Pixel 4 / API 36. **App is now portrait-locked** (manifest + `SystemChrome` + iOS plist), verified on device — landscape no longer a concern; small-phone/tablet still untested |
 | 11 | TalkBack / larger fonts | 🚧 Partial | Larger fonts ✅ verified at 2.0×; TalkBack still untested (#5) |
 
 **Save/error UX:** all save confirmations and errors now use **dialogs, not SnackBars** (`core/widgets/app_dialogs.dart`) — a 40sp icon, localized title/body, and a full-width 48dp OK button. Dialogs are announced by screen readers; SnackBars auto-dismiss and are easily missed.
