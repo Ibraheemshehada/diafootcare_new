@@ -1,5 +1,5 @@
 name: diafootcare_new
-description: "A new Flutter project."
+description: "DiaFootCare — diabetic foot ulcer monitoring and self-care companion."
 # The following line prevents the package from being accidentally published to
 # pub.dev using `flutter pub publish`. This is preferred for private packages.
 publish_to: 'none' # Remove this line if you wish to publish to pub.dev
@@ -75,11 +75,20 @@ dev_dependencies:
   # rules and activating additional ones.
   flutter_lints: ^5.0.0
 
+# Launcher icons are generated from the DiaFootCare foot/hand logo.
+# Regenerate with:  dart run icons_launcher:create
+# (The previous image_path pointed at assets/ic_logo_radius.png, which does not
+# exist in the repo — so icons were never generated and the app shipped with the
+# stock Flutter logo.)
 icons_launcher:
-  image_path: "assets/ic_logo_radius.png"
+  image_path: "assets/icon/app_icon.png"
   platforms:
     android:
       enable: true
+      # Adaptive icon: white plate + the logo inset inside the safe zone so the
+      # launcher's circular/squircle mask never clips it.
+      adaptive_background_color: "#FFFFFF"
+      adaptive_foreground_image: "assets/icon/app_icon_foreground.png"
     ios:
       enable: true
 
