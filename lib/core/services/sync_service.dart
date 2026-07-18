@@ -308,12 +308,16 @@ class SyncService {
     while (true) {
       List<Map<String, Object?>> rows;
       try {
-        rows = await db.query(
-          spec.table,
-          where: spec.where == null
-              ? 'pending_sync = 1'
-              : 'pending_sync = 1 AND ${spec.where}',
-          limit: _batchSize,
+        // `rowid` must be selected explicitly. db.query() returns only the
+        // declared columns, so the fallback below silently updated nothing when
+        // a row had no local_uuid — the id was never persisted, every pass sent
+        // a fresh one, and the server saw each attempt as a new record. That
+        // turned 53 real events into 38,000 rows and left the queue permanently
+        // "pending" because the acknowledged uuid matched no local row.
+        final predicate = spec.where == null ? '' : ' AND ${spec.where}';
+        rows = await db.rawQuery(
+          'SELECT rowid AS _rowid, * FROM ${spec.table} '
+          'WHERE pending_sync = 1$predicate LIMIT $_batchSize',
         );
       } catch (_) {
         return const SyncResult(); // table absent on this install
@@ -342,14 +346,29 @@ class SyncService {
         var localUuid = row['local_uuid'] as String?;
         if (localUuid == null || localUuid.isEmpty) {
           localUuid = _uuid.v4();
-          await db.update(spec.table, {'local_uuid': localUuid},
-              where: 'rowid = ?', whereArgs: [row['rowid']]);
+          final written = await db.update(
+            spec.table,
+            {'local_uuid': localUuid},
+            where: 'rowid = ?',
+            whereArgs: [row['_rowid']],
+          );
+
+          // If the id could not be stored, sending the record would upload a
+          // row that can never be acknowledged — and would be re-sent under a
+          // new id on every pass. Skipping is the safe failure.
+          if (written == 0) {
+            debugPrint('🔄 Could not persist local_uuid for ${spec.table}; skipping row');
+            continue;
+          }
         }
 
         try {
           final source = spec.table == 'medication_logs'
               ? {...row, 'medication_local_uuid': medicationUuids['${row['medicationId']}']}
               : row;
+          // `_rowid` needs no stripping: every mapper picks named keys, so the
+          // query artefact never reaches the payload. sqflite rows are also
+          // read-only, so removing it would throw.
           final body = spec.map(source)..removeWhere((_, v) => v == null);
           records.add({'local_uuid': localUuid, ...body});
           uuids.add(localUuid);
