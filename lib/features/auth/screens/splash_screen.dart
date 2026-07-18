@@ -8,7 +8,9 @@ import 'package:loading_animation_widget/loading_animation_widget.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../../data/repositories/consent_repository.dart';
 import '../../../routes/app_routes.dart';
+import '../../consent/screens/consent_screen.dart';
 import '../../settings/screens/terms_screen.dart';
 import '../../settings/viewmodel/settings_viewmodel.dart';
 
@@ -51,6 +53,7 @@ class _SplashScreenState extends State<SplashScreen> {
 
       if (accepted == true) {
         // After accepting terms, check auth state
+        if (!await _ensureConsent()) return;
         await _checkAuthAndNavigate();
       } else {
         // If user doesn't accept terms, decide on app behavior.
@@ -62,8 +65,29 @@ class _SplashScreenState extends State<SplashScreen> {
       return;
     }
 
-    // If terms already accepted → Check auth state
+    // If terms already accepted → data-sharing consent, then auth state
+    if (!await _ensureConsent()) return;
     await _checkAuthAndNavigate();
+  }
+
+  /// Blocks until the participant has accepted the current data-sharing
+  /// declaration. Returns false if they declined, in which case the app stays
+  /// on the splash screen — the same behaviour as declining the terms.
+  ///
+  /// This runs on every launch, not once: bumping [kCurrentConsentVersion]
+  /// re-prompts everyone, which is the point of versioning the consent.
+  Future<bool> _ensureConsent() async {
+    if (await ConsentRepository().hasCurrentConsent()) return true;
+    if (!mounted) return false;
+
+    final accepted = await Navigator.push<bool>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => const ConsentScreen(blocking: true),
+      ),
+    );
+
+    return mounted && accepted == true;
   }
 
   /// Check if user is logged in and has "Remember Me" enabled

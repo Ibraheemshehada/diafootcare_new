@@ -74,6 +74,9 @@ dev_dependencies:
   # package. See that file for information about deactivating specific lint
   # rules and activating additional ones.
   flutter_lints: ^5.0.0
+  # Lets the v12 -> v13 migration be tested off-device. A migration that runs
+  # on every existing install of a clinical app should not be verified by hand only.
+  sqflite_common_ffi: ^2.3.3
 
 # Launcher icons are generated from the DiaFootCare foot/hand logo.
 # Regenerate with:  dart run icons_launcher:create

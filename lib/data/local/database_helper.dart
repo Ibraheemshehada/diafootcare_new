@@ -14,11 +14,18 @@ class DatabaseHelper {
     return _db!;
   }
 
-  Future<Database> initDB() async {
-    final path = join(await getDatabasesPath(), 'diafoot.db');
+  /// Opens (and migrates) the database.
+  ///
+  /// [overridePath] exists so tests can point the real `onCreate`/`onUpgrade`
+  /// logic at a temporary file. Production callers pass nothing and get the
+  /// usual `diafoot.db`. Without this the migrations could only ever be checked
+  /// by hand on a device, which is a poor guarantee for a clinical schema that
+  /// every existing install has to pass through.
+  Future<Database> initDB([String? overridePath]) async {
+    final path = overridePath ?? join(await getDatabasesPath(), 'diafoot.db');
     return openDatabase(
       path,
-      version: 12, // ⬅️ bumped to 12: analytics_events.value (durations / task metrics)
+      version: 13, // ⬅️ bumped to 13: consents audit table + sus_responses.consent_version
       onCreate: (db, version) async {
         await db.execute('''
           CREATE TABLE wounds (
@@ -77,6 +84,9 @@ class DatabaseHelper {
 
         // ⬇️ System Usability Scale responses on fresh DB
         await _createSusTable(db);
+
+        // ⬇️ Participant consent audit trail on fresh DB
+        await _createConsentsTable(db);
       },
       onUpgrade: (db, oldVersion, newVersion) async {
         if (oldVersion < 2) {
@@ -163,6 +173,20 @@ class DatabaseHelper {
             debugPrint('Note: analytics_events.value may already exist: $e');
           }
         }
+        if (oldVersion < 13) {
+          await _createConsentsTable(db);
+          // Existing rows stay NULL on purpose: NULL means "collected under the
+          // v1 declaration", which promised on-device-only storage. The column
+          // preserves that fact even though the v2 text asks the participant to
+          // extend consent to those responses — the study must still be able to
+          // tell the two populations apart when analysing.
+          try {
+            await db.execute(
+                'ALTER TABLE sus_responses ADD COLUMN consent_version INTEGER');
+          } catch (e) {
+            debugPrint('Note: sus_responses.consent_version may already exist: $e');
+          }
+        }
       },
       onOpen: (db) async {
         // Extra safety: ensure table exists even if onCreate/onUpgrade didn't run
@@ -203,8 +227,35 @@ class DatabaseHelper {
 
         // Extra safety: ensure SUS table exists
         await _createSusTable(db);
+
+        // Extra safety: ensure the consent audit table exists. Consent must be
+        // recordable even if a migration was interrupted — otherwise the app
+        // would gate the user behind a declaration it cannot store.
+        await _createConsentsTable(db);
       },
     );
+  }
+
+  /// Audit trail of participant consent decisions.
+  ///
+  /// Append-only by design: a new row per acceptance, never an update. A study
+  /// has to be able to show *which* wording a participant agreed to and *when*,
+  /// long after the text has been revised again. A single boolean in
+  /// SharedPreferences cannot answer that question, and is trivially lost on
+  /// reinstall.
+  Future<void> _createConsentsTable(Database db) async {
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS consents (
+        id           TEXT PRIMARY KEY,
+        version      INTEGER NOT NULL,
+        accepted_at  INTEGER NOT NULL,
+        locale       TEXT,
+        app_version  TEXT,
+        covers_prior INTEGER NOT NULL DEFAULT 0
+      )
+    ''');
+    await db.execute(
+        'CREATE INDEX IF NOT EXISTS idx_consents_version ON consents(version DESC)');
   }
 
   /// System Usability Scale: raw item responses are stored (q1..q10, each 1–5)
@@ -214,6 +265,7 @@ class DatabaseHelper {
       CREATE TABLE IF NOT EXISTS sus_responses (
         id       TEXT PRIMARY KEY,
         dateTime INTEGER NOT NULL,
+        consent_version INTEGER,
         q1  INTEGER NOT NULL,
         q2  INTEGER NOT NULL,
         q3  INTEGER NOT NULL,

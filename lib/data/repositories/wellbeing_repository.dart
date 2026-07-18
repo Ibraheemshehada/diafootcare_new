@@ -1,6 +1,7 @@
 import 'package:sqflite/sqflite.dart';
 
 import '../local/database_helper.dart';
+import '../models/consent_record.dart';
 import '../models/qol_entry.dart';
 import '../models/sus_entry.dart';
 
@@ -51,10 +52,17 @@ class WellbeingRepository {
     return rows.map((e) => SusEntry.fromMap(e)).toList();
   }
 
+  /// Stores a SUS response, stamped with the consent version in force when it
+  /// was given. The stamp is what lets the study separate responses collected
+  /// under the on-device-only declaration from those collected under the
+  /// data-sharing one.
   Future<void> insertSus(SusEntry e) async {
     final db = await _helper.database;
-    await db.insert('sus_responses', e.toMap(),
-        conflictAlgorithm: ConflictAlgorithm.replace);
+    await db.insert(
+      'sus_responses',
+      {...e.toMap(), 'consent_version': kCurrentConsentVersion},
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
   }
 
   Future<void> deleteSus(String id) async {
