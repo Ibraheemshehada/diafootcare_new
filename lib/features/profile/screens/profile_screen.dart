@@ -1,5 +1,7 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
+
+import '../../../core/services/auth_services.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -12,7 +14,6 @@ import '../widgets/profile_tile.dart';
 import 'edit_profile_screen.dart';
 import 'change_password_screen.dart';
 import '../../../core/theme/app_colors.dart';
-import 'package:firebase_auth/firebase_auth.dart'; // Import FirebaseAuth
 
 class ProfileScreen extends StatelessWidget {
   const ProfileScreen({super.key});
@@ -203,7 +204,7 @@ class ProfileScreen extends StatelessWidget {
                   );
 
                   // Firebase logout
-                  await FirebaseAuth.instance.signOut();
+                  await AuthService().signOut();
 
                   // Navigate to login screen
                   Navigator.pushReplacementNamed(context, AppRoutes.login);

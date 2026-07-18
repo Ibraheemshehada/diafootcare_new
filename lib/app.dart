@@ -1,6 +1,5 @@
 
 import 'package:diafootcare_new/routes/app_routes.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:easy_localization/easy_localization.dart';
@@ -150,10 +149,12 @@ class AuthStreamBuilder extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return StreamBuilder<User?>(
-      stream: _authService.authStateChanges,
+    // Sanctum has no auth-state stream: the token either resolves to a user or
+    // it does not, so this is a one-shot future rather than a subscription.
+    return FutureBuilder<AppUser?>(
+      future: _authService.restoreSession(),
       builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.active) {
+        if (snapshot.connectionState == ConnectionState.done) {
           if (snapshot.hasData) {
             return const HomeScreen();
           } else {

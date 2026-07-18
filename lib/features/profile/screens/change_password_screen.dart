@@ -1,7 +1,9 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
+
+import '../../../core/network/api_client.dart';
+import '../../../core/services/auth_services.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 
 import '../../../core/widgets/app_dialogs.dart';
 
@@ -150,8 +152,7 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
   Future<void> _updatePassword() async {
     if (!_formKey.currentState!.validate()) return;
 
-    final user = FirebaseAuth.instance.currentUser;
-    if (user == null || user.email == null) {
+    if (!await ApiClient.I.hasToken) {
       if (!mounted) return;
       await showAppError(context, 'user_not_logged_in'.tr());
       return;
@@ -160,34 +161,30 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
     setState(() => _isLoading = true);
 
     try {
-      // Re-authenticate with old password
-      final credential = EmailAuthProvider.credential(
-        email: user.email!,
-        password: _old.text.trim(),
-      );
-      await user.reauthenticateWithCredential(credential);
+      // The server verifies the current password and revokes the user's other
+      // sessions, so there is no separate re-authentication step here.
+      final res = await ApiClient.I.dio.post('/auth/password', data: {
+        'current_password': _old.text.trim(),
+        'password': _new.text.trim(),
+        'password_confirmation': _new.text.trim(),
+      });
 
-      // Update password
-      await user.updatePassword(_new.text.trim());
-      await user.reload();
+      if (res.statusCode != 200) throw ApiException.fromResponse(res);
 
       if (!mounted) return;
       await showAppSuccess(context, 'password_updated_successfully'.tr());
       if (!mounted) return;
       Navigator.pop(context);
-    } on FirebaseAuthException catch (e) {
+    } on ApiException catch (e) {
       if (!mounted) return;
-      String errorMessage = 'password_update_failed'.tr();
-
-      if (e.code == 'wrong-password') {
-        errorMessage = 'incorrect_old_password'.tr();
-      } else if (e.code == 'weak-password') {
-        errorMessage = 'password_too_weak'.tr();
-      } else if (e.code == 'requires-recent-login') {
-        errorMessage = 'requires_recent_login'.tr();
-      }
-
-      await showAppError(context, errorMessage);
+      // A wrong current password comes back as a field error on
+      // `current_password`; anything else is reported as the API worded it.
+      await showAppError(
+        context,
+        e.errors.containsKey('current_password')
+            ? 'incorrect_old_password'.tr()
+            : e.message,
+      );
     } catch (e) {
       if (!mounted) return;
       await showAppError(

@@ -1,6 +1,7 @@
-import 'package:cloud_functions/cloud_functions.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
+
+import '../../../core/network/api_client.dart';
 import '../../../core/widgets/app_dialogs.dart';
 import '../../../routes/app_routes.dart';
 
@@ -43,12 +44,13 @@ class SetPasswordViewModel extends ChangeNotifier {
 
     isLoading = true; notifyListeners();
     try {
-      final callable = FirebaseFunctions.instance.httpsCallable('verifyPasswordOtp');
-      await callable.call({
+      final res = await ApiClient.I.dio.post('/auth/reset-password', data: {
         'email': email,
         'code': code,
-        'newPassword': newPasswordController.text.trim(),
+        'password': newPasswordController.text.trim(),
+        'password_confirmation': newPasswordController.text.trim(),
       });
+      if (res.statusCode != 200) throw ApiException.fromResponse(res);
 
       // success — was previously showing the raw key 'password_updated_success'
       if (context.mounted) {

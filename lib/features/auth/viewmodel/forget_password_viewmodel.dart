@@ -1,6 +1,7 @@
-import 'package:cloud_functions/cloud_functions.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
+
+import '../../../core/services/auth_services.dart';
 
 import '../../../core/widgets/app_dialogs.dart';
 
@@ -39,8 +40,7 @@ class ForgetPasswordViewModel extends ChangeNotifier {
     notifyListeners();
 
     try {
-      final callable = FirebaseFunctions.instance.httpsCallable('requestPasswordOtp');
-      await callable.call({'email': emailController.text.trim()});
+      await AuthService().sendPasswordResetEmail(emailController.text.trim());
       return true;
     } catch (e) {
       if (context.mounted) {

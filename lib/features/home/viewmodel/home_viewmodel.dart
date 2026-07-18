@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:firebase_auth/firebase_auth.dart';
+
+import '../../../core/services/auth_services.dart';
 import '../../../data/models/service_item.dart';
 import '../../../data/repositories/reminders_repo.dart';
 import '../../../data/repositories/wounds_repository.dart';
@@ -67,21 +68,21 @@ class HomeViewModel extends ChangeNotifier {
       final prefs = await SharedPreferences.getInstance();
       userFirstName = prefs.getString('user_firstName') ?? '';
 
-      // If no local data, try to get from Firebase
+      // If no local data, fall back to the signed-in API user.
       if (userFirstName.isEmpty) {
-        final firebaseUser = FirebaseAuth.instance.currentUser;
-        if (firebaseUser != null) {
-          final displayName = firebaseUser.displayName;
-          if (displayName != null && displayName.isNotEmpty) {
+        final apiUser = AuthService().currentUser;
+        if (apiUser != null) {
+          final displayName = apiUser.name;
+          if (displayName.isNotEmpty) {
             userFirstName = displayName.split(' ').first;
             
-            // Save back to SharedPreferences if we got it from Firebase
+            // Save back to SharedPreferences if we got it from the API
             final parts = displayName.split(' ');
             final firstName = parts.first;
             final lastName = parts.length > 1 ? parts.sublist(1).join(' ') : '';
             await prefs.setString('user_firstName', firstName);
             await prefs.setString('user_lastName', lastName);
-            await prefs.setString('user_email', firebaseUser.email ?? '');
+            await prefs.setString('user_email', apiUser.email ?? '');
             await prefs.setString('user_fullName', displayName);
           }
         }

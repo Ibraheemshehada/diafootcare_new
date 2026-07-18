@@ -2,7 +2,8 @@ import 'dart:io';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:firebase_auth/firebase_auth.dart';
+
+import '../../../core/services/auth_services.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as path;
@@ -49,13 +50,13 @@ class ProfileViewModel extends ChangeNotifier {
         }
       }
 
-      // If no local data, try to get from Firebase
+      // If no local data, fall back to the signed-in API user.
       if (firstName.isEmpty && lastName.isEmpty) {
-        final firebaseUser = FirebaseAuth.instance.currentUser;
-        if (firebaseUser != null) {
-          email = firebaseUser.email ?? email;
-          final displayName = firebaseUser.displayName;
-          if (displayName != null && displayName.isNotEmpty) {
+        final apiUser = AuthService().currentUser;
+        if (apiUser != null) {
+          email = apiUser.email ?? email;
+          final displayName = apiUser.name;
+          if (displayName.isNotEmpty) {
             final parts = displayName.split(' ');
             firstName = parts.first;
             lastName = parts.length > 1 ? parts.sublist(1).join(' ') : '';
@@ -95,15 +96,12 @@ class ProfileViewModel extends ChangeNotifier {
     await prefs.setString('user_email', email);
     await prefs.setString('user_fullName', fullName);
 
-    // Update Firebase display name
+    // Push the name to the server too. Non-fatal: the local copy is already
+    // saved, and an offline-first app must not lose an edit to a failed request.
     try {
-      final user = FirebaseAuth.instance.currentUser;
-      if (user != null) {
-        await user.updateDisplayName(fullName);
-        await user.reload();
-      }
+      await AuthService().updateDisplayName(fullName);
     } catch (e) {
-      debugPrint('⚠️ Could not update Firebase display name: $e');
+      debugPrint('⚠️ Could not sync display name to the API: $e');
     }
 
     notifyListeners();

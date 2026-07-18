@@ -1,7 +1,7 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:firebase_auth/firebase_auth.dart';
+import '../../../core/network/api_client.dart';
 import '../../../core/services/auth_services.dart';
 import '../../../core/widgets/app_dialogs.dart';
 import '../../../routes/app_routes.dart';
@@ -70,7 +70,7 @@ class SignUpViewModel extends ChangeNotifier {
     debugPrint('💾 User data saved locally: $firstName $lastName ($email)');
   }
 
-  // Sign up using Firebase AuthService
+  // Sign up against the DiaFootCare API.
   Future<void> signUp(BuildContext context) async {
     if (!validate()) return;
 
@@ -83,14 +83,15 @@ class SignUpViewModel extends ChangeNotifier {
       final lastName = lastNameController.text.trim();
       final password = passwordController.text;
 
-      // Create user account
-      final result = await _authService.signUp(email, password);
+      // Create the account on the API. The name is supplied up front, so there
+      // is no second call to set a display name afterwards.
+      await _authService.signUp(
+        name: '$firstName $lastName'.trim(),
+        email: email,
+        password: password,
+      );
 
-      if (result != null) {
-        // Update Firebase user display name
-        await result.updateDisplayName('$firstName $lastName');
-        await result.reload();
-
+      {
         // Save user data locally
         await _saveUserDataLocally(
           firstName: firstName,
@@ -113,23 +114,13 @@ class SignUpViewModel extends ChangeNotifier {
             Navigator.pushReplacementNamed(context, AppRoutes.mainShell);
           }
         }
-      } else {
-        if (context.mounted) {
-          await showAppError(context, 'auth_signup_failed'.tr());
-        }
       }
-    } on FirebaseAuthException catch (e) {
-      String errorMessage = 'auth_signup_failed'.tr();
-      if (e.code == 'email-already-in-use') {
-        errorMessage = 'auth_email_in_use'.tr();
-      } else if (e.code == 'invalid-email') {
-        errorMessage = 'auth_invalid_email'.tr();
-      } else if (e.code == 'weak-password') {
-        errorMessage = 'password_too_weak'.tr();
-      }
-
+    } on ApiException catch (e) {
+      // Laravel validation already says which field failed and why (duplicate
+      // email, weak password); repeating that mapping here would only let the
+      // two drift apart.
       if (context.mounted) {
-        await showAppError(context, errorMessage, technicalDetail: e.code);
+        await showAppError(context, e.message, technicalDetail: e.statusCode);
       }
     } catch (e) {
       debugPrint('Sign-up error: $e');

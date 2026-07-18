@@ -1,7 +1,9 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+
+import '../../../core/network/api_client.dart';
+import '../../../core/services/auth_services.dart';
 
 import '../../../core/widgets/app_dialogs.dart';
 import '../../../routes/app_routes.dart';
@@ -36,7 +38,7 @@ class LoginViewModel extends ChangeNotifier {
     return emailError == null && passwordError == null;
   }
 
-  // Firebase login method
+  // Sign in against the DiaFootCare API.
   Future<void> loginUser(BuildContext context) async {
     if (!validateForm()) return;
 
@@ -45,24 +47,22 @@ class LoginViewModel extends ChangeNotifier {
 
     try {
       // Sign in with email and password
-      final userCredential = await FirebaseAuth.instance.signInWithEmailAndPassword(
-        email: emailController.text.trim(),
-        password: passwordController.text,
+      final user = await AuthService().signIn(
+        emailController.text.trim(),
+        passwordController.text,
       );
-
-      final user = userCredential.user;
       
       // ✅ Save user data locally if not already saved
-      if (user != null) {
+      {
         final prefs = await SharedPreferences.getInstance();
         final savedFirstName = prefs.getString('user_firstName');
         
-        // If no local data, try to get from Firebase
+        // If no local data, take it from the API user.
         if (savedFirstName == null || savedFirstName.isEmpty) {
-          final displayName = user.displayName;
+          final displayName = user.name;
           final email = user.email ?? emailController.text.trim();
           
-          if (displayName != null && displayName.isNotEmpty) {
+          if (displayName.isNotEmpty) {
             final parts = displayName.split(' ');
             final firstName = parts.first;
             final lastName = parts.length > 1 ? parts.sublist(1).join(' ') : '';
@@ -71,7 +71,7 @@ class LoginViewModel extends ChangeNotifier {
             await prefs.setString('user_lastName', lastName);
             await prefs.setString('user_email', email);
             await prefs.setString('user_fullName', displayName);
-            debugPrint('💾 User data loaded from Firebase and saved locally: $displayName ($email)');
+            debugPrint('💾 User data loaded from API and saved locally: $displayName ($email)');
           } else {
             // If no display name, save at least email
             await prefs.setString('user_email', email);
@@ -90,20 +90,15 @@ class LoginViewModel extends ChangeNotifier {
       // Navigate to the main screen if login is successful
       Navigator.pushReplacementNamed(context, AppRoutes.mainShell);
 
-    } on FirebaseAuthException catch (e) {
-      // Localized, non-technical messages — never expose the Firebase code.
-      String errorMessage = 'auth_error_generic'.tr();
-      if (e.code == 'user-not-found') {
-        errorMessage = 'auth_user_not_found'.tr();
-      } else if (e.code == 'wrong-password') {
-        errorMessage = 'auth_wrong_password'.tr();
-      } else if (e.code == 'invalid-email') {
-        errorMessage = 'auth_invalid_email'.tr();
-      } else if (e.code == 'invalid-credential') {
-        errorMessage = 'auth_invalid_credential'.tr();
-      }
+    } on ApiException catch (e) {
+      // The API returns a message already fit to show; 401 is the credential
+      // case and everything else is reported as-is rather than guessed at.
       if (context.mounted) {
-        await showAppError(context, errorMessage, technicalDetail: e.code);
+        await showAppError(
+          context,
+          e.isUnauthorized ? 'auth_invalid_credential'.tr() : e.message,
+          technicalDetail: e.statusCode,
+        );
       }
     } catch (e) {
       if (context.mounted) {
@@ -116,8 +111,16 @@ class LoginViewModel extends ChangeNotifier {
     }
   }
 
-  /// Continue without a Firebase account. Persists a guest flag so the splash
-  /// screen keeps letting the user in until they log out.
+  /// Continue without an account.
+  ///
+  /// Opens an anonymous session on the server keyed to this install's device
+  /// UUID, so a guest's scans and usage still reach the study instead of being
+  /// stranded on the phone. The server call is idempotent, so reopening the app
+  /// resumes the same participant rather than creating a second one.
+  ///
+  /// If the server cannot be reached the user still gets in: this is an
+  /// offline-first app, and refusing entry because a network call failed would
+  /// break its core promise. The session is opened on a later launch instead.
   Future<void> continueAsGuest(BuildContext context) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool('is_guest', true);
@@ -125,7 +128,15 @@ class LoginViewModel extends ChangeNotifier {
     await prefs.setString('user_firstName', 'Guest');
     await prefs.setString('user_lastName', '');
     await prefs.remove('user_email');
-    debugPrint('👤 Continuing as guest');
+
+    try {
+      await AuthService().continueAsGuest(
+        locale: context.locale.languageCode,
+      );
+      debugPrint('👤 Guest session opened on the server');
+    } catch (e) {
+      debugPrint('👤 Continuing as guest offline (server unavailable): $e');
+    }
 
     if (!context.mounted) return;
     Navigator.pushReplacementNamed(context, AppRoutes.mainShell);

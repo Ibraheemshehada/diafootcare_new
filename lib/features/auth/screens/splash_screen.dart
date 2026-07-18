@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'package:easy_localization/easy_localization.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -8,6 +7,7 @@ import 'package:loading_animation_widget/loading_animation_widget.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../../core/services/auth_services.dart';
 import '../../../data/repositories/consent_repository.dart';
 import '../../../routes/app_routes.dart';
 import '../../consent/screens/consent_screen.dart';
@@ -96,7 +96,7 @@ class _SplashScreenState extends State<SplashScreen> {
 
     final prefs = await SharedPreferences.getInstance();
 
-    // Guest session: let the user keep using the app without a Firebase
+    // Guest session: let the user keep using the app without a registered
     // account until they explicitly log out (which clears this flag).
     final isGuest = prefs.getBool('is_guest') ?? false;
     if (isGuest) {
@@ -106,8 +106,8 @@ class _SplashScreenState extends State<SplashScreen> {
       return;
     }
 
-    // Check Firebase auth state
-    final currentUser = FirebaseAuth.instance.currentUser;
+    // Resolve the stored API token to a user.
+    final currentUser = await AuthService().restoreSession();
 
     // Check if "Remember Me" was enabled
     final rememberMe = prefs.getBool('rememberMe') ?? false;
@@ -122,7 +122,7 @@ class _SplashScreenState extends State<SplashScreen> {
       
       // If user exists but remember me is disabled, sign them out
       if (currentUser != null && !rememberMe) {
-        await FirebaseAuth.instance.signOut();
+        await AuthService().signOut();
         debugPrint('🔓 Signed out user (Remember Me was disabled)');
       }
       
