@@ -8,7 +8,7 @@ class DatabaseHelper {
   ///
   /// Exposed so tests assert against the same source of truth as the migration
   /// itself, instead of a literal that silently goes stale on the next bump.
-  static const int schemaVersion = 14;
+  static const int schemaVersion = 15;
 
   static final DatabaseHelper _instance = DatabaseHelper._();
   static Database? _db;
@@ -32,7 +32,7 @@ class DatabaseHelper {
     final path = overridePath ?? join(await getDatabasesPath(), 'diafoot.db');
     return openDatabase(
       path,
-      version: schemaVersion, // 14: sync columns (local_uuid, pending_sync, synced_at)
+      version: schemaVersion, // 15: engagement_daily rollups
       onCreate: (db, version) async {
         await db.execute('''
           CREATE TABLE wounds (
@@ -94,6 +94,9 @@ class DatabaseHelper {
 
         // ⬇️ Participant consent audit trail on fresh DB
         await _createConsentsTable(db);
+
+        // ⬇️ Daily engagement rollups on fresh DB
+        await _createEngagementDailyTable(db);
 
         // ⬇️ Sync queue columns on fresh DB
         await _addSyncColumns(db);
@@ -200,6 +203,10 @@ class DatabaseHelper {
         if (oldVersion < 14) {
           await _addSyncColumns(db);
         }
+        if (oldVersion < 15) {
+          await _createEngagementDailyTable(db);
+          await _addSyncColumns(db);
+        }
       },
       onOpen: (db) async {
         // Extra safety: ensure table exists even if onCreate/onUpgrade didn't run
@@ -246,6 +253,8 @@ class DatabaseHelper {
         // would gate the user behind a declaration it cannot store.
         await _createConsentsTable(db);
 
+        await _createEngagementDailyTable(db);
+
         // Extra safety: a table created by one of the onOpen guards above would
         // otherwise lack its sync columns and never upload.
         await _addSyncColumns(db);
@@ -269,6 +278,7 @@ class DatabaseHelper {
     'medication_logs',
     'sus_responses',
     'analytics_events',
+    'engagement_daily',
     'consents',
   ];
 
@@ -335,6 +345,26 @@ class DatabaseHelper {
         debugPrint('Note: could not backfill $table: $e');
       }
     }
+  }
+
+  /// Daily rollups of high-volume engagement events.
+  ///
+  /// `local_uuid` is the primary key rather than an autoincrement id: it is
+  /// derived deterministically from day+metric+target, so rebuilding a day
+  /// replaces its row instead of appending another.
+  Future<void> _createEngagementDailyTable(Database db) async {
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS engagement_daily (
+        local_uuid  TEXT PRIMARY KEY,
+        day         TEXT NOT NULL,
+        name        TEXT NOT NULL,
+        target      TEXT,
+        event_count INTEGER NOT NULL DEFAULT 0,
+        total_value INTEGER
+      )
+    ''');
+    await db.execute(
+        'CREATE INDEX IF NOT EXISTS idx_engagement_daily_day ON engagement_daily(day)');
   }
 
   /// Audit trail of participant consent decisions.

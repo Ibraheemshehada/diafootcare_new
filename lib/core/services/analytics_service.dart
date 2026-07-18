@@ -1,4 +1,5 @@
 import 'package:easy_localization/easy_localization.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../../data/repositories/analytics_repository.dart';
@@ -61,11 +62,38 @@ class AnalyticsService {
 class AnalyticsRouteObserver extends NavigatorObserver {
   final Map<Route<dynamic>, DateTime> _openedAt = {};
 
+  /// A stable label for a route.
+  ///
+  /// Named routes use their name. For a route pushed without one, the builder's
+  /// runtimeType is the only clue available, but it stringifies as
+  /// `(BuildContext) => ConsentScreen` — which the study then groups by
+  /// verbatim. Worse, that string is not guaranteed stable across builds, so a
+  /// release build could silently split one screen into several labels.
+  ///
+  /// The screen name is extracted from it, and anything that does not look like
+  /// a plain identifier falls back to a single bucket rather than polluting the
+  /// data with one label per build.
+  static final _returnType = RegExp(r'=>\s*([A-Za-z_][A-Za-z0-9_]*)');
+
+  /// Turns a builder's runtimeType string into a stable label.
+  ///
+  /// Exposed for testing: the study groups by this value, so a change in how it
+  /// is derived silently reshapes the data and is worth a test rather than an
+  /// eyeball on a device.
+  @visibleForTesting
+  static String labelForBuilderType(String rawRuntimeType) {
+    final match = _returnType.firstMatch(rawRuntimeType);
+    return match != null ? '(unnamed) ${match.group(1)}' : '(unnamed)';
+  }
+
   String? _name(Route<dynamic>? route) {
     final n = route?.settings.name;
     if (n != null && n.isNotEmpty) return n;
-    // Fall back to the widget type for routes pushed without a name.
-    if (route is MaterialPageRoute) return route.builder.runtimeType.toString();
+
+    if (route is MaterialPageRoute) {
+      return labelForBuilderType(route.builder.runtimeType.toString());
+    }
+
     return null;
   }
 

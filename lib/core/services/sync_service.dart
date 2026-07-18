@@ -6,6 +6,7 @@ import 'package:sqflite/sqflite.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../data/local/database_helper.dart';
+import '../../data/repositories/engagement_rollup_repository.dart';
 import '../network/api_client.dart';
 import 'device_service.dart';
 
@@ -19,7 +20,10 @@ class _SyncSpec {
   /// Builds the request body for one row.
   final Map<String, dynamic> Function(Map<String, Object?> row) map;
 
-  const _SyncSpec(this.table, this.type, this.map);
+  /// Extra SQL predicate, for tables where only some rows are uploaded.
+  final String? where;
+
+  const _SyncSpec(this.table, this.type, this.map, {this.where});
 
   String get endpoint => type == null ? '/wound-scans/sync' : '/sync/$type';
 }
@@ -148,13 +152,28 @@ class SyncService {
               'recorded_at': _iso(r['dateTime']),
               'consent_version': r['consent_version'],
             }),
-        // Local `type` is the event (app_open, feature_open); local `name` is
-        // what it acted on. The API names those `name` and `target`.
-        _SyncSpec('analytics_events', 'engagement', (r) => {
-              'name': r['type'],
-              'target': r['name'],
-              'value': r['value'],
-              'occurred_at': _iso(r['ts']),
+        // Only the low-volume, analytically rich events go up raw. The
+        // high-volume ones (screen opens and the like) are rolled up daily —
+        // see EngagementRollupRepository for why aggregating beats sampling.
+        _SyncSpec(
+          'analytics_events',
+          'engagement',
+          (r) => {
+            // Local `type` is the event; local `name` is what it acted on. The
+            // API names those `name` and `target`.
+            'name': r['type'],
+            'target': r['name'],
+            'value': r['value'],
+            'occurred_at': _iso(r['ts']),
+          },
+          where: "type IN ('app_open','task_start','task_complete','error')",
+        ),
+        _SyncSpec('engagement_daily', 'engagement-daily', (r) => {
+              'day': r['day'],
+              'name': r['name'],
+              'target': r['target'],
+              'event_count': r['event_count'] ?? 0,
+              'total_value': r['total_value'],
             }),
         _SyncSpec('consents', 'consents', (r) => {
               'version': r['version'] ?? 0,
@@ -212,8 +231,9 @@ class SyncService {
 
     for (final spec in _specs) {
       try {
+        final predicate = spec.where == null ? '' : ' AND ${spec.where}';
         final rows = await db.rawQuery(
-            'SELECT COUNT(*) AS c FROM ${spec.table} WHERE pending_sync = 1');
+            'SELECT COUNT(*) AS c FROM ${spec.table} WHERE pending_sync = 1$predicate');
         total += (rows.first['c'] as int?) ?? 0;
       } catch (_) {
         // A table that does not exist on this install simply has nothing queued.
@@ -246,6 +266,10 @@ class SyncService {
     var failed = 0;
 
     try {
+      // Refresh the rollups first so the current day's counts are up to date
+      // before they are uploaded.
+      await EngagementRollupRepository().rebuild();
+
       final deviceUuid = await DeviceService.I.deviceUuid();
       final db = await _helper.database;
 
@@ -284,8 +308,13 @@ class SyncService {
     while (true) {
       List<Map<String, Object?>> rows;
       try {
-        rows = await db.query(spec.table,
-            where: 'pending_sync = 1', limit: _batchSize);
+        rows = await db.query(
+          spec.table,
+          where: spec.where == null
+              ? 'pending_sync = 1'
+              : 'pending_sync = 1 AND ${spec.where}',
+          limit: _batchSize,
+        );
       } catch (_) {
         return const SyncResult(); // table absent on this install
       }
