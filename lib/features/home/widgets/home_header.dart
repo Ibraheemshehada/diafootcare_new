@@ -2,6 +2,7 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:provider/provider.dart';
+import '../../../core/widgets/sync_status_indicator.dart';
 import '../../profile/viewmodel/profile_viewmodel.dart';
 
 class HomeHeader extends StatelessWidget {
@@ -52,6 +53,8 @@ class HomeHeader extends StatelessWidget {
               ],
             ),
           ),
+          // Sits beside the bell: both answer "is there anything I should know?"
+          const SyncStatusIndicator(),
           IconButton(
             tooltip: 'notifications'.tr(),
             onPressed: onNotifications,

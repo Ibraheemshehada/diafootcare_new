@@ -60,6 +60,7 @@ class SyncService {
   StreamSubscription<List<ConnectivityResult>>? _sub;
   Timer? _periodic;
   bool _running = false;
+  bool _rateLimited = false;
   int _backoffStep = 0;
   Timer? _retryTimer;
 
@@ -254,7 +255,12 @@ class SyncService {
         failed += result.failed;
       }
 
-      if (failed > 0) {
+      if (_rateLimited) {
+        // Jump most of the way up the backoff ladder rather than starting at 1s.
+        _backoffStep = _backoff.length - 2;
+        _rateLimited = false;
+        _scheduleRetry();
+      } else if (failed > 0) {
         _scheduleRetry();
       } else {
         _backoffStep = 0;
@@ -335,6 +341,15 @@ class SyncService {
           'batch_uuid': _uuid.v4(),
           'records': records,
         });
+
+        // 429 is the server asking us to slow down, not a broken record.
+        // Retrying it on the normal schedule just earns another 429, so this
+        // backs off hard and leaves the rows queued for a later pass.
+        if (res.statusCode == 429) {
+          debugPrint('🔄 ${spec.endpoint} rate-limited; backing off');
+          _rateLimited = true;
+          break;
+        }
 
         if (res.statusCode != 200) {
           debugPrint('🔄 ${spec.endpoint} -> ${res.statusCode}');
