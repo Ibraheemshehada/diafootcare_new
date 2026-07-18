@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io' show Platform;
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
@@ -5,6 +6,7 @@ import 'package:flutter/services.dart' show SystemChrome, DeviceOrientation;
 
 import 'core/services/notification_service.dart';
 import 'core/services/analytics_service.dart';
+import 'core/services/sync_service.dart';
 import 'core/services/web_notification_service.dart';
 
 import 'package:easy_localization/easy_localization.dart';
@@ -125,6 +127,19 @@ void main() async {
 
   // Log this launch for the study's engagement metrics (local-only, non-blocking).
   AnalyticsService.I.logAppOpen();
+
+  // Start draining the upload queue. Deliberately not awaited: sync must never
+  // be on the path of the app becoming usable, and it no-ops when the device is
+  // offline or nobody is signed in.
+  unawaited(SyncService.I.start());
+
+  // Drain the queue when the app goes to the background: that is when a
+  // session's records are complete and the user is least likely to notice.
+  // AppLifecycleListener is used rather than making the root widget stateful
+  // purely to observe lifecycle.
+  AppLifecycleListener(
+    onPause: () => unawaited(SyncService.I.onAppPaused()),
+  );
 
   // ℹ️ AI models are NOT loaded here. Interpreter.fromAsset does a synchronous
   // native load of ~220MB of TFLite models on the UI isolate, which freezes the

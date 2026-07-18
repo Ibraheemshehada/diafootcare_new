@@ -1,8 +1,15 @@
 import 'package:flutter/foundation.dart';
 import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
+import 'package:uuid/uuid.dart';
 
 class DatabaseHelper {
+  /// Current schema version.
+  ///
+  /// Exposed so tests assert against the same source of truth as the migration
+  /// itself, instead of a literal that silently goes stale on the next bump.
+  static const int schemaVersion = 14;
+
   static final DatabaseHelper _instance = DatabaseHelper._();
   static Database? _db;
 
@@ -25,7 +32,7 @@ class DatabaseHelper {
     final path = overridePath ?? join(await getDatabasesPath(), 'diafoot.db');
     return openDatabase(
       path,
-      version: 13, // ⬅️ bumped to 13: consents audit table + sus_responses.consent_version
+      version: schemaVersion, // 14: sync columns (local_uuid, pending_sync, synced_at)
       onCreate: (db, version) async {
         await db.execute('''
           CREATE TABLE wounds (
@@ -87,6 +94,9 @@ class DatabaseHelper {
 
         // ⬇️ Participant consent audit trail on fresh DB
         await _createConsentsTable(db);
+
+        // ⬇️ Sync queue columns on fresh DB
+        await _addSyncColumns(db);
       },
       onUpgrade: (db, oldVersion, newVersion) async {
         if (oldVersion < 2) {
@@ -187,6 +197,9 @@ class DatabaseHelper {
             debugPrint('Note: sus_responses.consent_version may already exist: $e');
           }
         }
+        if (oldVersion < 14) {
+          await _addSyncColumns(db);
+        }
       },
       onOpen: (db) async {
         // Extra safety: ensure table exists even if onCreate/onUpgrade didn't run
@@ -232,8 +245,96 @@ class DatabaseHelper {
         // recordable even if a migration was interrupted — otherwise the app
         // would gate the user behind a declaration it cannot store.
         await _createConsentsTable(db);
+
+        // Extra safety: a table created by one of the onOpen guards above would
+        // otherwise lack its sync columns and never upload.
+        await _addSyncColumns(db);
       },
     );
+  }
+
+  /// Tables whose rows are uploaded to the DiaFootCare server.
+  ///
+  /// `notes` is deliberately absent: free-text notes are the most sensitive and
+  /// least structured thing a patient writes, and nothing in the study needs
+  /// them. They stay on the device.
+  static const List<String> syncableTables = [
+    'wounds',
+    'glucose_readings',
+    'self_care_logs',
+    'qol_entries',
+    'satisfaction_entries',
+    'appointments',
+    'medications',
+    'medication_logs',
+    'sus_responses',
+    'analytics_events',
+    'consents',
+  ];
+
+  /// Adds the columns the sync queue needs to every syncable table.
+  ///
+  /// * `local_uuid` — a UUID v4 that identifies the row to the server. Generated
+  ///   here rather than at upload time so a re-sent batch is recognisably the
+  ///   same record and upserts instead of duplicating.
+  /// * `pending_sync` — 1 until the server acknowledges the row.
+  /// * `synced_at` — when that acknowledgement arrived.
+  ///
+  /// Existing rows are backfilled with generated UUIDs and left `pending_sync = 1`,
+  /// so a participant's history uploads once rather than being stranded because
+  /// it predates the queue.
+  Future<void> _addSyncColumns(Database db) async {
+    const uuid = Uuid();
+
+    for (final table in syncableTables) {
+      // Check first rather than attempting every ALTER and catching the failure.
+      // This runs on every launch via the onOpen guard, and blindly retrying ~33
+      // statements that are expected to fail is both wasteful and drowns the log
+      // in exceptions that look like real errors.
+      final Set<String> existing;
+      try {
+        final info = await db.rawQuery('PRAGMA table_info($table)');
+        if (info.isEmpty) continue; // table not present on this install
+        existing = info.map((c) => '${c['name']}').toSet();
+      } catch (_) {
+        continue;
+      }
+
+      final missing = {
+        'local_uuid': 'ALTER TABLE $table ADD COLUMN local_uuid TEXT',
+        'pending_sync':
+            'ALTER TABLE $table ADD COLUMN pending_sync INTEGER NOT NULL DEFAULT 1',
+        'synced_at': 'ALTER TABLE $table ADD COLUMN synced_at INTEGER',
+      }..removeWhere((col, _) => existing.contains(col));
+
+      for (final ddl in missing.values) {
+        try {
+          await db.execute(ddl);
+        } catch (e) {
+          debugPrint('Note: could not add sync column to $table: $e');
+        }
+      }
+
+      // Backfill in one transaction per table.
+      try {
+        final rows = await db.query(table,
+            columns: ['rowid'], where: 'local_uuid IS NULL');
+
+        final batch = db.batch();
+        for (final row in rows) {
+          batch.update(table, {'local_uuid': uuid.v4()},
+              where: 'rowid = ?', whereArgs: [row['rowid']]);
+        }
+        await batch.commit(noResult: true);
+
+        await db.execute(
+            'CREATE UNIQUE INDEX IF NOT EXISTS idx_${table}_uuid ON $table(local_uuid)');
+        await db.execute(
+            'CREATE INDEX IF NOT EXISTS idx_${table}_pending ON $table(pending_sync)');
+      } catch (e) {
+        debugPrint('Note: could not backfill $table: $e');
+      }
+    }
   }
 
   /// Audit trail of participant consent decisions.

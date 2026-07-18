@@ -24,7 +24,11 @@ void main() {
   });
 
   tearDown(() async {
-    if (tmp.existsSync()) await tmp.delete(recursive: true);
+    // Windows keeps a handle on a just-closed sqlite file for a moment; a failed
+    // cleanup of a temp directory must not fail the test that already passed.
+    try {
+      if (tmp.existsSync()) await tmp.delete(recursive: true);
+    } catch (_) {}
   });
 
   /// Builds a database shaped like a real v12 install: the pre-v13
@@ -71,7 +75,7 @@ void main() {
 
     final db = await DatabaseHelper().initDB(path);
 
-    expect(await db.getVersion(), 13);
+    expect(await db.getVersion(), DatabaseHelper.schemaVersion);
     expect(await hasColumn(db, 'sus_responses', 'consent_version'), isTrue);
 
     final tables = await db.rawQuery(
@@ -140,13 +144,37 @@ void main() {
     await db.close();
   });
 
+  test('v13 -> v14 adds sync columns and backfills local_uuid', () async {
+    final path = await createV12Database(susRows: 3);
+
+    final db = await DatabaseHelper().initDB(path);
+
+    for (final col in ['local_uuid', 'pending_sync', 'synced_at']) {
+      expect(await hasColumn(db, 'sus_responses', col), isTrue,
+          reason: '\$col should exist after v14');
+    }
+
+    final rows = await db.query('sus_responses');
+    // Every pre-existing row must be identifiable and queued, or a
+    // participant's history would be stranded on the device forever.
+    expect(rows.every((r) => (r['local_uuid'] as String?)?.isNotEmpty ?? false), isTrue);
+    expect(rows.every((r) => r['pending_sync'] == 1), isTrue);
+
+    // The ids must be distinct — a shared uuid would make the server treat
+    // separate responses as re-sends of one record and silently drop data.
+    final ids = rows.map((r) => r['local_uuid']).toSet();
+    expect(ids.length, rows.length);
+
+    await db.close();
+  });
+
   test('a fresh v13 install gets both the consents table and the column',
       () async {
     final path = '${tmp.path}/fresh.db';
 
     final db = await DatabaseHelper().initDB(path);
 
-    expect(await db.getVersion(), 13);
+    expect(await db.getVersion(), DatabaseHelper.schemaVersion);
     expect(await hasColumn(db, 'sus_responses', 'consent_version'), isTrue);
 
     // Recording consent must work on a fresh install, or the gate locks the
