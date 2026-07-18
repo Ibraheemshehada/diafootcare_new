@@ -9,6 +9,12 @@ behavior, pharmacist & education support).
 
 _Last updated: 2026-07-09_
 
+> **📌 Phase 1 is closed (2026-07-18).** The offline/on-device capability is declared
+> complete — see [`OFFLINE_MODE_STATUS.md`](OFFLINE_MODE_STATUS.md). New work
+> (online/offline mode selection, auto-sync, Laravel/Vue dashboard) is tracked in
+> [`PHASE2_TRACKER.md`](PHASE2_TRACKER.md). **This file remains the record for the
+> clinical feature set below**, including the open QA items — those are not superseded.
+
 ---
 
 ## 🔖 RESUME HERE — session handoff (2026-07-09)
