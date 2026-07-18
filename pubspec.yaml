@@ -68,6 +68,7 @@ dependencies:
   pdf: ^3.11.1
   printing: ^5.13.0
   flutter_tts: ^4.2.5
+  workmanager: ^0.9.0+3
 
 dev_dependencies:
   flutter_test:

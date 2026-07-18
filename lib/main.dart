@@ -6,6 +6,7 @@ import 'package:flutter/services.dart' show SystemChrome, DeviceOrientation;
 
 import 'core/services/notification_service.dart';
 import 'core/services/analytics_service.dart';
+import 'core/services/background_sync.dart';
 import 'core/services/sync_service.dart';
 import 'core/services/web_notification_service.dart';
 
@@ -140,6 +141,9 @@ void main() async {
   AppLifecycleListener(
     onPause: () => unawaited(SyncService.I.onAppPaused()),
   );
+
+  // Keeps uploading while the app is closed. Android only; see BackgroundSync.
+  unawaited(BackgroundSync.register());
 
   // ℹ️ AI models are NOT loaded here. Interpreter.fromAsset does a synchronous
   // native load of ~220MB of TFLite models on the UI isolate, which freezes the
