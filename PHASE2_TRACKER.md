@@ -22,14 +22,20 @@ Done this session:
 - Wrote `OFFLINE_MODE_STATUS.md` (offline capability declared complete, with evidence).
 - Wrote this tracker.
 
-**Next:** the web project is being built as a **separate repo** (`daifootcare-web`,
-Laravel 11 + Vue 3). This repo — the Flutter app — stays as-is until the API contract is
-stable enough to code the mobile client against.
+- Built the web project as a **separate repo**: `daifootcare-web` (Laravel 12 + Vue 3),
+  committed locally on `main`. **No GitHub remote yet** — create one and push.
+  The API contract is documented in that repo's `README.md`.
+
+This repo — the Flutter app — is **unchanged apart from these three docs**. No mobile
+networking code has been written yet, deliberately: §A should not start until the API
+contract is settled and open decision #1 (Firebase vs. Sanctum) is answered.
 
 ### ⬜ Immediate TODO
-1. Build the Laravel 11 + Vue 3 dashboard skeleton (separate repo).
-2. Lock the API contract (§3.2 of the brief) before writing any Flutter networking code.
-3. Only then start the mobile-side work in §A below.
+1. Create the GitHub remote for `daifootcare-web` and push (`gh` is not installed on this
+   machine, so this is a manual step).
+2. Answer open decision #1 (Firebase vs. Sanctum) — it blocks §A4 and shapes §A1.
+3. Answer open decision #3 (consent) — it blocks shipping sync to real patients at all.
+4. Only then start the mobile-side work in §A.
 
 ---
 
@@ -76,26 +82,51 @@ stable enough to code the mobile client against.
 
 ---
 
-## B. Backend — Laravel 11 API (separate repo) — 🚧 in progress
+## B. Backend — Laravel API (separate repo) — ✅ scaffolded & verified
 
-- 🚧 Project scaffold (Laravel 11 + Sanctum + Vite + Vue 3 + Tailwind v4 + Nuxt UI v4)
-- ⬜ Migrations + models: `users`, `patients`, `devices`, `wound_scans`, `sync_logs` (§3.1)
-- ⬜ Role policies: admin / doctor / patient
-- ⬜ Auth endpoints (register / login / logout)
-- ⬜ Device endpoints (register, mode update)
-- ⬜ **Idempotent sync endpoint** — `upsert` keyed on `local_uuid` so a re-sent batch never duplicates
-- ⬜ Dashboard stats endpoint
-- ⬜ Queue jobs for image/large-file processing
+Repo: `daifootcare-web` (sibling folder, local `main`, **no GitHub remote yet**).
 
-## C. Dashboard — Vue 3 (separate repo) — ⬜ not started
+- ✅ Project scaffold — **Laravel 12**, not 11. Composer *refused* to install any 11.x
+  release: v11.31.0–v11.55.0 are all covered by security advisories (incl. reflected XSS).
+  Laravel 11 is past its security-patch window; shipping it under patient data was not an
+  acceptable trade for matching the pinned version.
+- ✅ Migrations + models: `patients`, `devices`, `wound_scans`, `sync_logs`, + `role`/`locale` on `users`
+- ✅ Role gating: admin / doctor / patient (`EnsureUserIsClinician` middleware)
+- ✅ Auth endpoints (register / login / logout / me) — Sanctum tokens
+- ✅ Device endpoints (register, mode update, list)
+- ✅ **Idempotent sync endpoint** — upsert on `local_uuid`; **verified**: the same batch sent
+  twice produced 2 rows, not 4
+- ✅ Dashboard stats endpoint
+- ✅ Added two fields the brief omitted: `models_version` (Mode A and Mode B results are
+  otherwise not comparable — open decision #4) and `source`
+- ⬜ Image upload — `image_path` exists in the schema but sync takes **metadata only**.
+  Needs a storage / encryption-at-rest / retention decision first.
+- ⬜ Queue jobs for image processing (blocked on the above)
 
-- ⬜ Login page (Sanctum token flow)
-- ⬜ Dashboard: patient / device / scan counts, animated cards
-- ⬜ Devices page: every install, last seen, mode, models-downloaded state
-- ⬜ Patients + daily-logs feed (newest first)
-- ⬜ **Skeleton loaders on every page** (`USkeleton`) — not a text "Loading…"
-- ⬜ Full RTL + EN/AR via `vue-i18n`
-- ⬜ Design tokens (colors / spacing / type) defined once, not ad-hoc per component
+**Security properties verified against a running server, not assumed:**
+patient isolation (second patient reads `total: 0`) · patient token on clinician routes → `403` ·
+device hijack → `409` · `"role":"admin"` in the register body → stored role stays `patient`.
+
+## C. Dashboard — Vue 3 (separate repo) — ✅ scaffolded & verified
+
+- ✅ Login page (Sanctum token flow) + route guards
+- ✅ Dashboard: patient / device / scan / sync counts, animated cards (`motion-v`)
+- ✅ Devices page: every install, last seen, mode, models-downloaded state
+- ✅ Patients page + Scan Feed (newest first)
+- ✅ **Skeleton loaders on every page** via a shared `useApiResource` composable, so no page
+  can accidentally ship a bare "Loading…" string
+- ✅ Full RTL + EN/AR (`vue-i18n`) — direction flips **and survives a reload**
+- ✅ Design tokens defined once in `app.css`; risk colour is always paired with a text label,
+  never the only signal
+- ⬜ Realtime updates (Reverb/Pusher) — optional in the brief, not started
+- ⬜ Pagination controls (the API paginates; the UI currently renders page 1 only)
+
+**Driven in Chromium (Playwright), 0 console errors:** guard redirect → login → stat tiles
+showing live API numbers → all four pages → Arabic/RTL switch → reload → deep links →
+mobile off-canvas drawer. That pass caught two real bugs, both fixed: the sidebar rendered
+**off-viewport on desktop** (`ltr:-translate-x-full` beat `lg:translate-x-0` in the cascade
+while `lg:ps-64` still reserved its space, making nav unreachable), and **icons were
+invisible** until `@iconify-json/lucide` was installed.
 
 ---
 
