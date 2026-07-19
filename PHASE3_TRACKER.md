@@ -194,3 +194,69 @@ these files.** It is single-threaded and gave up partway through every attempt.
 Against a threaded, Range-capable server the same build downloaded all 208 MB
 byte-identical on the first try. In production nginx must serve the model files
 directly — see the deployment notes.
+
+---
+
+## F5 — server-side analysis (online mode)
+
+Status: **built and working end to end**, with one clinical decision outstanding.
+
+Built:
+- `inference/pipeline.py` in the web repo — the on-device pipeline ported to
+  Python, because PHP has no TFLite runtime.
+- `inference/server.py` — a FastAPI sidecar on loopback. It runs models and
+  authenticates nobody; Laravel decides who may ask.
+- `POST /api/v1/analyse` — authenticated, rate limited, validates the image
+  before it reaches the sidecar. Verified: 401 unauthenticated, correct result
+  authenticated, non-images rejected.
+- `RemoteAnalysisService` + `AiService` routing — online mode analyses on the
+  server, falling back to local models only while they still exist on the phone.
+
+### What the parity work found
+
+Two real wound photographs did in one run what a synthetic fixture never did.
+
+**The pipelines are now matched to the limit of the image decoders.** Getting
+there took two corrections. `img.copyResize` defaults to *nearest*, not linear,
+which cost 7.5% on wound area. And `Interpolation.cubic` is Catmull-Rom
+(a = -0.5) where OpenCV's `INTER_CUBIC` is a = -0.75 — on the 480→224 downscale
+CLIP needs, that moved a callus probability from 0.53 to 0.72. `pipeline.py` now
+reproduces package:image's exact resize, including its edge-handling quirks.
+Residual after the resize equals the residual from JPEG decoding alone
+(~0.2 of 255 per pixel), so the port adds nothing further.
+
+**Exact numeric parity is not achievable.** `package:image` decodes JPEG in pure
+Dart with different rounding than libjpeg. That 0.08% input difference is
+amplified by the tissue head: necrosis on 200003 reads 0.327 on the device and
+0.493 on the server. The model is simply not reproducible across platforms at
+fine granularity, and no amount of matching the arithmetic changes that.
+
+**So label stability had to be engineered, not assumed.** The original rule
+named the single highest-scoring tissue. On 200029 three classes clear their
+thresholds and the top two sit 0.013 apart, so the same photograph came out
+**Necrosis on the device and Callus on the server** — dead tissue needing
+debridement, versus thickened skin. The rule is now: report the most clinically
+serious class that clears its threshold. That cannot flip on ranking noise.
+
+### Open — needs a clinical decision
+
+The severity rule changed 200003 from **Granulation** to **Callus**, because
+callus scrapes over its 0.45 threshold at 0.53 while granulation sits at 0.96,
+and callus outranks granulation in the severity order. For a visibly granulating
+wound that is arguably the wrong headline. `necrosis > slough > callus` is
+defensible; `callus > granulation` is the questionable link, and it is not a
+call to make without a clinician.
+
+Options: drop callus below granulation; or show every tissue present rather than
+one headline, which is the most truthful and removes the ranking question
+entirely, at the cost of changing `tissueType` from one label to a set.
+
+Also recorded: `200003 necrosis` diverges by 0.166 against a 0.107 margin to its
+own threshold. It cannot change the headline today because necrosis is already
+the top of the severity order, but on another wound a class could cross. The
+parity suite prints this headroom on every run.
+
+### Still to do
+- F6 — remove the models from the APK. Blocked on the decision above only in the
+  sense that it should not land while anything about the analysis path is in
+  flux; technically it is ready.

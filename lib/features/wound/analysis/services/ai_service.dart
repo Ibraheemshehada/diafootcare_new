@@ -5,7 +5,9 @@ import 'package:flutter/services.dart';
 import 'package:tflite_flutter/tflite_flutter.dart';
 import 'package:image/image.dart' as img;
 import '../viewmodel/analysis_result.dart';
+import '../../../../core/services/app_mode_service.dart';
 import '../../../../core/services/model_repository.dart';
+import '../../../../core/services/remote_analysis_service.dart';
 
 /// AI Service for wound analysis.
 ///
@@ -175,8 +177,33 @@ class AiService {
   /// as 0 and the UI shows "not measured" instead of a fabricated number.
   Future<AnalysisResult> analyzeWound(String imagePath,
       {double? pixelsPerCm, double? manualDepthCm}) async {
-    if (!_initialized) await init();
     debugPrint('🔍 Analyzing wound image: $imagePath (ppc=$pixelsPerCm)');
+
+    // Online mode analyses on the server. The participant chose not to keep
+    // 200 MB of models on their phone, so this is the path that honours that
+    // choice — and once the models leave the APK it is the only path they have.
+    if (await AppModeService.I.current() == AppMode.online &&
+        !imagePath.startsWith('assets/')) {
+      try {
+        final r = await RemoteAnalysisService.I.analyse(
+          imagePath,
+          pixelsPerCm: pixelsPerCm,
+          manualDepthCm: manualDepthCm,
+        );
+        debugPrint('✅ Server analysis: ${r.riskBadge} / ${r.tissueType}');
+        return r;
+      } on RemoteAnalysisException catch (e) {
+        // Falling back to the local models is only honest while they are still
+        // on the device. When they are not, the failure has to surface:
+        // inventing measurements for a wound is worse than saying so.
+        await init();
+        if (!_model1Loaded && !_model2Loaded) rethrow;
+        debugPrint('⚠️  Server analysis failed (${e.message}); '
+            'using the models on this device instead.');
+      }
+    }
+
+    if (!_initialized) await init();
 
     if (kIsWeb || (!_model1Loaded && !_model2Loaded)) {
       await Future.delayed(const Duration(seconds: 2));
@@ -241,8 +268,12 @@ class AiService {
       );
     } catch (e, st) {
       debugPrint('❌ Inference error: $e\n$st');
-      await Future.delayed(const Duration(seconds: 1));
-      return _getSimulatedResult();
+      // Deliberately not a simulated result. Placeholder numbers returned from
+      // a real analysis attempt are indistinguishable from a measurement once
+      // they are on screen or in the record, and this is a wound.
+      throw RemoteAnalysisException(
+        'This photo could not be analysed on your phone. Please try again.',
+      );
     }
   }
 
@@ -540,24 +571,45 @@ class AiService {
 
   /// Choose one tissue label for the UI: the highest-probability class that is
   /// "present" (>= its threshold); if none qualifies, the overall argmax.
+  /// Tissue classes in descending clinical seriousness.
+  static const List<String> _tissueSeverity = [
+    'necrosis', 'slough', 'callus', 'granulation', 'epithelial',
+  ];
+
+  /// The single tissue label shown for a wound.
+  ///
+  /// The model is multi-label: a wound bed genuinely contains several tissue
+  /// types at once, and each class is present when it clears its own threshold.
+  /// This reports the most clinically serious of the classes that are present,
+  /// rather than whichever happens to have the highest probability.
+  ///
+  /// That is a clinical judgement first — a bed with necrosis and callus in it
+  /// is a necrotic wound, and naming the callus because it scored a hundredth
+  /// higher would bury the finding that matters. It also removes a real defect.
+  /// Ranking by probability made the headline turn on noise: on one real
+  /// photograph necrosis scored 0.9887 on the device and 0.9749 on the server
+  /// while callus scored 0.9787 and 0.9911, so the same wound was labelled
+  /// Necrosis in offline mode and Callus in online mode. Ordering by severity
+  /// cannot flip that way — it changes only if a class crosses its threshold,
+  /// and then only if the class is the most serious one present.
   String _pickTissueLabel(Map<String, double> probs) {
-    String? best;
-    double bestProb = -1;
-    probs.forEach((name, p) {
-      if (p >= (_tissueThresholds[name] ?? 0.5) && p > bestProb) {
-        best = name;
-        bestProb = p;
-      }
-    });
-    if (best == null) {
-      probs.forEach((name, p) {
-        if (p > bestProb) {
-          best = name;
-          bestProb = p;
-        }
-      });
+    final present = probs.entries
+        .where((e) => e.value >= (_tissueThresholds[e.key] ?? 0.5))
+        .map((e) => e.key)
+        .toList();
+
+    // Nothing cleared its threshold: fall back to the most probable class so
+    // the field is never blank.
+    if (present.isEmpty) {
+      if (probs.isEmpty) return 'Unknown';
+      final best =
+          probs.entries.reduce((a, b) => a.value >= b.value ? a : b).key;
+      return best[0].toUpperCase() + best.substring(1);
     }
-    final label = best ?? 'unknown';
+
+    final label = present.reduce((a, b) =>
+        _tissueSeverity.indexOf(a) <= _tissueSeverity.indexOf(b) ? a : b);
+
     return label[0].toUpperCase() + label.substring(1);
   }
 
