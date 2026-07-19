@@ -6,11 +6,11 @@ Phase 1's clinical feature checklist lives in [`FEATURE_TRACKER.md`](FEATURE_TRA
 
 **Legend:** ✅ done · 🚧 in progress · ⚠️ partial/blocked · ⬜ not started
 
-_Last updated: 2026-07-18 (end of day)_
+_Last updated: 2026-07-19_
 
 ---
 
-## 🔖 RESUME HERE — session handoff (2026-07-18, end of day)
+## 🔖 RESUME HERE — session handoff (2026-07-19)
 
 **State:** The app and the dashboard are connected end to end. A record written on the
 phone reaches the server, survives the app being closed, and shows up in the dashboard.
@@ -21,41 +21,28 @@ Firebase is gone. Both repos are pushed.
 `version=2, locale=en, covers_prior=1`; a background WorkManager job uploaded 600 queued
 events with the app not in the foreground.
 
-### ⛔ Start here tomorrow — the one real defect left
+### ✅ Yesterday's blocker is closed
 
-**Repositories do not set `local_uuid` when they insert a row.** The sync path
-compensates (it generates and persists one before upload), but the contract in
-`daifootcare-web/README.md` says the id is generated **at capture time**, and that is the
-robust place for it.
+**`local_uuid` is now assigned by a SQLite trigger at insert**, on every syncable
+table — not by convention across nine repositories, so a repository added next month
+inherits the guarantee. SQLite has no uuid function, so the expression is written out
+with the version nibble pinned to `4` and the variant to `8/9/a/b`; it has to pass the
+server's `uuid` rule, not merely look like one. Callers may still supply their own id
+(the engagement rollups derive a deterministic one) and the trigger only fills gaps.
+Rows created between v14 and v16 are backfilled. Schema is now **v16**.
 
-This mattered today. Because the id was missing, sync generated one on the fly and wrote
-it back with `WHERE rowid = ?` — but `db.query()` returns only declared columns, so
-`rowid` was never selected, the update matched nothing, and the id was never stored. Every
-pass then re-sent the same record under a **new** id. Result: **38,172 rows on the server
-representing 53 real events**, one uploaded 2,292 times, and a pending count that never
-reached zero.
-
-Fixed (rowid is now selected explicitly, and a row whose id cannot be persisted is skipped
-rather than sent), duplicates cleaned up, and verified: two further sync passes added
-**zero** rows. But the underlying gap remains — set `local_uuid` at insert in each
-repository and the compensation can be deleted.
-
-⚠️ **A correction to carry forward:** an earlier note in this file said engagement events
-were "dominating the system" at 23,000/day. That was measuring the bug above, not real
-volume. The daily rollups built in response are still worth keeping on their own merits,
-but do not plan instrumentation around those figures — they were never real.
+Covered by 5 tests including the **v15 → v16 upgrade path** — the state every device in
+the field is actually in.
 
 ### ⬜ Next up, in order
 
-1. **Set `local_uuid` at insert** in the repositories (above). Small, and removes a
-   compensating mechanism from the sync path.
-2. **Mode A / Mode B onboarding (§A1)** — still the largest untouched piece of the brief.
+1. **Mode A / Mode B onboarding (§A1)** — still the largest untouched piece of the brief.
    Nothing depends on it, and nothing else in §A can start cleanly until the mode choice
    exists.
-3. **iOS.** Background sync is Android-only by design (see §A6). If iOS is in scope for the
+2. **iOS.** Background sync is Android-only by design (see §A6). If iOS is in scope for the
    study, that is a planning decision, not a coding one — `BGTaskScheduler` is
    opportunistic and makes no delivery guarantee.
-4. **Wound images** — deliberately not uploaded (owner: "not required now"). `image_path`
+3. **Wound images** — deliberately not uploaded (owner: "not required now"). `image_path`
    exists in the schema when it is wanted; it needs a storage / encryption-at-rest /
    retention decision first.
 
@@ -68,7 +55,7 @@ but do not plan instrumentation around those figures — they were never real.
 - **Model hosting for Mode B** (~208 MB per offline install). Blocks §A2.
 - **Model-version parity** between Mode A and Mode B results.
 
-### 🪤 Gotchas found today (so they are not rediscovered)
+### 🪤 Gotchas (so they are not rediscovered)
 
 - **`adb force-stop` disables background sync.** WorkManager logs
   `Application was force-stopped, rescheduling` and defers work until the app is next
@@ -81,11 +68,27 @@ but do not plan instrumentation around those figures — they were never real.
   namespaced on Android 14+.
 - Reading the device DB: `adb shell cat` corrupts binary. Use
   `run-as <pkg> sh -c 'base64 databases/diafoot.db'` and decode.
-- The Pixel_4_API_36 emulator died **three times** today. Relaunch with `-no-snapshot-load`.
+- The Pixel_4_API_36 emulator dies often (three times on 07-18, again on 07-19).
+  Relaunch with `-no-snapshot-load`.
 - The dev server is single-threaded (`artisan serve`); concurrent sync batches produce
   connection aborts that look like app bugs but are not.
 
-### ✅ Done this session
+### ✅ Done 2026-07-19
+
+- **`local_uuid` trigger** (schema v16) — see above.
+- **Fixed: offline lockout.** `restoreSession()` returned null both for "no token" and
+  "server unreachable", and splash treated null as signed-out — so a signed-in patient
+  with no connection was sent to a login screen they could not complete, with all their
+  records already on the device. It now reports three states and only a real
+  signed-out (no token, or a 401) blocks entry. 6 tests pin it.
+- **Fixed: rollup churn.** `rebuild()` re-queued every rollup row on every pass, so the
+  whole history re-uploaded every 15 minutes. Only days whose counts moved are queued now.
+- Removed an unused import; **53 tests pass, 0 analyzer errors**.
+- Web verified end to end: every clinician endpoint and export type 200s, a patient with
+  no data returns nulls rather than dividing by zero, a missing patient 404s, an empty
+  sync batch 422s, full UI regression clean with 0 console errors.
+
+### ✅ Done 2026-07-18
 
 - **Firebase removed entirely** (14 files). Identity now comes from the same server that
   stores the records — `ApiClient` (dio), `AuthService`, `DeviceService`, Sanctum token in
