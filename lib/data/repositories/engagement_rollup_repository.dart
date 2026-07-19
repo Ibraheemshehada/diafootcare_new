@@ -69,7 +69,15 @@ class EngagementRollupRepository {
         [since, ...aggregatedTypes],
       );
 
+      // What is already stored, so unchanged days are left alone.
+      final existing = {
+        for (final r in await db.query('engagement_daily',
+            columns: ['local_uuid', 'event_count', 'total_value']))
+          r['local_uuid'] as String: r,
+      };
+
       final batch = db.batch();
+      var changed = 0;
 
       for (final r in rows) {
         final day = r['day'] as String?;
@@ -77,11 +85,24 @@ class EngagementRollupRepository {
         if (day == null || type == null) continue;
 
         final target = r['name'] as String?;
+        final count = (r['c'] as int?) ?? 0;
+        final total = r['total'] as int?;
 
         // Deterministic id: the same day+metric+target always maps to the same
         // uuid, across app restarts and reinstalls of the queue, so the server
         // updates one row rather than accumulating a copy per sync.
         final localUuid = _uuid.v5(_namespace, '$day|$type|${target ?? ''}');
+
+        // Only re-queue a day whose numbers actually moved. Blindly marking
+        // every rollup pending on each pass re-uploaded the whole history every
+        // fifteen minutes — harmless to the data, since the upsert is
+        // idempotent, but pointless traffic forever.
+        final prev = existing[localUuid];
+        if (prev != null &&
+            prev['event_count'] == count &&
+            prev['total_value'] == total) {
+          continue;
+        }
 
         batch.insert(
           'engagement_daily',
@@ -90,19 +111,19 @@ class EngagementRollupRepository {
             'day': day,
             'name': type,
             'target': target,
-            'event_count': (r['c'] as int?) ?? 0,
-            'total_value': r['total'] as int?,
-            // Recomputed rows are queued again: the count has changed.
+            'event_count': count,
+            'total_value': total,
             'pending_sync': 1,
             'synced_at': null,
           },
           conflictAlgorithm: ConflictAlgorithm.replace,
         );
+        changed++;
       }
 
       await batch.commit(noResult: true);
 
-      return rows.length;
+      return changed;
     } catch (e) {
       debugPrint('⚠️ engagement rollup failed: $e');
       return 0;

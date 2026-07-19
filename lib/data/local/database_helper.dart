@@ -8,7 +8,7 @@ class DatabaseHelper {
   ///
   /// Exposed so tests assert against the same source of truth as the migration
   /// itself, instead of a literal that silently goes stale on the next bump.
-  static const int schemaVersion = 15;
+  static const int schemaVersion = 16;
 
   static final DatabaseHelper _instance = DatabaseHelper._();
   static Database? _db;
@@ -32,7 +32,7 @@ class DatabaseHelper {
     final path = overridePath ?? join(await getDatabasesPath(), 'diafoot.db');
     return openDatabase(
       path,
-      version: schemaVersion, // 15: engagement_daily rollups
+      version: schemaVersion, // 16: local_uuid assigned by trigger at insert
       onCreate: (db, version) async {
         await db.execute('''
           CREATE TABLE wounds (
@@ -100,6 +100,9 @@ class DatabaseHelper {
 
         // ⬇️ Sync queue columns on fresh DB
         await _addSyncColumns(db);
+
+        // ⬇️ local_uuid assignment on fresh DB
+        await _createUuidTriggers(db);
       },
       onUpgrade: (db, oldVersion, newVersion) async {
         if (oldVersion < 2) {
@@ -207,6 +210,11 @@ class DatabaseHelper {
           await _createEngagementDailyTable(db);
           await _addSyncColumns(db);
         }
+        if (oldVersion < 16) {
+          await _createUuidTriggers(db);
+          // Anything inserted between v14 and this migration has no id yet.
+          await _backfillMissingUuids(db);
+        }
       },
       onOpen: (db) async {
         // Extra safety: ensure table exists even if onCreate/onUpgrade didn't run
@@ -258,6 +266,7 @@ class DatabaseHelper {
         // Extra safety: a table created by one of the onOpen guards above would
         // otherwise lack its sync columns and never upload.
         await _addSyncColumns(db);
+        await _createUuidTriggers(db);
       },
     );
   }
@@ -343,6 +352,65 @@ class DatabaseHelper {
             'CREATE INDEX IF NOT EXISTS idx_${table}_pending ON $table(pending_sync)');
       } catch (e) {
         debugPrint('Note: could not backfill $table: $e');
+      }
+    }
+  }
+
+  /// SQL that generates a RFC-4122 version-4 UUID.
+  ///
+  /// Written out because SQLite has no uuid function. The version nibble is
+  /// pinned to `4` and the variant nibble to one of `8 9 a b`, so the result
+  /// passes the server's `uuid` validation rule rather than merely looking like
+  /// a UUID.
+  static const _uuidExpression = """
+    lower(hex(randomblob(4))) || '-' ||
+    lower(hex(randomblob(2))) || '-4' ||
+    substr(lower(hex(randomblob(2))), 2) || '-' ||
+    substr('89ab', abs(random()) % 4 + 1, 1) ||
+    substr(lower(hex(randomblob(2))), 2) || '-' ||
+    lower(hex(randomblob(6)))
+  """;
+
+  /// Assigns `local_uuid` on insert, for every syncable table.
+  ///
+  /// A trigger rather than a line in each repository. The id must exist at
+  /// capture time — that is what makes sync idempotent — and relying on nine
+  /// repositories to remember is how it goes missing. It already did: rows
+  /// inserted after the v14 migration had no id, sync generated a throwaway one
+  /// per attempt, and 53 real events became 38,172 rows on the server.
+  ///
+  /// A repository may still supply its own id (the engagement rollups derive a
+  /// deterministic one); the trigger only fills the gap when none was given.
+  Future<void> _createUuidTriggers(Database db) async {
+    for (final table in syncableTables) {
+      try {
+        final info = await db.rawQuery('PRAGMA table_info($table)');
+        if (info.isEmpty) continue;
+
+        await db.execute("""
+          CREATE TRIGGER IF NOT EXISTS trg_${table}_local_uuid
+          AFTER INSERT ON $table
+          FOR EACH ROW WHEN NEW.local_uuid IS NULL
+          BEGIN
+            UPDATE $table SET local_uuid = ($_uuidExpression)
+            WHERE rowid = NEW.rowid;
+          END
+        """);
+      } catch (e) {
+        debugPrint('Note: could not create uuid trigger for $table: $e');
+      }
+    }
+  }
+
+  /// Fills in ids for rows that predate the trigger.
+  Future<void> _backfillMissingUuids(Database db) async {
+    for (final table in syncableTables) {
+      try {
+        await db.execute(
+          'UPDATE $table SET local_uuid = ($_uuidExpression) WHERE local_uuid IS NULL',
+        );
+      } catch (e) {
+        debugPrint('Note: could not backfill uuids for $table: $e');
       }
     }
   }
