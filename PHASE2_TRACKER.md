@@ -6,7 +6,7 @@ Phase 1's clinical feature checklist lives in [`FEATURE_TRACKER.md`](FEATURE_TRA
 
 **Legend:** ✅ done · 🚧 in progress · ⚠️ partial/blocked · ⬜ not started
 
-_Last updated: 2026-07-19_
+_Last updated: 2026-07-19 (afternoon)_
 
 ---
 
@@ -36,15 +36,62 @@ the field is actually in.
 
 ### ⬜ Next up, in order
 
-1. **Mode A / Mode B onboarding (§A1)** — still the largest untouched piece of the brief.
-   Nothing depends on it, and nothing else in §A can start cleanly until the mode choice
-   exists.
-2. **iOS.** Background sync is Android-only by design (see §A6). If iOS is in scope for the
+Full reasoning in the **Enhancement review** below; this is the short list.
+
+1. **Mode A / Mode B onboarding (§A1)** — still the largest untouched piece of the brief,
+   and the landing page already advertises it to patients.
+2. **Web pagination** — the API paginates, the UI shows page 1 only. Past ~25 rows a
+   clinician silently cannot reach the rest, which reads as "there is no more data".
+3. **iOS.** Background sync is Android-only by design (see §A6). If iOS is in scope for the
    study, that is a planning decision, not a coding one — `BGTaskScheduler` is
    opportunistic and makes no delivery guarantee.
-3. **Wound images** — deliberately not uploaded (owner: "not required now"). `image_path`
+4. **Wound images** — deliberately not uploaded (owner: "not required now"). `image_path`
    exists in the schema when it is wanted; it needs a storage / encryption-at-rest /
    retention decision first.
+
+### 💡 Enhancement review — 2026-07-19
+
+Written after walking both surfaces end to end. Ordered by what a real participant
+or clinician would feel first, not by effort.
+
+**Mobile — highest value first**
+
+1. **Mode A / Mode B onboarding is still absent (§A1).** The brief opens with it and
+   the landing page already advertises it to patients. Today every install is
+   implicitly Mode B with the models bundled, so the ~208 MB download the brief was
+   written to avoid is still mandatory.
+2. **No way to see or fix a stuck sync beyond the header chip.** The chip shows a count
+   and syncs on tap, but a participant whose uploads keep failing has no explanation and
+   no recourse. A short "last synced / N waiting / try again" panel in Profile would
+   cost little and answers the question support will be asked most.
+3. **A guest cannot become a registered user from inside the app.** `/auth/claim` exists
+   and works, and the history carries over in place — but nothing in the UI calls it, so
+   the feature is unreachable.
+4. **Inference still runs on the UI isolate** (carried from Phase 1, `ai_result_screen`
+   notes). Models preload at camera open so the alarming hang is gone, but the ~2.8 s
+   `.run()` still blocks. `IsolateInterpreter` is the fix.
+5. **`notes` never leave the device.** That is deliberate and documented — flagged only so
+   nobody "fixes" it by accident.
+
+**Web — highest value first**
+
+1. **Pagination is not wired.** The API paginates everything; the UI renders page 1 only.
+   Past ~25 rows a clinician silently cannot reach the rest — the worst kind of missing
+   feature, because it looks like there is no more data.
+2. **No search or filter on Patients, Scans or Devices.** Fine at six patients, unusable
+   at sixty. The API already accepts `q` on patients.
+3. **Alerts has no acknowledgement.** It is a work queue with no way to mark an item
+   handled, so the same scan reappears at the top forever and the page stops being read.
+4. **Nothing is realtime** (Reverb/Pusher is optional in the brief). A clinician watching
+   the scan feed must refresh. Low priority next to pagination.
+5. **No empty-state guidance for a fresh install.** A brand-new deployment shows eleven
+   pages of "no data yet" with no indication of what to do first.
+
+**Both**
+
+- **Wound images are still not uploaded.** Owner has said not required for now; the
+  schema field is ready. It remains the largest gap between what the app captures and
+  what the dashboard can show.
 
 ### 🧨 Blocking decisions that are still open
 
@@ -74,6 +121,19 @@ the field is actually in.
   connection aborts that look like app bugs but are not.
 
 ### ✅ Done 2026-07-19
+
+**Afternoon**
+- **Patient record is now one page**: summary, adherence meters, wound + glucose trends,
+  **a card per device** (scans sent, batches, failures, mode, last seen, health), scans,
+  medications, well-being, SUS, appointments, consent. Anonymous participants are called
+  out at the top of their own record.
+- **Dashboard charted**: scans/day, active participants/day, risk distribution, sync
+  failures, with a 7/30/90-day selector. Empty days are emitted rather than dropped.
+- **Fixed: negative axis on an all-zero series.** The flat-series padding mutated `min`
+  before the non-negative clamp read it, so the active-participants chart drew an axis
+  labelled "-1.2 participants". Verified across 18 axis labels: no negative tick.
+
+**Morning**
 
 - **`local_uuid` trigger** (schema v16) — see above.
 - **Fixed: offline lockout.** `restoreSession()` returned null both for "no token" and
