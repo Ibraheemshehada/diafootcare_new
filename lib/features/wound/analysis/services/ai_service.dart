@@ -233,14 +233,14 @@ class AiService {
       }
 
       // --- Model 2 + Model 3: ONE CLIP backbone pass feeds both heads ---
-      String tissueType = 'Unknown';
+      List<TissueFinding> tissueFindings = const [];
       String infectionStatus = 'N/A', ischaemiaStatus = 'N/A', riskBadge = 'Normal';
       if (_clipBackbone != null && (_model2Loaded || _model3Loaded)) {
         final emb = _clipEmbedding(image); // backbone runs ONCE per image
         if (_model2Loaded) {
           final probs = _runTissue(emb);
-          tissueType = _pickTissueLabel(probs);
-          debugPrint('✅ Model 2: $probs -> $tissueType');
+          tissueFindings = _buildTissueFindings(probs);
+          debugPrint('✅ Model 2: $probs -> ${tissueFindings.summary}');
         }
         if (_model3Loaded) {
           final r = _runInfection(emb);
@@ -256,7 +256,7 @@ class AiService {
         length: length,
         width: width,
         depth: depth, // clinician-entered probe depth; 0 = not measured
-        tissueType: tissueType,
+        tissueFindings: tissueFindings,
         pusLevel: 'N/A', // legacy field — superseded by Model 3 infection/ischaemia
         inflammation: 'N/A', // legacy field — superseded by Model 3
         infection: infectionStatus,
@@ -571,46 +571,23 @@ class AiService {
 
   /// Choose one tissue label for the UI: the highest-probability class that is
   /// "present" (>= its threshold); if none qualifies, the overall argmax.
-  /// Tissue classes in descending clinical seriousness.
-  static const List<String> _tissueSeverity = [
-    'necrosis', 'slough', 'callus', 'granulation', 'epithelial',
-  ];
-
-  /// The single tissue label shown for a wound.
+  /// Builds one finding per tissue class: its probability, whether it cleared
+  /// its own tuned threshold, and the threshold used.
   ///
-  /// The model is multi-label: a wound bed genuinely contains several tissue
-  /// types at once, and each class is present when it clears its own threshold.
-  /// This reports the most clinically serious of the classes that are present,
-  /// rather than whichever happens to have the highest probability.
-  ///
-  /// That is a clinical judgement first — a bed with necrosis and callus in it
-  /// is a necrotic wound, and naming the callus because it scored a hundredth
-  /// higher would bury the finding that matters. It also removes a real defect.
-  /// Ranking by probability made the headline turn on noise: on one real
-  /// photograph necrosis scored 0.9887 on the device and 0.9749 on the server
-  /// while callus scored 0.9787 and 0.9911, so the same wound was labelled
-  /// Necrosis in offline mode and Callus in online mode. Ordering by severity
-  /// cannot flip that way — it changes only if a class crosses its threshold,
-  /// and then only if the class is the most serious one present.
-  String _pickTissueLabel(Map<String, double> probs) {
-    final present = probs.entries
-        .where((e) => e.value >= (_tissueThresholds[e.key] ?? 0.5))
-        .map((e) => e.key)
-        .toList();
-
-    // Nothing cleared its threshold: fall back to the most probable class so
-    // the field is never blank.
-    if (present.isEmpty) {
-      if (probs.isEmpty) return 'Unknown';
-      final best =
-          probs.entries.reduce((a, b) => a.value >= b.value ? a : b).key;
-      return best[0].toUpperCase() + best.substring(1);
-    }
-
-    final label = present.reduce((a, b) =>
-        _tissueSeverity.indexOf(a) <= _tissueSeverity.indexOf(b) ? a : b);
-
-    return label[0].toUpperCase() + label.substring(1);
+  /// The head is multi-label, so every class is reported rather than a single
+  /// winner. Which one to headline is a presentation decision, made by
+  /// [TissueFindings.primaryType] from the same data.
+  List<TissueFinding> _buildTissueFindings(Map<String, double> probs) {
+    return _tissueClasses.map((name) {
+      final p = probs[name] ?? 0.0;
+      final threshold = _tissueThresholds[name] ?? 0.5;
+      return TissueFinding(
+        type: name,
+        probability: p,
+        isPresent: p >= threshold,
+        thresholdUsed: threshold,
+      );
+    }).toList();
   }
 
   // ---------------------------------------------------------------------------

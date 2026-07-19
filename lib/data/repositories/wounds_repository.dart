@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:sqflite/sqflite.dart';
 import '../local/database_helper.dart';
@@ -28,7 +29,13 @@ class WoundsRepository {
           'length': result.length,
           'width': result.width,
           'depth': result.depth,
-          'tissueType': result.tissueType,
+          // The headline stays in its own column so history, exports and the
+          // dashboard keep working unchanged; the full per-class answer goes
+          // alongside it rather than replacing it.
+          'tissueType': result.primaryTissueType,
+          'tissueFindings': result.tissueFindings.isEmpty
+              ? null
+              : jsonEncode(result.tissueFindings.map((f) => f.toJson()).toList()),
           'pusLevel': result.pusLevel,
           'inflammation': result.inflammation,
           'infection': result.infection,
@@ -152,6 +159,7 @@ class WoundsRepository {
         length: (map['length'] as num).toDouble(),
         width: (map['width'] as num).toDouble(),
         depth: (map['depth'] as num?)?.toDouble() ?? 0.0,
+        tissueFindings: _decodeFindings(map['tissueFindings']),
         tissueType: map['tissueType'] as String? ?? 'Unknown',
         pusLevel: map['pusLevel'] as String? ?? 'Unknown',
         inflammation: map['inflammation'] as String? ?? 'None',
@@ -200,6 +208,20 @@ class WoundsRepository {
     final area = length * width;
     // Assume baseline of 100cm², calculate progress
     return ((100 - area) / 100 * 100).clamp(0.0, 100.0);
+  }
+
+  /// Records written before per-class findings existed have no JSON here, and
+  /// keep working through the legacy label.
+  static List<TissueFinding> _decodeFindings(Object? raw) {
+    if (raw is! String || raw.isEmpty) return const [];
+    try {
+      final list = jsonDecode(raw) as List;
+      return list
+          .map((f) => TissueFinding.fromJson(Map<String, dynamic>.from(f as Map)))
+          .toList();
+    } catch (_) {
+      return const [];
+    }
   }
 }
 

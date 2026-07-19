@@ -636,5 +636,7 @@
   "dl_delete_free": "Delete files and free {}",
   "dl_delete_title": "Delete the offline files?",
   "dl_delete_body": "Wound analysis will need an internet connection until you download them again.",
-  "dl_delete": "Delete"
+  "dl_delete": "Delete",
+  "tissue_breakdown": "All tissue types considered",
+  "tissue_threshold_note": "Each type has its own confidence threshold, tuned separately. A type is marked present when it passes its own threshold."
 }

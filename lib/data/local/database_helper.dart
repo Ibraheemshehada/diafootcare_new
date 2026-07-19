@@ -8,7 +8,7 @@ class DatabaseHelper {
   ///
   /// Exposed so tests assert against the same source of truth as the migration
   /// itself, instead of a literal that silently goes stale on the next bump.
-  static const int schemaVersion = 16;
+  static const int schemaVersion = 17;
 
   static final DatabaseHelper _instance = DatabaseHelper._();
   static Database? _db;
@@ -43,6 +43,11 @@ class DatabaseHelper {
             width REAL NOT NULL,
             depth REAL,
             tissueType TEXT,
+            -- Per-class tissue findings as JSON: type, probability, whether it
+            -- cleared its threshold, and the threshold used. tissueType above
+            -- keeps the headline so history, exports and the dashboard are
+            -- unaffected by records that predate this column.
+            tissueFindings TEXT,
             pusLevel TEXT,
             inflammation TEXT,
             infection TEXT,
@@ -214,6 +219,22 @@ class DatabaseHelper {
           await _createUuidTriggers(db);
           // Anything inserted between v14 and this migration has no id yet.
           await _backfillMissingUuids(db);
+        }
+        if (oldVersion < 17) {
+          // Existing scans keep their headline label and simply have no
+          // findings; nothing is backfilled because the per-class
+          // probabilities were never stored and cannot be recovered from a
+          // label after the fact.
+          //
+          // Guarded like every other ALTER here. An upgrade step that assumes a
+          // table exists will throw during onUpgrade, and a throw there fails
+          // the database open — which is the app refusing to start, for a
+          // column nobody has read yet.
+          try {
+            await db.execute('ALTER TABLE wounds ADD COLUMN tissueFindings TEXT');
+          } catch (e) {
+            debugPrint('Note: wounds.tissueFindings not added: $e');
+          }
         }
       },
       onOpen: (db) async {

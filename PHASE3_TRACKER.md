@@ -260,3 +260,63 @@ parity suite prints this headroom on every run.
 - F6 — remove the models from the APK. Blocked on the decision above only in the
   sense that it should not land while anything about the analysis path is in
   flux; technically it is ready.
+
+---
+
+## Tissue findings — from one label to the whole answer
+
+Done, in both codebases. Replaces `tissueType: String` with
+`tissueFindings: List<TissueFinding>`, where each finding carries `type`,
+`probability`, `isPresent` and `thresholdUsed`.
+
+**Why.** The head is multi-label: a wound bed holds several tissue types at
+once, and each class has its own tuned threshold. Reporting one winner threw
+away most of the answer and made the label turn on hundredths — on 200029 the
+phone said Necrosis and the server said Callus for the same photograph, because
+the two sat 0.013 apart and the platforms disagree by more than that.
+
+**Where it lives now**
+
+| | |
+|---|---|
+| App model | `viewmodel/tissue_finding.dart`, `analysis_result.dart` |
+| App storage | `wounds.tissueFindings` (JSON), schema **v17** |
+| Sync | `tissue_json = { label, findings[] }` |
+| App UI | headline + full breakdown on the result screen |
+| Server model | `TissueFinding` in `inference/pipeline.py` |
+| Server API | `tissue_findings[]` in `POST /api/v1/analyse` |
+| Server storage | `wound_scans.tissue_json` — already a JSON column, and always
+  documented as holding per-class probabilities; it had only ever received the
+  headline |
+
+**Back-compat.** `primaryTissueType` derives the headline from the findings, and
+`tissueType` still returns it, so history, exports and the dashboard are
+untouched. A record written before v17 has no findings and falls back to its
+stored label rather than reading "Unknown". Nothing is backfilled: the per-class
+probabilities were never stored and cannot be invented from a label.
+
+**Severity order changed.** Now `necrosis > slough > granulation > callus >
+epithelial`. Callus previously outranked granulation, which headlined a visibly
+granulating wound (200003) as "Callus" because callus scraped over its 0.45
+threshold at 0.53 while granulation sat at 0.96. Both platforms now report
+Granulation for that wound, with "Granulation, Callus" as the summary.
+
+**What the presence flags buy.** A headline can be kept stable by choosing it
+carefully; the *set* of tissues reported present cannot, because each is an
+independent threshold decision a clinician will read. `test_presence_flags_match`
+asserts every class lands on the same side of its threshold on both platforms.
+
+### Caught on the way
+- The v17 `ALTER TABLE` was unguarded and threw on any database without a
+  `wounds` table, which fails the open — the app refusing to start over a column
+  nothing had read yet. Now wrapped like every other ALTER here.
+- Pre-existing and unrelated: `_backfillMissingUuids` passes a null `whereArgs`,
+  which sqflite currently warns about and says it will throw in a later version.
+  Not touched here; worth fixing before that lands.
+
+### Next
+- **F6 — remove the models from the APK.** Ready: the app prefers downloaded
+  files, online mode needs no local models, and the analysis path is settled now
+  that the tissue question is closed. ~220 MB to ~20 MB.
+- Dashboard does not yet display tissue findings; `tissue_json` now receives
+  them, so it is a presentation task whenever it is wanted.

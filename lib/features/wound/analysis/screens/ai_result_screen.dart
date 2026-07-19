@@ -132,12 +132,17 @@ class _AiResultScreenState extends State<AiResultScreen> {
 
             _DetailCard(
               svgAsset: 'assets/svg/micro.svg',
-              title:
-                  result
-                      .tissueType, // keep value as-is to avoid missing-key warnings
+              // Every tissue present, most serious first, rather than one
+              // headline — a wound bed usually holds more than one, and the
+              // rest of the answer used to be discarded.
+              title: result.tissueSummary,
               subtitle: 'tissue_type'.tr(),
               color: primary,
             ),
+            if (result.tissueFindings.isNotEmpty) ...[
+              SizedBox(height: 10.h),
+              _TissueBreakdown(findings: result.tissueFindings),
+            ],
             SizedBox(height: 10.h),
             // Model 3 — replaces the old "Pus Level" row with two rows.
             _DetailCard(
@@ -902,6 +907,102 @@ class _Banner extends StatelessWidget {
               ),
             ),
           ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Every tissue class the model considered, with how confident it was.
+///
+/// Shown under the summary because a clinician reading "Callus" deserves to
+/// know whether that was 0.53 against a 0.45 threshold or 0.98, and which other
+/// tissues were found alongside it. The classes that did not clear their
+/// threshold are shown too, greyed, so the absence is stated rather than
+/// implied by omission.
+class _TissueBreakdown extends StatelessWidget {
+  final List<TissueFinding> findings;
+
+  const _TissueBreakdown({required this.findings});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final sorted = [...findings]
+      ..sort((a, b) => b.probability.compareTo(a.probability));
+
+    return Container(
+      padding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 12.h),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(12.r),
+        border: Border.all(color: theme.colorScheme.outlineVariant),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('tissue_breakdown'.tr(),
+              style: theme.textTheme.labelLarge
+                  ?.copyWith(fontWeight: FontWeight.w600)),
+          SizedBox(height: 10.h),
+          for (final f in sorted) ...[
+            Row(
+              children: [
+                // Presence is carried by the icon and the text weight, not by
+                // colour alone.
+                Icon(
+                  f.isPresent ? Icons.check_circle : Icons.remove_circle_outline,
+                  size: 16.sp,
+                  color: f.isPresent
+                      ? theme.colorScheme.primary
+                      : theme.colorScheme.onSurfaceVariant,
+                ),
+                SizedBox(width: 8.w),
+                Expanded(
+                  child: Text(
+                    f.displayName,
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      fontWeight:
+                          f.isPresent ? FontWeight.w600 : FontWeight.w400,
+                      color: f.isPresent
+                          ? theme.colorScheme.onSurface
+                          : theme.colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                ),
+                SizedBox(
+                  width: 90.w,
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(4.r),
+                    child: LinearProgressIndicator(
+                      value: f.probability.clamp(0.0, 1.0),
+                      minHeight: 6.h,
+                      backgroundColor: theme.colorScheme.surfaceContainerHighest,
+                      color: f.isPresent
+                          ? theme.colorScheme.primary
+                          : theme.colorScheme.outlineVariant,
+                    ),
+                  ),
+                ),
+                SizedBox(width: 8.w),
+                SizedBox(
+                  width: 34.w,
+                  child: Text(
+                    '${(f.probability * 100).round()}%',
+                    textAlign: TextAlign.end,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: f.isPresent
+                          ? theme.colorScheme.onSurface
+                          : theme.colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            SizedBox(height: 8.h),
+          ],
+          Text('tissue_threshold_note'.tr(),
+              style: theme.textTheme.bodySmall
+                  ?.copyWith(color: theme.colorScheme.onSurfaceVariant)),
         ],
       ),
     );

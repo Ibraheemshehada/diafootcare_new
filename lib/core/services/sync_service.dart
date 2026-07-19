@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:async';
 
 import 'package:connectivity_plus/connectivity_plus.dart';
@@ -97,7 +98,10 @@ class SyncService {
             // stored twice and risking the two disagreeing.
             'area_cm2': double.parse((length * width * 0.785).toStringAsFixed(2)),
             'depth_cm': (r['depth'] as num?)?.toDouble(),
-            'tissue_json': r['tissueType'] == null ? null : {'label': r['tissueType']},
+            // The server's tissue_json column was always meant to hold the
+            // per-class answer; it only ever received the headline. Both go up
+            // now, so the dashboard can show what the model actually found.
+            'tissue_json': _tissueJson(r),
             'infection_present': _yesNo(r['infection']),
             'ischaemia_present': _yesNo(r['ischaemia']),
             'risk_badge': _risk(r['infection'], r['ischaemia']),
@@ -476,4 +480,30 @@ class SyncService {
     if (s) return 'ischaemia';
     return 'normal';
   }
+}
+
+/// Builds the tissue payload for a scan: every class with its probability and
+/// threshold, plus the headline label.
+///
+/// Scans written before per-class findings existed still send their label, so
+/// the server sees a consistent shape either way.
+Map<String, dynamic>? _tissueJson(Map<String, Object?> r) {
+  final label = r['tissueType'] as String?;
+  final raw = r['tissueFindings'] as String?;
+
+  List<dynamic>? findings;
+  if (raw != null && raw.isNotEmpty) {
+    try {
+      findings = jsonDecode(raw) as List;
+    } catch (_) {
+      findings = null;
+    }
+  }
+
+  if (label == null && findings == null) return null;
+
+  return {
+    if (label != null) 'label': label,
+    if (findings != null) 'findings': findings,
+  };
 }

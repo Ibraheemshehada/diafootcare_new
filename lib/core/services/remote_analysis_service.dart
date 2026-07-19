@@ -76,7 +76,13 @@ class RemoteAnalysisService {
       length: d('length'),
       width: d('width'),
       depth: d('depth'),
-      tissueType: a['tissue_type'] as String? ?? 'Unknown',
+      tissueFindings: (a['tissue_findings'] as List?)
+              ?.map((f) => TissueFinding.fromJson(Map<String, dynamic>.from(f as Map)))
+              .toList() ??
+          const [],
+      // Only used if the server is older than this client and sends just the
+      // headline; the getter falls back to it when there are no findings.
+      tissueType: a['tissue_type'] as String?,
       // Legacy fields, superseded by infection/ischaemia. Kept so the record
       // shape is identical whichever mode produced it.
       pusLevel: 'N/A',
