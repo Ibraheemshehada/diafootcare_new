@@ -320,3 +320,61 @@ asserts every class lands on the same side of its threshold on both platforms.
   that the tissue question is closed. ~220 MB to ~20 MB.
 - Dashboard does not yet display tissue findings; `tissue_json` now receives
   them, so it is a presentation task whenever it is wanted.
+
+---
+
+## Open — the model download does not continue in the background
+
+**Not built, on either platform.** `ModelDownloadService` runs in the Dart
+isolate that the UI lives in. Leave the download screen open and it proceeds;
+send the app to the background and it stops.
+
+What softens this is F3: nothing transferred is ever lost. Bytes land in a
+`.part` file, the next launch resumes with a Range request, and the splash gate
+routes an offline install with an unfinished bundle straight back into the
+download. So the failure is "this takes several sessions", not "this starts
+again". For a 200 MB download over a clinic connection that is still a poor
+experience, and on iOS it is worse than on Android.
+
+**Android.** The process usually survives a while in the background, so a
+download often keeps going for a few minutes before the OS reclaims it. There is
+no guarantee, and no foreground service declared, so it can be killed at any
+point. `workmanager` is already in the app for sync, but a WorkManager task is
+the wrong shape for this: it has its own execution windows and a ~10 minute
+budget per run, where this is one long transfer.
+
+**iOS.** It simply stops. `UIBackgroundModes` currently declares only
+`remote-notification`, and even adding `fetch` would not help — background fetch
+grants short opportunistic windows, not a sustained transfer. The only
+mechanism Apple provides for this is `URLSession` with a background
+configuration, where the *system* daemon performs the transfer and wakes the app
+on completion. That cannot be driven from Dart: `dio` and `HttpClient` both run
+in-process.
+
+### What it would take
+
+The honest options, in order of preference:
+
+1. **`background_downloader` package.** Wraps `URLSession` background transfers
+   on iOS and a foreground service with `WorkManager` on Android, and supports
+   Range resumption. It would replace the transfer loop inside
+   `ModelDownloadService` while leaving the manifest handling, checksum
+   verification and `.part` bookkeeping alone — those are the parts that took
+   four rounds of device testing to get right and should not be rewritten.
+
+2. **A platform channel per OS.** `URLSession` background configuration on iOS,
+   a foreground service with a notification on Android. More control, more code,
+   and it re-implements what the package already does.
+
+3. **Leave it.** Defensible for a pilot, given resume works. It should be a
+   decision rather than an oversight, which is why it is written down here.
+
+Whichever is chosen, two things change beyond the transfer itself: iOS needs the
+background transfer entitlement and a completion handler wired in
+`AppDelegate`, and Android needs a foreground service type declared with a
+user-visible notification — Play policy requires one for a long download, and
+`dataSync` is the applicable type.
+
+**Verify on a real device, not a simulator.** The simulator does not enforce
+suspension the way a phone does, so a background download will appear to work
+there and fail in a clinic.
