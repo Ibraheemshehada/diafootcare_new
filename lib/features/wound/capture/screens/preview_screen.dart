@@ -25,60 +25,11 @@ class _PreviewScreenState extends State<PreviewScreen> {
   /// Ask the user for the wound depth in cm. A single 2D photo can't yield
   /// depth, so the trustworthy source is a manual probe measurement. Returns
   /// the entered depth (> 0) or null if the user skips / leaves it empty.
-  Future<double?> _askWoundDepth() async {
-    final ctrl = TextEditingController();
-    final result = await showDialog<double?>(
+  Future<double?> _askWoundDepth() {
+    return showDialog<double?>(
       context: context,
-      builder: (ctx) {
-        return AlertDialog(
-          title: Text('wound_depth'.tr()),
-          // Scrollable so the on-screen keyboard shrinking the dialog can never
-          // overflow the content column.
-          content: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('wound_depth_hint'.tr(),
-                    style: TextStyle(fontSize: 13.sp)),
-                SizedBox(height: 14.h),
-                TextField(
-                  controller: ctrl,
-                  autofocus: true,
-                  keyboardType: const TextInputType.numberWithOptions(
-                    decimal: true,
-                  ),
-                  inputFormatters: [
-                    FilteringTextInputFormatter.allow(RegExp(r'[0-9.]')),
-                  ],
-                  decoration: InputDecoration(
-                    isDense: true,
-                    border: const OutlineInputBorder(),
-                    labelText: 'wound_depth_cm'.tr(),
-                    suffixText: 'cm',
-                  ),
-                ),
-              ],
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx, null),
-              child: Text('skip'.tr()),
-            ),
-            FilledButton(
-              onPressed: () {
-                final v = double.tryParse(ctrl.text.trim());
-                Navigator.pop(ctx, (v != null && v > 0) ? v : null);
-              },
-              child: Text('save'.tr()),
-            ),
-          ],
-        );
-      },
+      builder: (_) => const _WoundDepthDialog(),
     );
-    ctrl.dispose();
-    return result;
   }
 
   Future<String> _saveImageToLocal() async {
@@ -235,6 +186,84 @@ class _PreviewScreenState extends State<PreviewScreen> {
           ],
         ),
       ),
+    );
+  }
+}
+
+/// The depth prompt.
+///
+/// A StatefulWidget purely so the text controller's lifetime matches the
+/// dialog's. It used to be created beside `showDialog` and disposed the moment
+/// that future completed — which is while the dialog is still animating out,
+/// with its TextField still mounted and still listening. Tearing the controller
+/// out from under a live field threw `_dependents.isEmpty`, then "dirty widget
+/// in the wrong build scope", and the collapsing subtree produced a cascade of
+/// unbounded-size layout errors. The framework's error widget replaced the
+/// screen for the length of the exit animation, so every scan flashed
+/// "Something went wrong" on the way to its result.
+class _WoundDepthDialog extends StatefulWidget {
+  const _WoundDepthDialog();
+
+  @override
+  State<_WoundDepthDialog> createState() => _WoundDepthDialogState();
+}
+
+class _WoundDepthDialogState extends State<_WoundDepthDialog> {
+  final _ctrl = TextEditingController();
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  void _submit() {
+    final v = double.tryParse(_ctrl.text.trim());
+    Navigator.pop(context, (v != null && v > 0) ? v : null);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: Text('wound_depth'.tr()),
+      // Scrollable so the on-screen keyboard shrinking the dialog can never
+      // overflow the content column.
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('wound_depth_hint'.tr(), style: TextStyle(fontSize: 13.sp)),
+            SizedBox(height: 14.h),
+            TextField(
+              controller: _ctrl,
+              autofocus: true,
+              keyboardType:
+                  const TextInputType.numberWithOptions(decimal: true),
+              inputFormatters: [
+                FilteringTextInputFormatter.allow(RegExp(r'[0-9.]')),
+              ],
+              // Entering a depth and pressing done should submit, rather than
+              // leaving the reader hunting for the button behind the keyboard.
+              textInputAction: TextInputAction.done,
+              onSubmitted: (_) => _submit(),
+              decoration: InputDecoration(
+                isDense: true,
+                border: const OutlineInputBorder(),
+                labelText: 'wound_depth_cm'.tr(),
+                suffixText: 'cm',
+              ),
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context, null),
+          child: Text('skip'.tr()),
+        ),
+        FilledButton(onPressed: _submit, child: Text('save'.tr())),
+      ],
     );
   }
 }
