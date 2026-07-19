@@ -36,6 +36,33 @@ class CaptureViewModel extends ChangeNotifier {
     }
   }
 
+  /// Picks an existing photograph instead of taking one.
+  ///
+  /// Wounds are often photographed by someone else — a district nurse, a family
+  /// member holding the foot — or through a dressing change when the phone was
+  /// not to hand. Forcing a live capture means those photos never get analysed,
+  /// or get re-photographed off a screen, which is worse.
+  ///
+  /// Returns null when the picker is dismissed, which is not an error.
+  Future<XFile?> pickFromGallery() async {
+    if (isBusy) return null;
+    isBusy = true;
+    notifyListeners();
+    try {
+      // No maxWidth/maxHeight: image_picker would resample before the analysis
+      // sees the file, and the measurements are taken from the pixels. Resizing
+      // happens later, once, in a place that knows what it is for.
+      final x = await _picker.pickImage(source: ImageSource.gallery);
+      if (x != null) lastImage = x;
+      return x;
+    } catch (_) {
+      return null;
+    } finally {
+      isBusy = false;
+      notifyListeners();
+    }
+  }
+
   Future<XFile?> takePicture() async {
     if (isBusy) return null;
     isBusy = true; notifyListeners();

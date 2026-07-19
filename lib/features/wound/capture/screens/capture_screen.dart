@@ -128,19 +128,55 @@ class _CaptureScreenState extends State<CaptureScreen> with WidgetsBindingObserv
                 ),
 
                 SizedBox(height: 12.h),
-                Center(
-                  child: Padding(
-                    padding: EdgeInsets.only(bottom: 12.h),
-                    child: ShutterButton(
-                      disabled: vm.isBusy || !vm.isInitialized,
-                      onPressed: () async {
-                        final shot = await vm.takePicture();
-                        if (shot == null || !context.mounted) return;
-                        Navigator.of(context).push(
-                          MaterialPageRoute(builder: (_) => PreviewScreen(file: shot)),
-                        );
-                      },
-                    ),
+                Padding(
+                  padding: EdgeInsets.only(bottom: 12.h, left: 16.w, right: 16.w),
+                  child: Row(
+                    children: [
+                      // Balances the row so the shutter stays centred.
+                      SizedBox(width: 56.w),
+                      Expanded(
+                        child: Center(
+                          child: ShutterButton(
+                            disabled: vm.isBusy || !vm.isInitialized,
+                            onPressed: () async {
+                              final shot = await vm.takePicture();
+                              if (shot == null || !context.mounted) return;
+                              Navigator.of(context).push(
+                                MaterialPageRoute(
+                                    builder: (_) => PreviewScreen(file: shot)),
+                              );
+                            },
+                          ),
+                        ),
+                      ),
+                      // Choosing an existing photo, for wounds someone else
+                      // photographed or that were taken during a dressing
+                      // change. Same size as a shutter's touch target so it is
+                      // reachable one-handed.
+                      SizedBox(
+                        width: 56.w,
+                        child: Semantics(
+                          button: true,
+                          label: 'choose_from_gallery'.tr(),
+                          child: IconButton(
+                            iconSize: 30.sp,
+                            tooltip: 'choose_from_gallery'.tr(),
+                            onPressed: vm.isBusy
+                                ? null
+                                : () async {
+                                    final picked = await vm.pickFromGallery();
+                                    if (picked == null || !context.mounted) return;
+                                    Navigator.of(context).push(
+                                      MaterialPageRoute(
+                                          builder: (_) =>
+                                              PreviewScreen(file: picked)),
+                                    );
+                                  },
+                            icon: const Icon(Icons.photo_library_outlined),
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ],
