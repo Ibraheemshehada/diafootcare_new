@@ -41,10 +41,22 @@ about it — see the comment already in place there.
 | | |
 |---|---|
 | Mobile tests | 72 pass |
+| | _one flaky run seen — see below_ |
 | Analyzer | 0 errors |
 | On-device parity | passes on both clinical fixtures |
 | Server parity suite | 4 checks pass |
 | APK | builds |
+
+### One thing to keep an eye on
+
+The suite failed 4 tests once, in a run that took 1m25s instead of the usual 29s,
+while the web repo's parity suite was loading 200 MB of models in the same
+command. It has passed every run since — four in a row, including under
+deliberate CPU load — so the cause was almost certainly memory pressure rather
+than anything in the code. Recorded rather than dismissed: `model_download_test`
+spins up real HTTP servers and has timing-sensitive waits, so if it starts
+failing intermittently on its own, that is where to look first, and the fix is to
+make those waits condition-based rather than duration-based.
 
 ### What is open, in rough priority order
 
