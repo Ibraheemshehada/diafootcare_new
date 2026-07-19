@@ -378,3 +378,40 @@ user-visible notification — Play policy requires one for a long download, and
 **Verify on a real device, not a simulator.** The simulator does not enforce
 suspension the way a phone does, so a background download will appear to work
 there and fail in a clinic.
+
+---
+
+## Choosing an existing photo to analyse ✅
+
+The capture screen now offers picking a photo from the gallery alongside taking
+one. Wounds are often photographed by someone else — a district nurse, a family
+member holding the foot — or during a dressing change when the phone was not to
+hand. Requiring a live capture meant those never got analysed, or got
+re-photographed off a screen, which is worse.
+
+The picked file goes through the same preview, calibration and analysis path as
+a capture. `PreviewScreen` already copies it into app storage, so a gallery URI
+that later disappears cannot strand a record. No `maxWidth` on the picker:
+`image_picker` would resample before the analysis saw the file, and the
+measurements come from those pixels.
+
+Permissions were already in place — `NSPhotoLibraryUsageDescription` on iOS,
+`READ_MEDIA_IMAGES` plus `READ_EXTERNAL_STORAGE` (maxSdk 32) on Android.
+
+### Server-side photograph upload — built, then reverted
+
+Uploading photographs to the server was built from a misreading of this request
+and then backed out (`5dcb665`, reverted in `04573fa`).
+
+Backed out rather than kept: it re-prompted every participant with a new consent
+version and began retaining identifiable images, and it made a promise —
+"withdrawal removes your photographs" — with no retention or withdrawal
+mechanism behind it. That is a lot of weight for something nobody asked for.
+
+It is in history if server-side photographs are wanted later. What it contained:
+upload keyed on `local_uuid`, a private disk, streamed reads through an
+authorising controller, `image_path` hidden in favour of `has_image`, images
+travelling separately from record sync so a failed photo could not drive a batch
+of measurements into backoff, and a 1600 px downscale in an isolate. What it did
+**not** solve, and would need solving first: retention, and honouring a
+withdrawal without hand-written SQL.
