@@ -639,5 +639,6 @@
   "dl_delete": "Delete",
   "tissue_breakdown": "All tissue types considered",
   "tissue_threshold_note": "Each type has its own confidence threshold, tuned separately. A type is marked present when it passes its own threshold.",
-  "choose_from_gallery": "Choose a photo"
+  "choose_from_gallery": "Choose a photo",
+  "mode_title_short": "Wound analysis"
 }

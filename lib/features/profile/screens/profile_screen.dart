@@ -14,6 +14,8 @@ import '../widgets/profile_tile.dart';
 import 'edit_profile_screen.dart';
 import 'change_password_screen.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/services/app_mode_service.dart';
+import '../../onboarding/screens/mode_choice_screen.dart';
 
 class ProfileScreen extends StatelessWidget {
   const ProfileScreen({super.key});
@@ -105,6 +107,36 @@ class ProfileScreen extends StatelessWidget {
                     builder: (_) => const ChangePasswordScreen(),
                   ),
                 ),
+          ),
+
+          // How the wound is analysed. The mode screen tells participants they
+          // can change this from their profile, and until now that was not
+          // true — there was no way back to it after first run.
+          ProfileTile(
+            leading: Icons.analytics_outlined,
+            title: 'mode_title_short'.tr(),
+            trailing: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const _AnalysisModeChip(),
+                SizedBox(width: 8.w),
+                Icon(
+                  Icons.chevron_right_rounded,
+                  color: t.colorScheme.onSurfaceVariant,
+                ),
+              ],
+            ),
+            onTap: () async {
+              await Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => const ModeChoiceScreen(blocking: false),
+                ),
+              );
+              // The chip reads the stored mode, so it has to rebuild after the
+              // screen that may have changed it closes.
+              if (context.mounted) (context as Element).markNeedsBuild();
+            },
           ),
 
           // 🔤 Language tile
@@ -281,6 +313,41 @@ class _LanguageChip extends StatelessWidget {
           color: t.colorScheme.onSecondaryContainer,
         ),
       ),
+    );
+  }
+}
+
+/// Shows whether analysis runs on this phone or on the server.
+class _AnalysisModeChip extends StatelessWidget {
+  const _AnalysisModeChip();
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return FutureBuilder<AppMode?>(
+      future: AppModeService.I.current(),
+      builder: (context, snap) {
+        final mode = snap.data;
+        // Blank rather than a guess while it loads: this is a setting, and
+        // showing the wrong one briefly invites someone to "correct" it.
+        if (mode == null) return const SizedBox.shrink();
+
+        return Container(
+          padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 4.h),
+          decoration: BoxDecoration(
+            color: theme.colorScheme.primary.withValues(alpha: 0.10),
+            borderRadius: BorderRadius.circular(20.r),
+          ),
+          child: Text(
+            'mode_${mode.name}_title'.tr(),
+            style: theme.textTheme.labelMedium?.copyWith(
+              color: theme.colorScheme.primary,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        );
+      },
     );
   }
 }

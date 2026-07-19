@@ -639,5 +639,6 @@
   "dl_delete": "حذف",
   "tissue_breakdown": "جميع أنواع الأنسجة التي جرى فحصها",
   "tissue_threshold_note": "لكل نوع عتبة ثقة خاصة به، معايرة على حدة. ويُعتبر النوع موجودًا عند تجاوز عتبته.",
-  "choose_from_gallery": "اختيار صورة"
+  "choose_from_gallery": "اختيار صورة",
+  "mode_title_short": "تحليل الجرح"
 }

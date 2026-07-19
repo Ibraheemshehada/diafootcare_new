@@ -60,6 +60,12 @@ void main() {
     await tester.pumpWidget(wrap(AiResultScreen(result: result, imagePath: path)));
     await tester.pumpAndSettle(const Duration(seconds: 2));
 
+    // This wound produces the longest label the screen can be asked to show —
+    // "Necrosis, Slough, Granulation, Callus" — which overflowed the detail
+    // card by 10 pixels when the value was still expected to be one word.
+    expect(tester.takeException(), isNull,
+        reason: 'the result screen must lay out without overflowing');
+
     // The summary, not a single label: this wound has four tissues present.
     expect(find.textContaining('Necrosis'), findsWidgets);
     expect(result.tissueFindings.where((f) => f.isPresent).length, greaterThan(1),

@@ -397,25 +397,36 @@ class _DetailCard extends StatelessWidget {
             ),
           ),
           SizedBox(width: 12.w),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                title, // keep raw value (from AI result)
-                style: t.textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.w700,
-                  fontSize: 16.sp,
+          // Expanded so a long value has somewhere to wrap. The tissue row now
+          // carries every tissue found — "Necrosis, Slough, Granulation,
+          // Callus" — where it once held a single word, and an unbounded
+          // Column simply ran off the edge of the card.
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title, // keep raw value (from AI result)
+                  style: t.textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w700,
+                    fontSize: 16.sp,
+                  ),
+                  // Two lines fits every combination of the five tissue
+                  // classes; past that the value is truncated rather than
+                  // pushing the card taller than the rows around it.
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
                 ),
-              ),
-              SizedBox(height: 2.h),
-              Text(
-                subtitle,
-                style: t.textTheme.bodySmall?.copyWith(
-                  color: t.colorScheme.onSurfaceVariant,
-                  fontSize: 12.sp,
+                SizedBox(height: 2.h),
+                Text(
+                  subtitle,
+                  style: t.textTheme.bodySmall?.copyWith(
+                    color: t.colorScheme.onSurfaceVariant,
+                    fontSize: 12.sp,
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ],
       ),

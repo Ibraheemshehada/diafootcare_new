@@ -225,9 +225,12 @@ class _ModeCard extends StatelessWidget {
                   ],
                 ),
               ),
-              if (selected)
-                Icon(Icons.check_circle,
-                    color: theme.colorScheme.primary, size: 24.sp),
+              SizedBox(width: 8.w),
+              // Always drawn, not only once chosen. An empty circle says "this
+              // is one of a set you pick from" before the first tap; a check
+              // that appears only after selecting leaves the cards looking like
+              // two blocks of text until you guess that they are tappable.
+              _SelectionDot(selected: selected),
             ],
           ),
         ),
@@ -256,6 +259,43 @@ class _Tag extends StatelessWidget {
                 .bodySmall
                 ?.copyWith(color: color, fontWeight: FontWeight.w600)),
       ],
+    );
+  }
+}
+
+/// The circle on a mode card.
+///
+/// Empty when unselected, filled with a tick when chosen. Kept a plain widget
+/// rather than a Radio so the whole card stays the tap target — a 24 px radio
+/// is a poor thing to ask an older patient with neuropathy to hit accurately.
+class _SelectionDot extends StatelessWidget {
+  final bool selected;
+
+  const _SelectionDot({required this.selected});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 150),
+      width: 24.w,
+      height: 24.w,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: selected ? theme.colorScheme.primary : Colors.transparent,
+        border: Border.all(
+          color: selected
+              ? theme.colorScheme.primary
+              : theme.colorScheme.outline,
+          width: 2,
+        ),
+      ),
+      // The tick carries the state alongside the fill, so the difference is not
+      // colour alone.
+      child: selected
+          ? Icon(Icons.check, size: 16.sp, color: theme.colorScheme.onPrimary)
+          : null,
     );
   }
 }
