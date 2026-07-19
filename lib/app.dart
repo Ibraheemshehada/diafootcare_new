@@ -151,11 +151,13 @@ class AuthStreamBuilder extends StatelessWidget {
   Widget build(BuildContext context) {
     // Sanctum has no auth-state stream: the token either resolves to a user or
     // it does not, so this is a one-shot future rather than a subscription.
-    return FutureBuilder<AppUser?>(
+    return FutureBuilder<SessionResult>(
       future: _authService.restoreSession(),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.done) {
-          if (snapshot.hasData) {
+          // canProceed, not hasData: an offline session has no user object but
+          // is still a session.
+          if (snapshot.data?.canProceed ?? false) {
             return const HomeScreen();
           } else {
             return const LoginScreen();

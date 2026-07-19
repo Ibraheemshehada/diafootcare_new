@@ -106,28 +106,39 @@ class _SplashScreenState extends State<SplashScreen> {
       return;
     }
 
-    // Resolve the stored API token to a user.
-    final currentUser = await AuthService().restoreSession();
-
-    // Check if "Remember Me" was enabled
+    // Resolve the stored API token.
+    final session = await AuthService().restoreSession();
     final rememberMe = prefs.getBool('rememberMe') ?? false;
 
-    if (currentUser != null && rememberMe) {
-      // User is logged in and has remember me enabled → Go to home
-      debugPrint('✅ User already logged in (Remember Me enabled) → Redirecting to home');
-      Navigator.pushReplacementNamed(context, AppRoutes.mainShell);
-    } else {
-      // User not logged in or remember me disabled → Go to login
-      debugPrint('ℹ️ User not logged in or Remember Me disabled → Redirecting to login');
-      
-      // If user exists but remember me is disabled, sign them out
-      if (currentUser != null && !rememberMe) {
-        await AuthService().signOut();
-        debugPrint('🔓 Signed out user (Remember Me was disabled)');
-      }
-      
+    if (!mounted) return;
+
+    if (!session.canProceed) {
+      debugPrint('ℹ️ No session → login');
       Navigator.pushReplacementNamed(context, AppRoutes.login);
+      return;
     }
+
+    // "Remember me" off means the session should not survive a relaunch. Doing
+    // this before the offline check matters: it is a deliberate choice by the
+    // user, not a connectivity accident.
+    if (!rememberMe) {
+      await AuthService().signOut();
+      debugPrint('🔓 Signed out (Remember Me was disabled)');
+      if (!mounted) return;
+      Navigator.pushReplacementNamed(context, AppRoutes.login);
+      return;
+    }
+
+    // A session we could not verify still gets in. Every feature works offline,
+    // the records are already on the device, and sending a patient to a login
+    // screen they cannot complete without a network is the worse failure. If the
+    // token has actually been revoked, the first request that reaches the server
+    // returns 401 and the interceptor clears it.
+    if (session.status == SessionStatus.unverified) {
+      debugPrint('📴 Session could not be verified (offline) → continuing');
+    }
+
+    Navigator.pushReplacementNamed(context, AppRoutes.mainShell);
   }
 
   @override

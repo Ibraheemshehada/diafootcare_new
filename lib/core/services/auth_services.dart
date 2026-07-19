@@ -40,6 +40,36 @@ class AppUser {
   String get displayName => name.trim().isEmpty ? (email ?? 'Participant') : name;
 }
 
+/// Outcome of restoring a stored session.
+///
+/// Three states, not two. "No session" and "a session we could not reach the
+/// server to confirm" look identical if both are reported as null, and treating
+/// the second as the first locks a signed-in patient out of an offline-first app
+/// the moment they lose connectivity — with all of their data sitting on the
+/// device.
+enum SessionStatus {
+  /// No token stored: show the login screen.
+  signedOut,
+
+  /// Token confirmed against the server.
+  verified,
+
+  /// A token exists but the server could not be reached. The app proceeds:
+  /// everything it does works offline, and the 401 interceptor will clear the
+  /// token the moment a request does get through and is rejected.
+  unverified,
+}
+
+class SessionResult {
+  final SessionStatus status;
+  final AppUser? user;
+
+  const SessionResult(this.status, [this.user]);
+
+  /// Whether the app should let the participant in.
+  bool get canProceed => status != SessionStatus.signedOut;
+}
+
 /// Authentication against the DiaFootCare Laravel API.
 ///
 /// Replaces the previous Firebase implementation. Identity now comes from the
@@ -141,25 +171,41 @@ class AuthService {
     _current = null;
   }
 
-  /// Resolves the stored token to a user. Returns null if there is no valid
-  /// session, which is the signal to show the login screen.
-  Future<AppUser?> restoreSession() async {
-    if (!await ApiClient.I.hasToken) return null;
+  /// Resolves the stored token to a user.
+  ///
+  /// Distinguishes "no session" from "offline with a session" — see
+  /// [SessionStatus]. Collapsing the two is what locks a patient out of their
+  /// own records on a train.
+  Future<SessionResult> restoreSession() async {
+    if (!await ApiClient.I.hasToken) {
+      return const SessionResult(SessionStatus.signedOut);
+    }
 
     try {
       final res = await ApiClient.I.dio.get('/auth/me');
-      if (res.statusCode != 200) return null;
+
+      // A 401 means the token was revoked server-side; the interceptor has
+      // already cleared it, so this really is a signed-out state.
+      if (res.statusCode == 401) {
+        return const SessionResult(SessionStatus.signedOut);
+      }
+
+      if (res.statusCode != 200) {
+        // Reachable but unhappy (5xx, a proxy page). Not evidence the session
+        // is invalid, so treat it like being offline.
+        return const SessionResult(SessionStatus.unverified);
+      }
 
       final prefs = await SharedPreferences.getInstance();
       _current = AppUser.fromMap(
         Map<String, dynamic>.from(res.data['user'] as Map),
         guest: prefs.getBool(_guestFlagKey) ?? false,
       );
-      return _current;
+      return SessionResult(SessionStatus.verified, _current);
     } catch (_) {
-      // Offline with a token we cannot verify. The app is offline-first, so the
-      // caller decides whether to proceed; we simply cannot confirm identity.
-      return null;
+      // Network failure. The token is still there and every feature works
+      // offline, so let the participant in.
+      return const SessionResult(SessionStatus.unverified);
     }
   }
 
