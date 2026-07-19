@@ -62,13 +62,7 @@ class ConsentRecord {
 ///   linked to the participant's account and clinical records, and are used for
 ///   the usability study and to improve the app. Explicitly asks the
 ///   participant to extend this to responses already stored on the device.
-/// Bumped to 3 when wound photographs began being uploaded.
-///
-/// v2 said "your wound scans and measurements", which a reader could take
-/// either way. Uploading a photograph of someone's foot is not something to
-/// infer from an ambiguous sentence, so v3 says it plainly and everyone is
-/// asked again — that is what versioning this exists for.
-const int kCurrentConsentVersion = 3;
+const int kCurrentConsentVersion = 2;
 
 /// Localization key for the body of a given consent version.
 ///

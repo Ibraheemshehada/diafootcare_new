@@ -8,7 +8,7 @@ class DatabaseHelper {
   ///
   /// Exposed so tests assert against the same source of truth as the migration
   /// itself, instead of a literal that silently goes stale on the next bump.
-  static const int schemaVersion = 18;
+  static const int schemaVersion = 17;
 
   static final DatabaseHelper _instance = DatabaseHelper._();
   static Database? _db;
@@ -48,10 +48,6 @@ class DatabaseHelper {
             -- keeps the headline so history, exports and the dashboard are
             -- unaffected by records that predate this column.
             tissueFindings TEXT,
-            -- When the photograph reached the server, which is not when the
-            -- scan synced: the record is small and goes first, the image
-            -- follows when the connection can carry it.
-            image_uploaded_at TEXT,
             pusLevel TEXT,
             inflammation TEXT,
             infection TEXT,
@@ -223,13 +219,6 @@ class DatabaseHelper {
           await _createUuidTriggers(db);
           // Anything inserted between v14 and this migration has no id yet.
           await _backfillMissingUuids(db);
-        }
-        if (oldVersion < 18) {
-          try {
-            await db.execute('ALTER TABLE wounds ADD COLUMN image_uploaded_at TEXT');
-          } catch (e) {
-            debugPrint('Note: wounds.image_uploaded_at not added: $e');
-          }
         }
         if (oldVersion < 17) {
           // Existing scans keep their headline label and simply have no
