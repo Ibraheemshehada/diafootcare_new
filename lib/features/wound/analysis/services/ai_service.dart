@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:tflite_flutter/tflite_flutter.dart';
 import 'package:image/image.dart' as img;
 import '../viewmodel/analysis_result.dart';
+import '../../../../core/services/model_repository.dart';
 
 /// AI Service for wound analysis.
 ///
@@ -103,7 +104,7 @@ class AiService {
     // Model 1
     try {
       debugPrint('📦 Loading Model 1 (segmentation): $_model1Path');
-      _model1 = await Interpreter.fromAsset(_model1Path);
+      _model1 = await _open(_model1Path);
       debugPrint('✅ Model 1 loaded. in=${_model1!.getInputTensor(0).shape} '
           'out=${_model1!.getOutputTensor(0).shape}');
       _model1Loaded = true;
@@ -115,8 +116,8 @@ class AiService {
     // Model 2 (backbone is large ~168 MB)
     try {
       debugPrint('📦 Loading Model 2 (tissue): backbone + head');
-      _clipBackbone = await Interpreter.fromAsset(_clipPath);
-      _tissueHead = await Interpreter.fromAsset(_headPath);
+      _clipBackbone = await _open(_clipPath);
+      _tissueHead = await _open(_headPath);
       debugPrint('✅ Model 2 loaded. backbone out='
           '${_clipBackbone!.getOutputTensor(0).shape} head out='
           '${_tissueHead!.getOutputTensor(0).shape}');
@@ -129,7 +130,7 @@ class AiService {
     // Model 3 (infection & ischaemia head — shares Model 2's backbone)
     try {
       debugPrint('📦 Loading Model 3 (infection/ischaemia): head');
-      _infectionHead = await Interpreter.fromAsset(_infectionHeadPath);
+      _infectionHead = await _open(_infectionHeadPath);
       debugPrint('✅ Model 3 loaded. head out='
           '${_infectionHead!.getOutputTensor(0).shape}');
       _model3Loaded = true;
@@ -139,6 +140,27 @@ class AiService {
     }
 
     _initialized = true;
+  }
+
+  /// Opens a model, preferring the downloaded copy over the bundled asset.
+  ///
+  /// [assetPath] is the asset key ('assets/models/foo.tflite'); its basename is
+  /// also the name the server publishes the file under, so one path serves both.
+  /// Downloaded files win because they are the ones the participant chose to
+  /// fetch and whose checksums were verified on arrival, and because the assets
+  /// are on their way out of the APK — once they are gone this is the only
+  /// route that resolves.
+  Future<Interpreter> _open(String assetPath) async {
+    final name = assetPath.split('/').last;
+
+    final downloaded = await ModelRepository.I.fileFor(name);
+    if (await downloaded.exists() && await downloaded.length() > 0) {
+      debugPrint('📦 $name from downloaded bundle');
+      return Interpreter.fromFile(downloaded);
+    }
+
+    debugPrint('📦 $name from bundled assets');
+    return Interpreter.fromAsset(assetPath);
   }
 
   /// Analyze a wound image: measurements (Model 1) + tissue type (Model 2).
