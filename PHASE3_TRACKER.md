@@ -378,3 +378,58 @@ user-visible notification — Play policy requires one for a long download, and
 **Verify on a real device, not a simulator.** The simulator does not enforce
 suspension the way a phone does, so a background download will appear to work
 there and fail in a clinic.
+
+---
+
+## Wound photograph upload ✅
+
+The photograph now reaches the server, not only the measurements taken from it.
+
+**Consent moved to v3, and everyone is asked again.** v2 said "your wound scans
+and measurements", which a reader could take either way. Uploading a photograph
+of someone's foot is not a thing to infer from an ambiguous sentence, so v3 says
+it plainly — including that a wound photograph can show skin, scars, tattoos or
+jewellery and may identify them without a name beside it, that photographs are
+never published or given a public address, and that withdrawal removes them.
+This is what versioning consent is for; `kCurrentConsentVersion = 3` re-prompts
+every existing participant before a single photo is sent.
+
+**Separate from record sync, deliberately.** A scan record is a few hundred
+bytes; a photograph is a few megabytes. Batching them would let a failed image
+mark a completed batch of measurements as failed and drive the whole queue into
+backoff — a patient on a weak connection would lose the cheap, clinically useful
+part because the expensive part timed out. `WoundImageUploader` runs after the
+sync pass, outside its success accounting.
+
+- Downscaled to 1600 px longest edge at quality 85 before sending. Cameras
+  produce 3000-4000 px and the analysis itself works at 384; the original spends
+  a patient's data allowance on detail nobody reads. Resizing runs in an isolate,
+  since re-encoding a 12 MP photo drops frames.
+- `wounds.image_uploaded_at` (schema **v18**) means an upload is never repeated.
+- A `409` means the scan record has not synced yet — expected, not an error, and
+  retried on the next pass. A `4xx` that is not `409` stops the retry: the file
+  will not become acceptable by sending it again.
+- A photo missing from disk (cache cleared, user deleted it) is marked settled
+  rather than retried forever.
+
+**Server side.** `POST /wound-scans/{local_uuid}/image`, keyed on `local_uuid`
+because the phone knows it at capture time and the server id only after a
+successful sync. Stored on a `private` disk, never under `public/`, streamed
+back through a controller that authorises every read — clinicians and the owning
+patient only. `image_path` is hidden from API responses; clients get a
+`has_image` flag instead, because a path handed to a client eventually gets
+fetched directly.
+
+Verified end to end: 401 unauthenticated on both upload and read, 409 for a scan
+that has not synced, 422 for a non-image, byte-identical round trip, nothing
+under `public/`, and `image_path` absent from `/wound-scans`.
+
+### Open
+- **Retention.** Nothing deletes these. Withdrawal is a manual database
+  operation today. A study handling identifiable images should have a stated
+  retention period and a way to honour a withdrawal request without SQL.
+- **Metered connections.** The upload does not check whether the participant is
+  on mobile data. A few hundred kB per scan is modest, but it is their allowance
+  and they have not been asked.
+- Upload happens for every scan. Whether a participant should be able to keep a
+  given photograph local is a study-design question, not a technical one.

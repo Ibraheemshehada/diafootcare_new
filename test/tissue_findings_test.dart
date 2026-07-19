@@ -131,7 +131,7 @@ void main() {
     expect(decoded.primaryType, original.primaryType);
   });
 
-  group('schema v17 migration', () {
+  group('schema v17/v18 migration', () {
     late Directory tmp;
 
     setUpAll(() {
@@ -196,6 +196,17 @@ void main() {
 
       final fresh = await db.query('wounds', where: 'imagePath = ?', whereArgs: ['/tmp/b.jpg']);
       expect(fresh.first['tissueFindings'], encoded);
+
+      // v18: the photograph is uploaded separately from the record, so the
+      // wounds table tracks when it landed. Existing scans have no upload yet
+      // and must read null rather than being treated as already sent.
+      expect(rows.first['image_uploaded_at'], isNull);
+
+      await db.update('wounds', {'image_uploaded_at': '2026-07-19T12:00:00Z'},
+          where: 'imagePath = ?', whereArgs: ['/tmp/b.jpg']);
+      final stamped =
+          await db.query('wounds', where: 'imagePath = ?', whereArgs: ['/tmp/b.jpg']);
+      expect(stamped.first['image_uploaded_at'], '2026-07-19T12:00:00Z');
 
       await db.close();
     });

@@ -10,6 +10,7 @@ import '../../data/local/database_helper.dart';
 import '../../data/repositories/engagement_rollup_repository.dart';
 import '../network/api_client.dart';
 import 'device_service.dart';
+import 'wound_image_uploader.dart';
 
 /// How one local table maps onto an API endpoint.
 class _SyncSpec {
@@ -282,6 +283,12 @@ class SyncService {
         uploaded += result.uploaded;
         failed += result.failed;
       }
+
+      // Photographs last, and outside the pass's success accounting. They are
+      // megabytes where the records are bytes, so a photo that cannot get
+      // through must not mark a completed batch of measurements as failed and
+      // send the whole queue into backoff.
+      unawaited(WoundImageUploader.I.uploadPending());
 
       if (_rateLimited) {
         // Jump most of the way up the backoff ladder rather than starting at 1s.
