@@ -3,6 +3,7 @@ import 'package:uuid/uuid.dart';
 import 'dart:io' show Platform;
 
 import '../network/api_client.dart';
+import 'app_mode_service.dart';
 
 /// The identity of this install.
 ///
@@ -41,12 +42,20 @@ class DeviceService {
   /// Idempotent server-side on `device_uuid`, so calling it on every launch is
   /// safe and doubles as a "last seen" heartbeat. Never throws: a failure here
   /// must not block a patient from using an offline-capable app.
-  Future<bool> register({String mode = 'offline', String? appVersion}) async {
+  ///
+  /// The mode defaults to whatever the participant actually chose rather than a
+  /// hardcoded value. It used to send 'offline' unconditionally, which made the
+  /// dashboard's online/offline split report the default instead of reality —
+  /// and the choice is often made before sign-in, so registration is the first
+  /// chance the server has to learn it.
+  Future<bool> register({String? mode, String? appVersion}) async {
     try {
+      final chosen = mode ?? (await AppModeService.I.current())?.name;
+
       final res = await ApiClient.I.dio.post('/devices/register', data: {
         'device_uuid': await deviceUuid(),
         'platform': platform,
-        'mode': mode,
+        if (chosen != null) 'mode': chosen,
         if (appVersion != null) 'app_version': appVersion,
       });
 

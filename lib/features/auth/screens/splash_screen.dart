@@ -7,10 +7,12 @@ import 'package:loading_animation_widget/loading_animation_widget.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../../core/services/app_mode_service.dart';
 import '../../../core/services/auth_services.dart';
 import '../../../data/repositories/consent_repository.dart';
 import '../../../routes/app_routes.dart';
 import '../../consent/screens/consent_screen.dart';
+import '../../onboarding/screens/mode_choice_screen.dart';
 import '../../settings/screens/terms_screen.dart';
 import '../../settings/viewmodel/settings_viewmodel.dart';
 
@@ -54,6 +56,7 @@ class _SplashScreenState extends State<SplashScreen> {
       if (accepted == true) {
         // After accepting terms, check auth state
         if (!await _ensureConsent()) return;
+        if (!await _ensureModeChosen()) return;
         await _checkAuthAndNavigate();
       } else {
         // If user doesn't accept terms, decide on app behavior.
@@ -65,8 +68,9 @@ class _SplashScreenState extends State<SplashScreen> {
       return;
     }
 
-    // If terms already accepted → data-sharing consent, then auth state
+    // If terms already accepted → consent, then analysis mode, then auth state
     if (!await _ensureConsent()) return;
+    if (!await _ensureModeChosen()) return;
     await _checkAuthAndNavigate();
   }
 
@@ -88,6 +92,24 @@ class _SplashScreenState extends State<SplashScreen> {
     );
 
     return mounted && accepted == true;
+  }
+
+  /// Blocks until the participant has chosen an analysis mode.
+  ///
+  /// Asked once, after consent: the choice decides whether ~200 MB is
+  /// downloaded, so it belongs before the app opens rather than buried in
+  /// settings. Unlike consent this cannot be declined — there is no third
+  /// option — so the only outcome is a choice.
+  Future<bool> _ensureModeChosen() async {
+    if (await AppModeService.I.hasChosen()) return true;
+    if (!mounted) return false;
+
+    final chosen = await Navigator.push<AppMode>(
+      context,
+      MaterialPageRoute(builder: (_) => const ModeChoiceScreen(blocking: true)),
+    );
+
+    return mounted && chosen != null;
   }
 
   /// Check if user is logged in and has "Remember Me" enabled

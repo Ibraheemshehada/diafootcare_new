@@ -598,5 +598,18 @@
   "sync_pending": "{n} record(s) waiting to send. Tap to send now.",
   "sync_done": "Your records have been sent.",
   "sync_partial": "Some records are still waiting. They will be sent automatically.",
-  "sync_offline": "No connection. Your records are saved and will send automatically."
+  "sync_offline": "No connection. Your records are saved and will send automatically.",
+  "mode_title": "How should the app analyse your wound?",
+  "mode_intro": "DiaFootCare can analyse your wound photo on this phone, or on our secure server. Both give the same result — the difference is what your phone needs.",
+  "mode_online_title": "Online",
+  "mode_online_body": "Your photo is sent to our server, analysed there, and the result comes back. Nothing extra to install.",
+  "mode_online_download": "No download",
+  "mode_online_connection": "Needs internet to analyse",
+  "mode_offline_title": "Offline",
+  "mode_offline_body": "Downloads the analysis files once, then works completely without internet. Best if your connection is unreliable.",
+  "mode_offline_download": "About 200 MB once",
+  "mode_offline_connection": "Works with no internet",
+  "mode_changeable": "You can change this later from your profile at any time.",
+  "mode_continue": "Continue",
+  "mode_current": "Analysis mode"
 }
