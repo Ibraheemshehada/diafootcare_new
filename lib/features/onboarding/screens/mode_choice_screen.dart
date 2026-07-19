@@ -3,7 +3,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 import '../../../core/services/app_mode_service.dart';
+import '../../../core/services/model_download_service.dart';
 import '../../../core/theme/app_colors.dart';
+import 'model_download_screen.dart';
 
 /// Where the participant chooses how the app analyses their wound.
 ///
@@ -39,8 +41,22 @@ class _ModeChoiceScreenState extends State<ModeChoiceScreen> {
 
     await AppModeService.I.set(_selected!);
 
+    // Offline is not a setting, it is a download. Sending the participant
+    // straight into it keeps the promise the card just made, and the download
+    // screen can fall back to online if they change their mind there.
+    if (_selected == AppMode.offline &&
+        !await ModelDownloadService.I.isInstalled()) {
+      if (!mounted) return;
+      await Navigator.push<bool>(
+        context,
+        MaterialPageRoute(
+          builder: (_) => const ModelDownloadScreen(fromSetup: true),
+        ),
+      );
+    }
+
     if (!mounted) return;
-    Navigator.pop(context, _selected);
+    Navigator.pop(context, await AppModeService.I.current());
   }
 
   @override

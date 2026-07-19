@@ -8,11 +8,13 @@ import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../core/services/app_mode_service.dart';
+import '../../../core/services/model_download_service.dart';
 import '../../../core/services/auth_services.dart';
 import '../../../data/repositories/consent_repository.dart';
 import '../../../routes/app_routes.dart';
 import '../../consent/screens/consent_screen.dart';
 import '../../onboarding/screens/mode_choice_screen.dart';
+import '../../onboarding/screens/model_download_screen.dart';
 import '../../settings/screens/terms_screen.dart';
 import '../../settings/viewmodel/settings_viewmodel.dart';
 
@@ -101,15 +103,40 @@ class _SplashScreenState extends State<SplashScreen> {
   /// settings. Unlike consent this cannot be declined — there is no third
   /// option — so the only outcome is a choice.
   Future<bool> _ensureModeChosen() async {
-    if (await AppModeService.I.hasChosen()) return true;
+    if (!await AppModeService.I.hasChosen()) {
+      if (!mounted) return false;
+
+      final chosen = await Navigator.push<AppMode>(
+        context,
+        MaterialPageRoute(builder: (_) => const ModeChoiceScreen(blocking: true)),
+      );
+
+      if (!mounted || chosen == null) return false;
+    }
+
+    return _ensureOfflineFilesPresent();
+  }
+
+  /// Offline mode with no models is a promise the app cannot keep — analysis
+  /// would fail at the moment a wound is in front of the camera. A download
+  /// interrupted by a closed app or a dropped connection is the ordinary case
+  /// here, not an edge case, so the next launch offers to finish it rather than
+  /// continuing silently into an app that cannot analyse anything.
+  Future<bool> _ensureOfflineFilesPresent() async {
+    if (await AppModeService.I.current() != AppMode.offline) return true;
+    if (await ModelDownloadService.I.isInstalled()) return true;
     if (!mounted) return false;
 
-    final chosen = await Navigator.push<AppMode>(
+    await Navigator.push<bool>(
       context,
-      MaterialPageRoute(builder: (_) => const ModeChoiceScreen(blocking: true)),
+      MaterialPageRoute(
+        builder: (_) => const ModelDownloadScreen(fromSetup: true),
+      ),
     );
 
-    return mounted && chosen != null;
+    // Either outcome is fine to proceed on: finishing installs the models, and
+    // backing out switches the app to online mode, which also works.
+    return mounted;
   }
 
   /// Check if user is logged in and has "Remember Me" enabled

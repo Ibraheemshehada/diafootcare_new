@@ -78,7 +78,7 @@ Each is shippable on its own and verifiable before the next starts.
 - ⬜ EN/AR + RTL, 48dp targets, screen-reader labels — parity with the rest of the app
 - ⬜ Report the choice to the server (`devices/{uuid}/mode` already exists)
 
-### F3. Resumable model download (mobile) ⬜
+### F3. Resumable model download (mobile) ✅
 - ⬜ Range-request downloader with resume after a dropped connection or app restart
 - ⬜ Per-file and overall progress, pause / resume / retry
 - ⬜ sha256 verified before a file is accepted; a corrupt file is re-fetched, not used
@@ -163,3 +163,34 @@ Full deploy notes are written at the end of the phase, once the parts exist.
 ## Progress log
 
 _(appended as each feature lands)_
+
+## What F3 cost, and what it bought
+
+The downloader took four rounds of device testing, not one, because three
+defects only appeared against a real server and a real 175 MB file. Recording
+them because each is a trap worth not falling into twice.
+
+**Pause did not pause.** Cancelling a dio `CancelToken` aborts a request that
+is still pending; it does not stop a response whose stream is already being
+consumed. A paused download quietly kept spending the participant's data. The
+byte loop now checks a stop flag directly.
+
+**A short file was treated as a corrupt file.** The hash was verified without
+first checking the length, so a connection that ended early — a proxy giving
+up, a server tiring — condemned every byte it had delivered. On the device this
+discarded 168 MB of perfectly good data. Length is now checked first, and a
+short file is resumed rather than deleted.
+
+**An HTML error page was written into the middle of a model.** The real cause
+of the checksums that would not verify: the server answered mid-transfer with
+`<!DOCTYPE html>`, and the downloader appended it as if it were model bytes,
+landing markup 124 MB into the file. The result was a file of exactly the right
+length that could never verify — every size check passed. Responses are now
+checked for shape (Content-Range start, Content-Length, content type) before a
+single byte is written.
+
+The last one has a deployment consequence: **`php artisan serve` cannot serve
+these files.** It is single-threaded and gave up partway through every attempt.
+Against a threaded, Range-capable server the same build downloaded all 208 MB
+byte-identical on the first try. In production nginx must serve the model files
+directly — see the deployment notes.
