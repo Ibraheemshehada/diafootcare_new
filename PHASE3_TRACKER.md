@@ -40,7 +40,7 @@ documents; the nginx block there is still untested.
 
 | | |
 |---|---|
-| Mobile tests | 72 pass |
+| Mobile tests | 75 pass |
 | Analyzer | 0 errors |
 | On-device parity | passes on both clinical fixtures |
 | Server parity suite | 4 checks pass |
@@ -82,6 +82,12 @@ has.
 When neither route is available — no server *and* no files — the message names
 both problems and both ways out. Telling someone only about the connection sends
 them to find wifi for an analysis that would still fail when they got there.
+
+Covered by three tests in `model_download_test.dart`. The one that matters is
+*a failed download leaves the mode alone*: it was mutation-checked by moving the
+switch to before the transfer, so it discriminates rather than passing by
+accident. Switching on intent instead of on the files arriving would leave a
+half-downloaded phone claiming an offline capability it cannot serve.
 
 ### What is open, in rough priority order
 
