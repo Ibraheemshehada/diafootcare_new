@@ -9,54 +9,79 @@ _Created: 2026-07-19_
 
 ---
 
-## START HERE — handoff for 2026-07-20
+## START HERE — handoff
 
-**Everything F1–F5 is built, on device, and verified. F6 is the only feature left.**
+**Phase 3 is feature-complete. F1–F6 are built, on device, and verified.**
 
-Yesterday closed the analysis path: online mode works against the server, the two
-modes agree on what they call a wound, and three UI bugs found by actually
-running the app are fixed.
+### The numbers
 
-### Pick up with F6 — unbundle the models from the APK
+| | Before | After |
+|---|---|---|
+| Release APK (universal) | 284.8 MB | **86.7 MB** |
+| Release APK (arm64, what a phone installs) | ~230 MB | **30.5 MB** |
+| Flutter assets inside the APK | ~200 MB | 0.3 MB |
 
-The payoff: **~220 MB → ~20 MB**. Nothing blocks it now.
+The 86.7 MB universal figure is three ABIs of native libs (84.6 MB of it); a
+device only ever installs one. Ship an **App Bundle**, or `--split-per-abi`, and
+the real download is ~30 MB. Only the universal APK was measured before, so the
+arm64 "before" is inferred rather than observed.
 
-1. Delete `- assets/models/` from `pubspec.yaml` (keep `assets/testdata/`).
-2. `AiService._open()` already prefers the downloaded copy, so the asset branch
-   becomes dead — remove the `Interpreter.fromAsset` fallback and let a missing
-   model throw, because a silent fallback to nothing is worse than a clear error.
-3. Check the offline-mode gate still works from a **clean install**: splash must
-   route into the downloader before anything tries to analyse.
-4. Check online mode with **no models on disk at all** — it must never fall back
-   to local inference, since there is nothing to fall back to.
-5. Measure the APK before and after and put both numbers in this file.
+### Where to pick up
 
-The one thing to be careful about: `AiService.analyzeWound` currently falls back
-to the on-device models when the server fails. After F6 that fallback can only
-fire when models are actually installed, so the condition needs to be honest
-about it — see the comment already in place there.
+No feature work is queued. The open items below are the backlog, and
+**background download is the one that matters most** — it is the difference
+between a 200 MB download that finishes and one a patient has to nurse across
+several sessions.
+
+If you are deploying, the web repo's tracker and `DEPLOYMENT.md` are the
+documents; the nginx block there is still untested.
 
 ### State of the world
 
 | | |
 |---|---|
 | Mobile tests | 72 pass |
-| | _one flaky run seen — see below_ |
 | Analyzer | 0 errors |
 | On-device parity | passes on both clinical fixtures |
 | Server parity suite | 4 checks pass |
-| APK | builds |
+| Release APK | builds, universal and split |
 
-### One thing to keep an eye on
+### What F6 turned up
 
-The suite failed 4 tests once, in a run that took 1m25s instead of the usual 29s,
-while the web repo's parity suite was loading 200 MB of models in the same
-command. It has passed every run since — four in a row, including under
-deliberate CPU load — so the cause was almost certainly memory pressure rather
-than anything in the code. Recorded rather than dismissed: `model_download_test`
-spins up real HTTP servers and has timing-sensitive waits, so if it starts
-failing intermittently on its own, that is where to look first, and the fix is to
-make those waits condition-based rather than duration-based.
+Removing the models exposed three things that were only ever hidden by the
+models being present. All three are fixed, and all three were found by running
+the app, not by reading it.
+
+**A wound with no models returned an invented result.** 8.1 × 5.0 cm,
+"Granulation", risk "Normal", after a two-second pause that made it look like
+work had happened. Unreachable while the models shipped in the APK; reachable
+the moment they did not. A phone now refuses and says why. Web keeps the
+simulation, having no TFLite and no patients.
+
+**A finished download did nothing until the app restarted.** `AiService.init()`
+set `_initialized = true` even when every model had failed to load, so the first
+run before the bundle arrived cached that failure permanently. The app insisted
+the files were missing while they sat on disk. It now only counts as initialised
+if something loaded.
+
+**Every specific error message was dead code.** `ApiClient` sets
+`validateStatus: s < 500` so error bodies stay readable, which means a 401 is
+not a `DioException` — it arrives as a normal response.
+`RemoteAnalysisService` went straight to `data['analysis']`, threw a cast error,
+and every case landed on the generic "Analysis failed". Status is now checked
+explicitly.
+
+### The mode follows the files
+
+Finishing a download switches the app to offline: someone who sat through 200 MB
+did it to stop depending on a connection, and leaving them online would mean the
+next scan still failing in a clinic with no signal. Deleting the bundle switches
+back to online, rather than leaving the app claiming a capability it no longer
+has.
+
+When neither route is available — no server *and* no files — the message names
+both problems and both ways out. Telling someone only about the connection sends
+them to find wifi for an analysis that would still fail when they got there.
 
 ### What is open, in rough priority order
 
@@ -70,22 +95,20 @@ make those waits condition-based rather than duration-based.
    throw in a future version. Harmless today, a broken upgrade path later.
 4. **Metered connections** — nothing checks whether a 200 MB download is about to
    run on mobile data.
-5. **Dashboard** shows the tissue summary but not the per-class breakdown, which
-   the app already shows and the server already stores.
-6. **nginx config in `DEPLOYMENT.md` is untested** — no nginx on this machine.
-   The curl checks in §4 are what prove it before a phone depends on it.
+5. **Deleting the bundle while the app is running** leaves `AiService` holding
+   closed-file interpreters until something calls `invalidate()`. The method
+   exists; nothing calls it yet, because the delete path also sends the app back
+   to online mode where they are not used.
+6. **Dashboard** shows the tissue summary but not the per-class breakdown.
+7. **nginx config in `DEPLOYMENT.md` is untested** — no nginx on this machine.
 
-### Yesterday, in one line each
+### One thing to keep an eye on
 
-- Resumable 208 MB download: pause, resume, verified — three defects found only
-  by testing against a real server and a real file
-- Online analysis on the server, matched to the phone to the limit of the JPEG
-  decoders
-- Tissue reporting moved from one label to every class, after the two platforms
-  disagreed on a real photograph
-- Analyse a photo from the gallery, not only a fresh capture
-- Fixed: a 10-pixel overflow, an unreachable mode screen, and a depth dialog that
-  logged 19 framework errors per scan
+The suite failed 4 tests once, in a run three times slower than usual, while the
+web parity suite was loading 200 MB of models in the same command. It has passed
+every run since, including under deliberate CPU load, so the cause was almost
+certainly memory pressure. `model_download_test` uses real HTTP servers and
+duration-based waits, so that is where to look if it recurs.
 
 ---
 
@@ -177,7 +200,7 @@ Each is shippable on its own and verifiable before the next starts.
 - ⬜ Mobile Mode A path calling it, with the result screen unchanged
 - ⬜ Graceful failure when the network drops mid-analysis
 
-### F6. Unbundle the models from the APK ⬜ ← next
+### F6. Unbundle the models from the APK ✅
 - ⬜ Remove `assets/models/` from `pubspec.yaml`
 - ⬜ **Last step, deliberately.** Until F3 and F5 are proven on a device, the bundled
       models are the working fallback. Removing them early turns any bug in the new path
