@@ -89,6 +89,16 @@ switch to before the transfer, so it discriminates rather than passing by
 accident. Switching on intent instead of on the files arriving would leave a
 half-downloaded phone claiming an offline capability it cannot serve.
 
+### If you are moving to a MacBook
+
+`IOS_TRACKER.md` is the file. It separates what is verified about this repo from
+what is only expected on a Mac, because none of the iOS path has ever been
+compiled. Two things in it are wrong today and worth knowing before you start:
+the bundle identifier is still `com.example.daifootcareNew`, and Firebase config
+survives in both platform folders — including a `GoogleService-Info.plist`
+committed to git — for an integration that no longer exists in `pubspec.yaml` or
+`lib/`.
+
 ### What is open, in rough priority order
 
 1. **Background download** — measured: zero progress over 80 s backgrounded,
@@ -460,7 +470,7 @@ offline install back into the downloader, and `fromSetup: true` starts it again
 automatically. So the participant loses time, not bytes, and does not have to do
 anything except reopen the app.
 
-### iOS is not currently buildable here
+### iOS is not currently buildable here — see `IOS_TRACKER.md`
 
 Worth knowing before anyone plans around it: **iOS has never been built in this
 repo.** No `Podfile.lock`, no `build/ios`, and development is on Windows, where
