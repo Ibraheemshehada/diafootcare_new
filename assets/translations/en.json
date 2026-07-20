@@ -640,5 +640,8 @@
   "tissue_breakdown": "All tissue types considered",
   "tissue_threshold_note": "Each type has its own confidence threshold, tuned separately. A type is marked present when it passes its own threshold.",
   "choose_from_gallery": "Choose a photo",
-  "mode_title_short": "Wound analysis"
+  "mode_title_short": "Wound analysis",
+  "analysis_models_missing": "The offline analysis files aren't on this phone yet. Open your profile to finish the download, or switch to online analysis.",
+  "analysis_no_route_offline": "This wound couldn't be analysed. There's no connection to our server right now, and the offline analysis files aren't on this phone. Connect to the internet and try again, or download the offline files from your profile so it works without a connection.",
+  "analysis_no_route_refused": "This wound couldn't be analysed. The server didn't accept the request, and the offline analysis files aren't on this phone. Try signing in again, or download the offline files from your profile so analysis works without a connection."
 }

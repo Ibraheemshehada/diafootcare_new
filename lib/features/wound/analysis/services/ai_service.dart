@@ -1,10 +1,12 @@
 import 'dart:io';
 import 'dart:math';
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:tflite_flutter/tflite_flutter.dart';
 import 'package:image/image.dart' as img;
 import '../viewmodel/analysis_result.dart';
+import '../../../../core/services/analysis_exception.dart';
 import '../../../../core/services/app_mode_service.dart';
 import '../../../../core/services/model_repository.dart';
 import '../../../../core/services/remote_analysis_service.dart';
@@ -141,28 +143,52 @@ class AiService {
       _model3Loaded = false;
     }
 
-    _initialized = true;
+    // Only count as initialised if something actually loaded. Marking success
+    // regardless cached a failure permanently: the service ran once before the
+    // bundle had downloaded, every model failed, and it then refused to look
+    // again — so a completed download did nothing until the app was restarted,
+    // and the app insisted the files were missing while they sat on disk.
+    _initialized = _model1Loaded || _model2Loaded || _model3Loaded;
+
+    if (!_initialized) {
+      debugPrint('ℹ️  No models loaded; will look again on the next analysis.');
+    }
   }
 
-  /// Opens a model, preferring the downloaded copy over the bundled asset.
+  /// Drops the loaded interpreters so the next [init] reloads from disk.
   ///
-  /// [assetPath] is the asset key ('assets/models/foo.tflite'); its basename is
-  /// also the name the server publishes the file under, so one path serves both.
-  /// Downloaded files win because they are the ones the participant chose to
-  /// fetch and whose checksums were verified on arrival, and because the assets
-  /// are on their way out of the APK — once they are gone this is the only
-  /// route that resolves.
+  /// Needed when the bundle changes underneath a running app — a download
+  /// finishing, or the files being deleted to reclaim space.
+  void invalidate() {
+    _model1?.close();
+    _clipBackbone?.close();
+    _tissueHead?.close();
+    _infectionHead?.close();
+
+    _model1 = _clipBackbone = _tissueHead = _infectionHead = null;
+    _model1Loaded = _model2Loaded = _model3Loaded = false;
+    _initialized = false;
+  }
+
+  /// Opens a model from the downloaded bundle.
+  ///
+  /// [assetPath] is kept as the identifier because its basename is also the
+  /// name the server publishes the file under, so one constant serves both.
+  ///
+  /// There is no asset fallback any more: the models are no longer shipped in
+  /// the APK, which is what took the download from ~285 MB to a normal size.
+  /// A missing file therefore means the bundle is not installed, and saying so
+  /// is the only honest answer — `init()` records the model as unavailable and
+  /// [analyzeWound] refuses rather than guessing.
   Future<Interpreter> _open(String assetPath) async {
     final name = assetPath.split('/').last;
 
     final downloaded = await ModelRepository.I.fileFor(name);
     if (await downloaded.exists() && await downloaded.length() > 0) {
-      debugPrint('📦 $name from downloaded bundle');
       return Interpreter.fromFile(downloaded);
     }
 
-    debugPrint('📦 $name from bundled assets');
-    return Interpreter.fromAsset(assetPath);
+    throw ModelsUnavailableException(missing: name);
   }
 
   /// Analyze a wound image: measurements (Model 1) + tissue type (Model 2).
@@ -193,11 +219,23 @@ class AiService {
         debugPrint('✅ Server analysis: ${r.riskBadge} / ${r.tissueType}');
         return r;
       } on RemoteAnalysisException catch (e) {
-        // Falling back to the local models is only honest while they are still
-        // on the device. When they are not, the failure has to surface:
-        // inventing measurements for a wound is worse than saying so.
         await init();
-        if (!_model1Loaded && !_model2Loaded) rethrow;
+
+        if (!_model1Loaded && !_model2Loaded) {
+          // Both routes are shut: the server did not answer and the offline
+          // files are not installed. Reporting only the connection problem
+          // would send someone off to find wifi, and the analysis would still
+          // fail when they did. Name both, and give the two ways out.
+          throw ModelsUnavailableException(
+            reason: e.retryable
+                ? _NoAnalysisRoute.serverUnreachable
+                : _NoAnalysisRoute.serverRefused,
+            serverMessage: e.message,
+          );
+        }
+
+        // Falling back to the local models is only honest while they are
+        // actually on the device.
         debugPrint('⚠️  Server analysis failed (${e.message}); '
             'using the models on this device instead.');
       }
@@ -205,10 +243,22 @@ class AiService {
 
     if (!_initialized) await init();
 
-    if (kIsWeb || (!_model1Loaded && !_model2Loaded)) {
+    if (kIsWeb) {
+      // Web has no TFLite at all, so the simulated result is a development
+      // convenience on a platform no patient uses.
       await Future.delayed(const Duration(seconds: 2));
-      debugPrint('⚠️  Analysis SIMULATED (models unavailable).');
+      debugPrint('⚠️  Analysis SIMULATED (web has no TFLite).');
       return _getSimulatedResult();
+    }
+
+    if (!_model1Loaded && !_model2Loaded) {
+      // On a phone this is not a simulation opportunity, it is a wound the app
+      // cannot measure. It used to return 8.1 × 5.0 cm "Granulation / Normal"
+      // after a two-second pause, which was unreachable only because the models
+      // shipped inside the APK. With them downloaded on demand it is reachable
+      // — an offline install whose download has not finished — and calling a
+      // possibly necrotic wound "Normal" is the worst thing this app could do.
+      throw ModelsUnavailableException();
     }
 
     try {
@@ -674,4 +724,62 @@ class _Component {
   final int area;
   final int minX, minY, maxX, maxY;
   const _Component(this.area, this.minX, this.minY, this.maxX, this.maxY);
+}
+
+/// Why no analysis route was available.
+enum _NoAnalysisRoute {
+  /// Offline mode, or nothing was tried remotely: only the files are missing.
+  filesOnly,
+
+  /// Online mode, and the server could not be reached — a dropped connection,
+  /// a timeout, a server that is down.
+  serverUnreachable,
+
+  /// Online mode, and the server answered but declined — signed out, or a
+  /// photo it could not use. Trying again unchanged will not help.
+  serverRefused,
+}
+
+/// The wound could not be analysed, by any available route.
+///
+/// Raised instead of inventing a measurement. The message names every reason
+/// that applies and the way out of each: someone told only "no connection"
+/// will go and find wifi, and still be unable to analyse when they get there,
+/// because the offline files were never downloaded either.
+class ModelsUnavailableException implements AnalysisException {
+  /// The first file found missing, when one was identified. Useful in logs;
+  /// never shown to the patient, who cannot act on a filename.
+  final String? missing;
+
+  final _NoAnalysisRoute reason;
+
+  /// What the server said, kept for the log rather than the screen.
+  final String? serverMessage;
+
+  ModelsUnavailableException({
+    this.missing,
+    this.reason = _NoAnalysisRoute.filesOnly,
+    this.serverMessage,
+  });
+
+  @override
+  String get message {
+    switch (reason) {
+      case _NoAnalysisRoute.serverUnreachable:
+        return 'analysis_no_route_offline'.tr();
+      case _NoAnalysisRoute.serverRefused:
+        return 'analysis_no_route_refused'.tr();
+      case _NoAnalysisRoute.filesOnly:
+        return 'analysis_models_missing'.tr();
+    }
+  }
+
+  /// Always: a download or a connection is a thing the participant can go and
+  /// fix, unlike a photo the model cannot read.
+  @override
+  bool get retryable => true;
+
+  @override
+  String toString() => 'ModelsUnavailableException(reason: $reason, '
+      'missing: ${missing ?? "all"}, server: ${serverMessage ?? "-"})';
 }

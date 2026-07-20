@@ -119,7 +119,6 @@ flutter:
     - assets/translations/
     - assets/svg/
     - assets/images/
-    - assets/models/  # AI models for wound analysis
     - assets/testdata/  # fixed image for on-device/server parity checks
 
   # An image asset can refer to one or more resolution-specific "variants", see

@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 
+import 'analysis_exception.dart';
 import '../network/api_client.dart';
 import '../../features/wound/analysis/viewmodel/analysis_result.dart';
 
@@ -11,11 +12,13 @@ import '../../features/wound/analysis/viewmodel/analysis_result.dart';
 /// Carries a message already fit to show a patient: the alternative is a
 /// fabricated measurement, and a wrong number on a wound is worse than an
 /// honest failure.
-class RemoteAnalysisException implements Exception {
+class RemoteAnalysisException implements AnalysisException {
+  @override
   final String message;
 
   /// True when trying again might work — a dropped connection rather than a
   /// photo the model cannot make sense of.
+  @override
   final bool retryable;
 
   RemoteAnalysisException(this.message, {this.retryable = true});
@@ -59,8 +62,27 @@ class RemoteAnalysisService {
         ),
       );
 
-      final a = Map<String, dynamic>.from(res.data['analysis'] as Map);
-      return _fromJson(a);
+      // ApiClient treats anything under 500 as a successful response so error
+      // bodies stay readable, which means the status has to be checked here.
+      // Without this a 401 or 422 fell through to parsing `data['analysis']`,
+      // threw a cast error, and surfaced as the generic "Analysis failed" —
+      // every specific message below was unreachable.
+      final code = res.statusCode ?? 0;
+      if (code != 200) {
+        throw RemoteAnalysisException(
+          _describeStatus(code, res.data),
+          retryable: code != 422,
+        );
+      }
+
+      final analysis = res.data is Map ? res.data['analysis'] : null;
+      if (analysis is! Map) {
+        throw RemoteAnalysisException('Analysis failed. Please try again.');
+      }
+
+      return _fromJson(Map<String, dynamic>.from(analysis));
+    } on RemoteAnalysisException {
+      rethrow;
     } on DioException catch (e) {
       throw RemoteAnalysisException(_describe(e), retryable: _retryable(e));
     } catch (e) {
@@ -94,6 +116,30 @@ class RemoteAnalysisService {
       isFromModel: a['is_from_model'] as bool? ?? true,
       isCalibrated: a['is_calibrated'] as bool? ?? false,
     );
+  }
+
+  /// Turns a status into something the reader can act on.
+  ///
+  /// The server's own message is preferred when it sent one — it knows more
+  /// about why than a status code does.
+  String _describeStatus(int code, dynamic body) {
+    final fromServer =
+        body is Map && body['message'] is String ? body['message'] as String : null;
+
+    switch (code) {
+      case 401:
+        return 'Please sign in again to analyse this photo.';
+      case 422:
+        return fromServer ??
+            'That photo could not be analysed. Please retake it in better '
+                'light, with the wound filling more of the frame.';
+      case 429:
+        return 'Too many analyses just now. Please wait a moment.';
+      case 503:
+        return 'Analysis is temporarily unavailable. Please try again shortly.';
+      default:
+        return fromServer ?? 'Analysis failed. Please try again.';
+    }
   }
 
   bool _retryable(DioException e) {

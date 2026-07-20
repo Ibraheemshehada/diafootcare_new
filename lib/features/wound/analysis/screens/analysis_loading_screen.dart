@@ -132,7 +132,7 @@ import 'package:loading_animation_widget/loading_animation_widget.dart';
 import '../../../../core/widgets/app_dialogs.dart';
 import '../services/ai_service.dart';  // ✅ Import AI service
 import 'ai_result_screen.dart';
-import '../../../../core/services/remote_analysis_service.dart';
+import '../../../../core/services/analysis_exception.dart';
 
 class AnalysisLoadingScreen extends StatefulWidget {
   final String imagePath; // photo taken
@@ -208,7 +208,7 @@ class _AnalysisLoadingScreenState extends State<AnalysisLoadingScreen> {
       // photograph and no idea why it did not work.
       await showAppError(
         context,
-        e is RemoteAnalysisException ? e.message : 'analysis_failed'.tr(),
+        e is AnalysisException ? e.message : 'analysis_failed'.tr(),
       );
 
       // Go back to previous screen

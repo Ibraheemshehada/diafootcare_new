@@ -6,6 +6,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 
 import '../network/api_client.dart';
+import 'app_mode_service.dart';
 import 'device_service.dart';
 import 'model_repository.dart';
 
@@ -218,6 +219,14 @@ class ModelDownloadService {
       }
 
       await ModelRepository.I.setInstalledVersion(manifest.version);
+
+      // The files are here, so start using them. Someone who sat through a
+      // 200 MB download did it to stop depending on a connection; leaving the
+      // app in online mode afterwards would mean their next scan still failed
+      // in a clinic with no signal, which is the exact thing they just spent
+      // twenty minutes preventing.
+      await AppModeService.I.set(AppMode.offline);
+
       unawaited(DeviceService.I.updateMode(modelsDownloaded: true));
 
       _emit(DownloadProgress(
@@ -531,6 +540,10 @@ class ModelDownloadService {
 
   /// Throws away the bundle, including partials.
   Future<void> deleteDownloaded() async {
+    // Back to online: without the files, offline mode is a promise the app
+    // cannot keep, and the next scan would fail rather than simply going over
+    // the network.
+    await AppModeService.I.set(AppMode.online);
     pause();
     // Let the byte loop notice the stop and release its handle on the file
     // before deleting underneath it.
