@@ -91,10 +91,13 @@ half-downloaded phone claiming an offline capability it cannot serve.
 
 ### What is open, in rough priority order
 
-1. **Background download** — the transfer stops when the app leaves the
-   foreground, on both platforms, and iOS cannot do it from Dart at all. Resume
-   makes this survivable rather than fine. Options are written up under
-   *"Open — the model download does not continue in the background"*.
+1. **Background download** — measured: zero progress over 80 s backgrounded,
+   because Android reclaims the Flutter engine under memory pressure, not
+   because Dart is suspended. Resume means nothing is lost but time. An Android
+   foreground service is the recommended first step; `background_downloader`
+   solves iOS too but costs the unit-testability of the transfer path, and
+   **iOS has never been built in this repo and cannot be, on Windows**. Written
+   up under *"Open — the model download does not continue in the background"*.
 2. **Mandatory consent** — accepting is still required to use the app during the
    study. Flagged repeatedly; an ethics board will ask.
 3. **`_backfillMissingUuids` passes a null `whereArgs`.** sqflite warns it will
@@ -434,59 +437,76 @@ asserts every class lands on the same side of its threshold on both platforms.
 
 ## Open — the model download does not continue in the background
 
-**Not built, on either platform.** `ModelDownloadService` runs in the Dart
-isolate that the UI lives in. Leave the download screen open and it proceeds;
-send the app to the background and it stops.
+**Measured, not assumed.** Started a download, pressed Home, and sampled the
+bytes on disk: **zero progress over 80 seconds** backgrounded. Bringing the app
+forward resumed it immediately, from 168 MB of 199 MB.
 
-What softens this is F3: nothing transferred is ever lost. Bytes land in a
-`.part` file, the next launch resumes with a Range request, and the splash gate
-routes an offline install with an unfinished bundle straight back into the
-download. So the failure is "this takes several sessions", not "this starts
-again". For a 200 MB download over a clinic connection that is still a poor
-experience, and on iOS it is worse than on Android.
+### Why it stops — the earlier explanation here was wrong
 
-**Android.** The process usually survives a while in the background, so a
-download often keeps going for a few minutes before the OS reclaims it. There is
-no guarantee, and no foreground service declared, so it can be killed at any
-point. `workmanager` is already in the app for sync, but a WorkManager task is
-the wrong shape for this: it has its own execution windows and a ~10 minute
-budget per run, where this is one long transfer.
+It is *not* that Dart is suspended. The process stayed alive (same pid) and the
+isolate kept working while backgrounded: it ran a WorkManager job, loaded notes,
+and drained the sync queue. What actually happens is that **Android reclaimed the
+Flutter engine**, and the download died with the isolate that was running it.
+The log shows a full boot sequence — localisation init, Home load, model load
+attempts — inside the same process, which is a new isolate, not a resumed one.
 
-**iOS.** It simply stops. `UIBackgroundModes` currently declares only
-`remote-notification`, and even adding `fetch` would not help — background fetch
-grants short opportunistic windows, not a sustained transfer. The only
-mechanism Apple provides for this is `URLSession` with a background
-configuration, where the *system* daemon performs the transfer and wakes the app
-on completion. That cannot be driven from Dart: `dio` and `HttpClient` both run
-in-process.
+Confirmed this is genuine and not a development artefact:
+`always_finish_activities` is off, and the emulator had 300 MB free of 4 GB.
+Memory pressure is the cause, which means **a cheap phone will do this more
+often, not less** — and cheap phones are the ones this app is for.
+
+What saves it is F3. The `.part` survives, the splash gate routes an unfinished
+offline install back into the downloader, and `fromSetup: true` starts it again
+automatically. So the participant loses time, not bytes, and does not have to do
+anything except reopen the app.
+
+### iOS is not currently buildable here
+
+Worth knowing before anyone plans around it: **iOS has never been built in this
+repo.** No `Podfile.lock`, no `build/ios`, and development is on Windows, where
+it cannot be compiled at all. The iOS half of this problem is real but currently
+theoretical, and it cannot be tested until there is a Mac in the picture.
+
+That matters for the choice below, because the main thing
+`background_downloader` buys over an Android foreground service is iOS.
 
 ### What it would take
 
-The honest options, in order of preference:
+1. **Android foreground service, keeping the Dart downloader.** Recommended
+   first step. A foreground service tells the OS this is user-visible ongoing
+   work, which is what stops the engine being reclaimed. It solves the platform
+   that is actually in use, changes nothing about the transfer loop, and keeps
+   all eleven `model_download_test` cases — they drive the real Dart loop against
+   a local HTTP server, which is why the pause, truncation, error-page and
+   checksum defects were caught at all.
 
-1. **`background_downloader` package.** Wraps `URLSession` background transfers
-   on iOS and a foreground service with `WorkManager` on Android, and supports
-   Range resumption. It would replace the transfer loop inside
-   `ModelDownloadService` while leaving the manifest handling, checksum
-   verification and `.part` bookkeeping alone — those are the parts that took
-   four rounds of device testing to get right and should not be rewritten.
+   Note the subtlety: a foreground service keeps the *process* near the top of
+   the LRU, but the engine is owned by the Activity. Surviving reliably means a
+   cached `FlutterEngine` that outlives the Activity, which is the part worth
+   prototyping before committing.
 
-2. **A platform channel per OS.** `URLSession` background configuration on iOS,
-   a foreground service with a notification on Android. More control, more code,
-   and it re-implements what the package already does.
+2. **`background_downloader` (9.5.6, resolves cleanly).** Wraps `URLSession`
+   background transfers on iOS and a foreground service on Android, and supports
+   Range resumption. It solves both platforms — but the transfer happens in
+   native code, so `flutter test` cannot exercise it. Verification of the most
+   safety-critical path in the app would drop to manual device testing, and the
+   four guards found by device testing (stop-flag pause, length-before-hash,
+   response-shape validation, `RandomAccessFile` writes) would move into someone
+   else's code or disappear. The sha256 check would remain as the final arbiter.
 
-3. **Leave it.** Defensible for a pilot, given resume works. It should be a
-   decision rather than an oversight, which is why it is written down here.
+   Reasonable once iOS is real. Paying that price now, for a platform that
+   cannot be built, is not.
 
-Whichever is chosen, two things change beyond the transfer itself: iOS needs the
-background transfer entitlement and a completion handler wired in
-`AppDelegate`, and Android needs a foreground service type declared with a
-user-visible notification — Play policy requires one for a long download, and
-`dataSync` is the applicable type.
+3. **Leave it.** Defensible for a pilot: nothing is lost, only time, and the
+   resume is automatic. It should be a decision rather than an oversight.
+
+Whichever is chosen: Android needs a `dataSync` foreground service type with a
+user-visible notification — Play policy requires one for a long download — and
+iOS would need the background transfer entitlement and an `AppDelegate`
+completion handler.
 
 **Verify on a real device, not a simulator.** The simulator does not enforce
-suspension the way a phone does, so a background download will appear to work
-there and fail in a clinic.
+suspension the way a phone does.
 
 ---
 
