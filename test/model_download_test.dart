@@ -3,6 +3,7 @@ import 'dart:io';
 import 'dart:math';
 
 import 'package:crypto/crypto.dart';
+import 'package:diafootcare_new/core/services/app_mode_service.dart';
 import 'package:diafootcare_new/core/services/model_download_service.dart';
 import 'package:diafootcare_new/core/services/model_repository.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -294,6 +295,50 @@ void main() {
     expect(ModelDownloadService.I.progress.state, DownloadState.complete);
     expect(server.rangeRequests, 1, reason: 'the resume must ask for a range');
     expect(await (await ModelRepository.I.fileFor('model.bin')).readAsBytes(), payload);
+  });
+
+  group('the mode follows the files', () {
+    test('a finished download switches the app to offline', () async {
+      // Someone can reach the downloader while still in online mode — from
+      // Profile, or by choosing offline and having the choice recorded before
+      // the transfer starts. Either way, once the files are here they should be
+      // used: sitting through 200 MB and then still failing in a clinic with no
+      // signal is the exact thing the download was meant to prevent.
+      await AppModeService.I.set(AppMode.online);
+      expect(await AppModeService.I.current(), AppMode.online);
+
+      await ModelDownloadService.I.start();
+      expect(ModelDownloadService.I.progress.state, DownloadState.complete);
+
+      expect(await AppModeService.I.current(), AppMode.offline,
+          reason: 'the files are installed, so offline analysis should be on');
+    });
+
+    test('a failed download leaves the mode alone', () async {
+      // The opposite mistake: claiming an offline capability the phone does not
+      // have. A half-finished bundle cannot analyse anything, so the app must
+      // stay on the route that still works.
+      await AppModeService.I.set(AppMode.online);
+
+      server.cutAfter = 100 * 1024;
+      await ModelDownloadService.I.start();
+      expect(ModelDownloadService.I.progress.state, DownloadState.failed);
+
+      expect(await AppModeService.I.current(), AppMode.online,
+          reason: 'an unfinished download must not switch the app to a mode '
+              'it cannot serve');
+    });
+
+    test('deleting the bundle switches back to online', () async {
+      await ModelDownloadService.I.start();
+      expect(await AppModeService.I.current(), AppMode.offline);
+
+      await ModelDownloadService.I.deleteDownloaded();
+
+      expect(await AppModeService.I.current(), AppMode.online,
+          reason: 'without the files, offline is a promise the app cannot keep');
+      expect(await (await ModelRepository.I.fileFor('model.bin')).exists(), isFalse);
+    });
   });
 
   test('reports progress that never exceeds the total', () async {
