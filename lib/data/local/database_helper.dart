@@ -8,7 +8,7 @@ class DatabaseHelper {
   ///
   /// Exposed so tests assert against the same source of truth as the migration
   /// itself, instead of a literal that silently goes stale on the next bump.
-  static const int schemaVersion = 17;
+  static const int schemaVersion = 18;
 
   static final DatabaseHelper _instance = DatabaseHelper._();
   static Database? _db;
@@ -48,6 +48,10 @@ class DatabaseHelper {
             -- keeps the headline so history, exports and the dashboard are
             -- unaffected by records that predate this column.
             tissueFindings TEXT,
+            -- Which pipeline produced this result: 'online' (server) or
+            -- 'offline' (this phone). Recorded per scan because a participant
+            -- can change mode between capturing and syncing.
+            analysedOn TEXT,
             pusLevel TEXT,
             inflammation TEXT,
             infection TEXT,
@@ -219,6 +223,13 @@ class DatabaseHelper {
           await _createUuidTriggers(db);
           // Anything inserted between v14 and this migration has no id yet.
           await _backfillMissingUuids(db);
+        }
+        if (oldVersion < 18) {
+          try {
+            await db.execute('ALTER TABLE wounds ADD COLUMN analysedOn TEXT');
+          } catch (e) {
+            debugPrint('Note: wounds.analysedOn not added: $e');
+          }
         }
         if (oldVersion < 17) {
           // Existing scans keep their headline label and simply have no

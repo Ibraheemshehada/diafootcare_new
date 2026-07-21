@@ -32,6 +32,7 @@ class WoundsRepository {
           // The headline stays in its own column so history, exports and the
           // dashboard keep working unchanged; the full per-class answer goes
           // alongside it rather than replacing it.
+          'analysedOn': result.analysedOn,
           'tissueType': result.primaryTissueType,
           'tissueFindings': result.tissueFindings.isEmpty
               ? null

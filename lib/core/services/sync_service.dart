@@ -105,7 +105,9 @@ class SyncService {
             'infection_present': _yesNo(r['infection']),
             'ischaemia_present': _yesNo(r['ischaemia']),
             'risk_badge': _risk(r['infection'], r['ischaemia']),
-            'source': 'offline',
+            // Was hardcoded 'offline', so every server-analysed scan was filed
+            // as on-device and the dashboard's mode split described nothing.
+            'source': (r['analysedOn'] as String?) ?? 'offline',
           };
         }),
         _SyncSpec('glucose_readings', 'glucose', (r) => {
@@ -464,11 +466,39 @@ class SyncService {
 
   /// The app stores these as display strings ("Present"/"Absent"); null must
   /// stay null, because "not assessed" is not "absent".
+  /// Maps a stored display string to a boolean.
+  ///
+  /// Infection and ischaemia use *different* vocabularies — 'Present' /
+  /// 'Not Present' against 'Impaired' / 'Adequate' — and only the first was
+  /// handled. `_yesNo('Impaired')` returned null, which the callers turned into
+  /// false, so **ischaemia was never reported to the server at all**: a wound
+  /// with both findings synced as infection-only, and the dashboard
+  /// under-reported the risk that drives amputation.
+  ///
+  /// Note the ordering: 'Not Present' contains 'present', so the negatives have
+  /// to be tested first or every absence reads as a presence.
+  /// Exposed for tests. These two functions decide what a clinician sees on
+  /// the dashboard, and they had a silent mapping bug for the whole of the
+  /// project's life, so they are worth testing directly.
+  @visibleForTesting
+  static bool? yesNoForTest(Object? v) => _yesNo(v);
+
+  @visibleForTesting
+  static String? riskForTest(Object? infection, Object? ischaemia) =>
+      _risk(infection, ischaemia);
+
   static bool? _yesNo(Object? v) {
     if (v == null) return null;
-    final s = '$v'.toLowerCase();
-    if (s.contains('present') || s == 'yes' || s == 'true' || s == '1') return true;
-    if (s.contains('absent') || s == 'no' || s == 'false' || s == '0') return false;
+    final s = '$v'.toLowerCase().trim();
+
+    if (s.startsWith('not ') || s.contains('absent') || s == 'adequate' ||
+        s == 'no' || s == 'false' || s == '0' || s == 'none') {
+      return false;
+    }
+    if (s.contains('present') || s == 'impaired' || s == 'yes' ||
+        s == 'true' || s == '1') {
+      return true;
+    }
     return null;
   }
 

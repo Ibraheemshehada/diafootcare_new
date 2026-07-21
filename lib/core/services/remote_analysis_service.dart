@@ -115,6 +115,7 @@ class RemoteAnalysisService {
       healingProgress: d('healing_progress'),
       isFromModel: a['is_from_model'] as bool? ?? true,
       isCalibrated: a['is_calibrated'] as bool? ?? false,
+      analysedOn: 'online',
     );
   }
 

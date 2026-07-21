@@ -28,6 +28,13 @@ class AnalysisResult {
   final bool isFromModel; // Indicates if measurements are from Model 1 or simulated
   final bool isCalibrated; // true if cm came from a real reference-object scale
 
+  /// Where the analysis actually ran: 'online' (server) or 'offline' (phone).
+  ///
+  /// Recorded per result rather than read from the current mode at sync time,
+  /// because a participant can change mode between capturing and syncing, and
+  /// the study needs to know which pipeline produced each number.
+  final String analysedOn;
+
   /// Set only when the result came from a stored record written before
   /// per-class findings existed, or from a caller still passing a bare label.
   final String? _legacyTissueType;
@@ -46,6 +53,7 @@ class AnalysisResult {
     this.graphImagePath = 'assets/images/progress_graph.png',
     this.isFromModel = false,
     this.isCalibrated = false,
+    this.analysedOn = 'offline',
     String? tissueType,
   }) : _legacyTissueType = tissueType;
 
