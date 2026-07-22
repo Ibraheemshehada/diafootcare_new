@@ -49,9 +49,10 @@
 	<string>This app needs access to your photo library to select wound images for analysis and tracking.</string>
 	<key>NSPhotoLibraryAddUsageDescription</key>
 	<string>This app needs permission to save wound images to your photo library.</string>
-	<!-- No background modes. Notifications are scheduled locally by
-	     flutter_local_notifications; nothing sends remote pushes, so claiming
-	     remote-notification would be a capability the app does not use and a
-	     question at App Store review. -->
+	<!-- Export compliance: the app uses only exempt encryption — HTTPS (dio),
+	     Keychain (flutter_secure_storage) and standard hashing (crypto). Declaring
+	     this avoids the export-compliance question on every TestFlight upload. -->
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
 </dict>
 </plist>

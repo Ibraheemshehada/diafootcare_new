@@ -1,5 +1,7 @@
-# Uncomment this line to define a global platform for your project
-# platform :ios, '12.0'
+# Global platform. Raised to 14.0 because workmanager_apple's podspec requires it
+# (it is the highest floor among the plugins). Keep in sync with
+# IPHONEOS_DEPLOYMENT_TARGET in Runner.xcodeproj/project.pbxproj.
+platform :ios, '14.0'
 
 # CocoaPods analytics sends network stats synchronously affecting flutter build latency.
 ENV['COCOAPODS_DISABLE_STATS'] = 'true'
@@ -39,5 +41,33 @@ end
 post_install do |installer|
   installer.pods_project.targets.each do |target|
     flutter_additional_ios_build_settings(target)
+    target.build_configurations.each do |config|
+      # Keep every pod at the app's floor so none silently reverts to 8.0/9.0.
+      config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '14.0'
+
+      # permission_handler compiles in EVERY permission handler by default
+      # (location, contacts, calendar, mic, …). Apple's static analysis then sees
+      # a binary that touches those APIs with no matching Info.plist usage string,
+      # which is a common App Store rejection. The app only uses camera, photos
+      # and notifications, so strip the rest: 1 = compiled in, 0 = compiled out.
+      config.build_settings['GCC_PREPROCESSOR_DEFINITIONS'] ||= [
+        '$(inherited)',
+        'PERMISSION_CAMERA=1',
+        'PERMISSION_PHOTOS=1',
+        'PERMISSION_NOTIFICATIONS=1',
+        'PERMISSION_EVENTS=0',
+        'PERMISSION_EVENTS_FULL_ACCESS=0',
+        'PERMISSION_REMINDERS=0',
+        'PERMISSION_CONTACTS=0',
+        'PERMISSION_MICROPHONE=0',
+        'PERMISSION_SPEECH_RECOGNIZER=0',
+        'PERMISSION_LOCATION=0',
+        'PERMISSION_SENSORS=0',
+        'PERMISSION_BLUETOOTH=0',
+        'PERMISSION_APP_TRACKING_TRANSPARENCY=0',
+        'PERMISSION_CRITICAL_ALERTS=0',
+        'PERMISSION_ASSISTANT=0',
+      ]
+    end
   end
 end
