@@ -319,11 +319,16 @@ class ModelDownloadService {
   void _rejectIfNotFileBody(Response<ResponseBody> res, ModelFile f, int offset) {
     if (res.statusCode == 416) return;
 
-    // Only markup and JSON are treated as disqualifying. Plenty of correct
-    // servers label a binary as text/plain, and rejecting those would break
-    // real deployments to catch a case the length checks below already cover.
+    // Markup always disqualifies (a login page, a 404). JSON disqualifies too —
+    // an error envelope or a proxy page — EXCEPT for the manifest's own `.json`
+    // metadata files, which are legitimately served as application/json. Without
+    // that exception the two *_meta.json files were rejected forever and the
+    // offline download could never complete. Plenty of correct servers label a
+    // binary as text/plain, and the content-length / range / sha256 checks below
+    // cover a genuinely wrong body regardless of its content-type.
     final type = res.headers.value('content-type')?.toLowerCase() ?? '';
-    if (type.contains('html') || type.contains('json')) {
+    final expectsJson = f.name.toLowerCase().endsWith('.json');
+    if (type.contains('html') || (type.contains('json') && !expectsJson)) {
       throw ModelDownloadException(
         'The server sent a page instead of the file. Retrying.',
         resumable: true,
