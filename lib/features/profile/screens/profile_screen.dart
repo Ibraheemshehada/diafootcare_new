@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 
@@ -227,7 +229,8 @@ class ProfileScreen extends StatelessWidget {
                   foregroundColor: AppColors.of(context).danger,
                 ),
                 onPressed: () async {
-                  // Clear "Remember Me" and guest session preferences
+                  // Clear "Remember Me" and guest session preferences (local,
+                  // fast).
                   final prefs = await SharedPreferences.getInstance();
                   await prefs.setBool('rememberMe', false);
                   await prefs.setBool('is_guest', false);
@@ -235,10 +238,14 @@ class ProfileScreen extends StatelessWidget {
                     '🔓 Remember Me & guest session cleared on logout',
                   );
 
-                  // Firebase logout
-                  await AuthService().signOut();
+                  // Revoke the session in the background. The server-side
+                  // POST /auth/logout is best-effort (signOut swallows network
+                  // errors) and must not make the Log out button hang on a slow
+                  // or offline connection — signOut() still clears the local
+                  // token. So fire it and leave for the login screen at once.
+                  unawaited(AuthService().signOut());
 
-                  // Navigate to login screen
+                  if (!context.mounted) return;
                   Navigator.pushReplacementNamed(context, AppRoutes.login);
                 },
                 icon: const Icon(Icons.logout_rounded),
