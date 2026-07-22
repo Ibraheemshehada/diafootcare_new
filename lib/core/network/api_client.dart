@@ -13,12 +13,17 @@ class ApiClient {
   /// Override at build time:
   ///   flutter run --dart-define=API_BASE_URL=https://api.example.com/api/v1
   ///
-  /// The default targets the host machine from an Android emulator (10.0.2.2 is
-  /// the emulator's alias for the host's loopback; `localhost` would resolve to
-  /// the emulator itself and always fail).
+  /// The default is the LIVE production server, on purpose. It used to be the
+  /// Android-emulator loopback (`http://10.0.2.2:8123`), which built silently
+  /// into release APKs and shipped an app that only worked against a dev host —
+  /// a bug that looked fine until it was on a real device. A default that fails
+  /// safe everywhere is worth more than one that only works when someone
+  /// remembers the flag. `--dart-define=API_BASE_URL=...` still overrides this
+  /// for local development. HTTPS with a publicly-trusted chain, so no iOS ATS
+  /// exception is needed — if one ever seems necessary, something else is wrong.
   static const String baseUrl = String.fromEnvironment(
     'API_BASE_URL',
-    defaultValue: 'http://10.0.2.2:8123/api/v1',
+    defaultValue: 'https://diafootcare.tech/api/v1',
   );
 
   /// The Sanctum token lives in the platform keystore, not SharedPreferences.
