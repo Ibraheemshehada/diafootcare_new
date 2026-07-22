@@ -29,36 +29,46 @@ _Written 2026-07-20, from a Windows machine._
 So the iOS side is untouched Flutter scaffolding plus a few Info.plist edits. It
 has never been near a compiler.
 
-### Two things that are wrong today
+### Settled: identifier and Firebase
 
-**The bundle identifier is still `com.example.daifootcareNew`.** A `com.example`
-identifier cannot be registered on the Apple Developer portal or submitted to
-TestFlight. It has to change before anything can be signed, and changing it later
-means a new App Store record, so change it first.
+Both were wrong and are now fixed — verified by building and running on a
+device, though still not by compiling for iOS.
 
-**Firebase is gone from the app but not from the build config.** `pubspec.yaml`
-and `lib/` contain no Firebase at all — it was removed when auth moved to
-Laravel. What remains:
+**Bundle identifier: `tech.diafootcare.app`** on both platforms.
 
-| Leftover | Where |
-|---|---|
-| `GoogleService-Info.plist` | `ios/Runner/` — **and committed to git** |
-| `FirebaseAppDelegateProxyEnabled` | `ios/Runner/Info.plist` |
-| `UIBackgroundModes: remote-notification` | `ios/Runner/Info.plist` |
-| `google-services.json` | `android/app/` |
-| `com.google.gms.google-services` plugin | `android/app/build.gradle.kts` |
+It was `com.example.daifootcareNew` on iOS and `com.example.daifootcare_new` on
+Android. Google Play rejects `com.example.*` outright and Apple cannot register
+it, so neither could have shipped. The new value is the reverse of the domain
+the project owns, which is what both stores want to see, and it corrects a
+transposition the old identifiers carried — the domain is **dia**footcare.tech
+but the packages said **dai**footcare.
 
-The plist holds `API_KEY`, `PROJECT_ID`, `GCM_SENDER_ID` and `STORAGE_BUCKET`.
-Firebase client keys are designed to ship inside apps and are not secret in the
-way a server key is, so this is housekeeping rather than an incident — but they
-identify a live project, for an integration nothing uses.
+This had to happen before anything is signed. The identifier is permanent once
+submitted, and on Android a changed `applicationId` is a *different app*:
+existing installs do not upgrade, they sit alongside, and the local SQLite goes
+with them. For an offline-first app that database can hold unsynced scans.
 
-Deliberately **not** removed yet: the Android build currently works with the
-plugin applied, and pulling it out is a build-config change worth doing when
-someone can watch a build, not in the middle of a deployment. Do it on the Mac
-alongside the iOS cleanup, and rebuild Android too.
+Tests target is `tech.diafootcare.app.RunnerTests`.
 
----
+**Firebase config is gone.** `GoogleService-Info.plist` (committed to this repo
+with an API key and project id), `android/app/google-services.json`, the
+`com.google.gms.google-services` gradle plugin, `FirebaseAppDelegateProxyEnabled`
+and the `remote-notification` background mode. Firebase left `pubspec.yaml` and
+`lib/` when auth moved to Laravel; only the platform config survived.
+
+`UIBackgroundModes` is now **absent entirely**. Notifications are scheduled
+locally by `flutter_local_notifications`; nothing sends remote pushes. If push
+is ever wanted, add the mode back *and* the capability in Xcode — but claiming
+it while unused is a question at review for no benefit.
+
+## What still needs an Apple account
+
+- **Apple Developer Program**: $99/year. Required for TestFlight and the store.
+- Register `tech.diafootcare.app` as an App ID in the developer portal before
+  the first signed build.
+- The Apple account holder becomes the legal publisher of a health app. If a
+  university or hospital owns the study, the account should probably be theirs,
+  not an individual's — and that decision is easier before an App ID exists.
 
 ## Expected: the order to do things in
 
