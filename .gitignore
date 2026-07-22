@@ -46,3 +46,6 @@ app.*.map.json
 
 # Claude Code local config
 .claude/
+
+# FVM Version Cache
+.fvm/
