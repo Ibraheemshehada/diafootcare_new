@@ -17,13 +17,6 @@ class MainShell extends StatelessWidget {
   Widget build(BuildContext context) {
     final t = Theme.of(context);
 
-    final pages = const [
-      HomeScreen(),
-      WoundHistoryScreen(),
-      CaptureScreen(),
-      ProfileScreen(),
-    ];
-
     // Navbar background color
     final Color navBackgroundColor =
     t.brightness == Brightness.dark ? const Color(0xff1A2030) : t.scaffoldBackgroundColor;
@@ -67,7 +60,7 @@ class MainShell extends StatelessWidget {
             body: SafeArea(
               top: true,
               bottom: false,
-              child: IndexedStack(index: shell.index, children: pages),
+              child: _LazyTabsBody(index: shell.index),
             ),
             bottomNavigationBar: SafeArea(
               top: false,
@@ -118,6 +111,79 @@ class MainShell extends StatelessWidget {
           ),
         );
       },
+    );
+  }
+}
+
+/// The four tab bodies, built lazily instead of all at once.
+///
+/// The previous `IndexedStack(children: [Home, History, Capture, Profile])`
+/// built and kept every tab alive the instant the shell appeared — so logging
+/// in eagerly ran `CaptureScreen.initState` (which warms the ~208 MB TFLite
+/// models) and `CaptureViewModel.init()` (which powers up the camera) while the
+/// user was still on Home. That burst is what made login feel heavy.
+///
+/// Now:
+///  - Home / History / Profile are built the first time they are opened and
+///    then kept alive (state and scroll position survive tab switches). At
+///    login only Home (index 0) is built.
+///  - Capture is present in the tree **only while it is the selected tab**. It
+///    is therefore created on entry (camera + model warm-up happen then, not at
+///    login) and disposed on leave (the camera is released instead of idling in
+///    the background). Re-entering rebuilds it; `AiService.init()` is idempotent
+///    so the models are not reloaded.
+class _LazyTabsBody extends StatefulWidget {
+  final int index;
+  const _LazyTabsBody({required this.index});
+
+  @override
+  State<_LazyTabsBody> createState() => _LazyTabsBodyState();
+}
+
+class _LazyTabsBodyState extends State<_LazyTabsBody> {
+  static const int _captureIndex = 2;
+
+  // Cheap tabs that have been opened at least once, and so should stay built.
+  final Set<int> _activated = <int>{};
+
+  Widget _pageFor(int i) {
+    switch (i) {
+      case 0:
+        return const HomeScreen();
+      case 1:
+        return const WoundHistoryScreen();
+      case 3:
+        return const ProfileScreen();
+      default:
+        return const SizedBox.shrink();
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (widget.index != _captureIndex) _activated.add(widget.index);
+
+    return IndexedStack(
+      index: widget.index,
+      // Fill the parent. Without this the stack uses StackFit.loose and sizes
+      // itself to its largest child — and because the inactive tabs are now
+      // zero-size placeholders (not full-screen Scaffolds as before), that
+      // collapsed the whole shell to nothing and rendered a blank screen. Expand
+      // forces the visible tab to fill the viewport regardless of the
+      // placeholders.
+      sizing: StackFit.expand,
+      children: List<Widget>.generate(4, (i) {
+        if (i == _captureIndex) {
+          // Only mount Capture while it is active, so leaving the tab disposes
+          // it and frees the camera.
+          return widget.index == _captureIndex
+              ? const CaptureScreen()
+              : const SizedBox.shrink();
+        }
+        // Lazy: an empty placeholder until the tab is first opened, then the
+        // real page, which IndexedStack keeps alive offstage afterwards.
+        return _activated.contains(i) ? _pageFor(i) : const SizedBox.shrink();
+      }),
     );
   }
 }
