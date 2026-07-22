@@ -16,45 +16,7 @@ import 'package:sqflite/sqflite.dart';
 import 'package:sqflite_common_ffi_web/sqflite_ffi_web.dart';
 
 import 'app.dart';
-import 'package:permission_handler/permission_handler.dart';
 import 'package:android_alarm_manager_plus/android_alarm_manager_plus.dart';
-
-Future<void> requestNotificationPermission() async {
-  final status = await Permission.notification.request();
-  if (status.isGranted) {
-    debugPrint("✅ Notifications permission granted");
-  } else {
-    debugPrint("❌ Notifications permission denied");
-  }
-}
-
-Future<void> requestExactAlarmPermission() async {
-  if (!kIsWeb && Platform.isAndroid) {
-    // Android 12+ requires this permission for exact alarms
-    final status = await Permission.scheduleExactAlarm.status;
-    if (!status.isGranted) {
-      final result = await Permission.scheduleExactAlarm.request();
-      if (result.isGranted) {
-        debugPrint("✅ Exact alarm permission granted");
-      } else {
-        debugPrint(
-          "⚠️ Exact alarm permission denied - reminders may be delayed",
-        );
-      }
-    } else {
-      debugPrint("✅ Exact alarm permission already granted");
-    }
-  }
-}
-
-Future<void> requestCameraPermission() async {
-  final status = await Permission.camera.request();
-  if (status.isGranted) {
-    debugPrint("✅ Camera permission granted");
-  } else {
-    debugPrint("❌ Camera permission denied");
-  }
-}
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -123,8 +85,14 @@ void main() async {
     debugPrint('✅ Android Alarm Manager initialized');
   }
 
-  await NotificationService.I.init();
-  await EasyLocalization.ensureInitialized();
+  // Notification setup and localization are independent, so run them together
+  // instead of one after the other. Neither prompts the user any more (see
+  // NotificationService.init), so the first frame is not blocked behind a
+  // permission dialog.
+  await Future.wait([
+    NotificationService.I.init(),
+    EasyLocalization.ensureInitialized(),
+  ]);
 
   // Log this launch for the study's engagement metrics (local-only, non-blocking).
   AnalyticsService.I.logAppOpen();
@@ -151,21 +119,6 @@ void main() async {
   // they are loaded lazily on the first analysis (AiService.analyzeWound() calls
   // init() itself), while the analysis loading screen is already showing a spinner.
 
-  // Request permissions based on platform
-  if (kIsWeb) {
-    // Request web notification permission
-    final granted = await WebNotificationService.instance.requestPermission();
-    if (granted) {
-      debugPrint("✅ Web notifications permission granted");
-    } else {
-      debugPrint("⚠️ Web notifications permission denied");
-    }
-  } else {
-    // Request mobile permissions
-    await requestNotificationPermission();
-    await requestExactAlarmPermission(); // For Android 12+ exact alarm scheduling
-    await requestCameraPermission();
-  }
   runApp(
     EasyLocalization(
       supportedLocales: const [Locale('en'), Locale('ar')],
@@ -176,4 +129,17 @@ void main() async {
       child: const DiaFootApp(),
     ),
   );
+
+  // Permissions are requested AFTER the first frame, not before it, so the
+  // splash appears instantly instead of behind a stack of system dialogs.
+  // Fire-and-forget: nothing on the first screen depends on the outcome.
+  //   - Notifications / exact alarms: NotificationService.requestPermissions().
+  //   - Camera: intentionally NOT requested here. The camera plugin prompts
+  //     contextually the first time the Capture screen opens the camera, which
+  //     is the moment the request actually makes sense.
+  if (kIsWeb) {
+    unawaited(WebNotificationService.instance.requestPermission());
+  } else {
+    unawaited(NotificationService.I.requestPermissions());
+  }
 }

@@ -18,6 +18,10 @@ import '../../onboarding/screens/model_download_screen.dart';
 import '../../settings/screens/terms_screen.dart';
 import '../../settings/viewmodel/settings_viewmodel.dart';
 
+/// How long to hold the splash so the logo is visible before routing on.
+/// Kept short deliberately — see [_SplashScreenState._boot].
+const Duration _kSplashMinDisplay = Duration(milliseconds: 600);
+
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
 
@@ -35,9 +39,13 @@ class _SplashScreenState extends State<SplashScreen> {
   Future<void> _boot() async {
     final settings = context.read<SettingsViewModel>();
 
-    // Load preferences and wait for splash screen display (~2 seconds)
+    // Load preferences, and hold the splash only long enough to show the logo
+    // (not a fixed 2 s). loadPrefs() is near-instant, so the old 2-second delay
+    // was almost entirely dead time on every launch. 600 ms keeps a brief
+    // branded flash without making the user wait. Adjust _kSplashMinDisplay to
+    // taste.
     await Future.wait([
-      Future.delayed(const Duration(seconds: 2)),
+      Future.delayed(_kSplashMinDisplay),
       settings.loadPrefs(),
     ]);
 

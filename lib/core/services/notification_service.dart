@@ -55,10 +55,14 @@ class NotificationService {
     }
 
     const androidInit = AndroidInitializationSettings('@mipmap/ic_launcher');
+    // Do NOT request permission here: init() runs before the first frame, and
+    // prompting during it made the launch sit behind an iOS notification dialog
+    // with a black screen. Permission is requested later, after runApp, via
+    // [requestPermissions].
     const iosInit = DarwinInitializationSettings(
-      requestAlertPermission: true,
-      requestBadgePermission: true,
-      requestSoundPermission: true,
+      requestAlertPermission: false,
+      requestBadgePermission: false,
+      requestSoundPermission: false,
     );
 
     final initSettings = InitializationSettings(
@@ -74,15 +78,9 @@ class NotificationService {
           AndroidFlutterLocalNotificationsPlugin>();
       
       if (androidPlugin != null) {
-        // Request notification permission explicitly (Android 13+)
-        final bool? granted = await androidPlugin.requestNotificationsPermission();
-        debugPrint('🔔 Android notification permission: $granted');
-        
-        // Request exact alarm permission if needed
-        final bool? exactAlarmGranted = await androidPlugin.requestExactAlarmsPermission();
-        debugPrint('🔔 Android exact alarm permission: $exactAlarmGranted');
-        
-        // Create notification channel with proper settings
+        // Only channel creation here — it needs no user interaction. The
+        // notification and exact-alarm permission prompts moved to
+        // [requestPermissions], called after the first frame.
         const AndroidNotificationChannel ch = AndroidNotificationChannel(
           'reminders_channel',
           'Reminders',
@@ -100,6 +98,33 @@ class NotificationService {
 
     _ready = true;
     debugPrint('✅ NotificationService ready');
+  }
+
+  /// Requests the notification (and, on Android, exact-alarm) permissions.
+  ///
+  /// Kept separate from [init] and called AFTER the first frame so the launch
+  /// is never blocked behind a system permission dialog. Safe to call more than
+  /// once — the OS returns the existing decision without re-prompting.
+  Future<void> requestPermissions() async {
+    if (kIsWeb) return;
+
+    if (Platform.isIOS) {
+      final ios = _plugin.resolvePlatformSpecificImplementation<
+          IOSFlutterLocalNotificationsPlugin>();
+      final granted = await ios?.requestPermissions(
+        alert: true,
+        badge: true,
+        sound: true,
+      );
+      debugPrint('🔔 iOS notification permission: $granted');
+    } else if (Platform.isAndroid) {
+      final android = _plugin.resolvePlatformSpecificImplementation<
+          AndroidFlutterLocalNotificationsPlugin>();
+      final granted = await android?.requestNotificationsPermission();
+      debugPrint('🔔 Android notification permission: $granted');
+      final exact = await android?.requestExactAlarmsPermission();
+      debugPrint('🔔 Android exact alarm permission: $exact');
+    }
   }
 
   /// Map your string id to a stable int for the system.
