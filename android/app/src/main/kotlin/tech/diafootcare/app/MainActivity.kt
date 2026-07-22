@@ -1,4 +1,4 @@
-package com.example.daifootcare_new
+package tech.diafootcare.app
 
 import io.flutter.embedding.android.FlutterActivity
 
