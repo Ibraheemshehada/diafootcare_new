@@ -10,7 +10,7 @@ matters:
 - **Expected** — what should happen on a Mac. Reasoned, not observed. Treat as a
   checklist to work through, not as fact.
 
-_Written 2026-07-20, from a Windows machine._
+_Written 2026-07-20, updated 2026-07-22, from a Windows machine._
 
 ---
 
@@ -22,9 +22,9 @@ _Written 2026-07-20, from a Windows machine._
 | `Podfile.lock` | **absent** — `pod install` has never been run |
 | `build/ios` | **absent** — never compiled |
 | Deployment target | **12.0** |
-| Bundle identifier | **`com.example.daifootcareNew`** |
+| Bundle identifier | **`tech.diafootcare.app`** (fixed 2026-07-22) |
 | Permission strings | `NSCameraUsageDescription`, `NSPhotoLibraryUsageDescription`, `NSPhotoLibraryAddUsageDescription` — all three present |
-| `UIBackgroundModes` | `remote-notification` only |
+| `UIBackgroundModes` | **absent** — the Firebase push mode was removed |
 
 So the iOS side is untouched Flutter scaffolding plus a few Info.plist edits. It
 has never been near a compiler.
@@ -80,34 +80,12 @@ sudo gem install cocoapods          # or: brew install cocoapods
 flutter doctor                       # must show a clean Xcode section
 ```
 
-### 2. Clean out Firebase first
+### 2 and 3. Firebase cleanup and the bundle identifier — already done
 
-Before the first `pod install`, so it never gets baked into a Podfile.lock:
+Both were completed on 2026-07-22 and verified by building and running on
+Android. See "Settled: identifier and Firebase" above. Nothing to redo.
 
-```bash
-git rm ios/Runner/GoogleService-Info.plist
-git rm android/app/google-services.json
-```
-
-Then remove from `ios/Runner/Info.plist`:
-- the `FirebaseAppDelegateProxyEnabled` key
-- `UIBackgroundModes` → `remote-notification`, **unless** push notifications are
-  actually wanted on iOS. The app uses `flutter_local_notifications`, which
-  schedules locally and needs no background mode. Nothing sends remote pushes.
-
-And from `android/app/build.gradle.kts`, the
-`id("com.google.gms.google-services")` plugin line. **Rebuild Android after
-this** — it is the change most likely to break something that currently works.
-
-### 3. Set a real bundle identifier
-
-In Xcode, Runner → Signing & Capabilities, or search
-`PRODUCT_BUNDLE_IDENTIFIER` in `ios/Runner.xcodeproj/project.pbxproj`. Something
-like `com.<yourorg>.diafootcare`. It must match what is registered on the Apple
-Developer portal. Note there is a second entry for `RunnerTests` that also needs
-updating.
-
-### 4. Expect the deployment target to move
+### 2. Expect the deployment target to move
 
 The project says **12.0**. `tflite_flutter`'s podspec asks for 11.0, so that one
 is fine — but several other plugins here are newer than the target, and Flutter's
@@ -124,7 +102,7 @@ cd ios && pod install && cd ..
 flutter build ios --release --no-codesign     # first honest smoke test
 ```
 
-### 5. Plugins worth watching on the first build
+### 3. Plugins worth watching on the first build
 
 Every one of these has native iOS code, and none has ever been compiled here:
 
@@ -138,7 +116,7 @@ Every one of these has native iOS code, and none has ever been compiled here:
 | `flutter_local_notifications` | Needs explicit permission request on iOS. |
 | `path_provider` | App-support directory maps differently; the model bundle lands somewhere iCloud may try to back up — see below. |
 
-### 6. Things that behave differently on iOS and will need real decisions
+### 4. Things that behave differently on iOS and will need real decisions
 
 **The 208 MB model bundle and iCloud.** On iOS, files in Application Support are
 backed up to iCloud by default. Backing up 208 MB of models that can be
@@ -160,7 +138,7 @@ cost once iOS is real — which is now.
 Expect questions about the medical disclaimer (the app has one in Terms), and be
 ready to explain that it is a monitoring aid, not a diagnostic device.
 
-### 7. What to actually test on a device
+### 5. What to actually test on a device
 
 The Android equivalents of these all found real bugs, so they are not ceremony:
 
