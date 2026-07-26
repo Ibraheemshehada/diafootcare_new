@@ -49,3 +49,6 @@ app.*.map.json
 
 # FVM Version Cache
 .fvm/
+# Local APK build artifacts (someone dropped a built APK here). The website
+# copy is the distribution channel; git is not.
+/dist/

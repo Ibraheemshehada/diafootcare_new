@@ -87,14 +87,10 @@ class _AiResultScreenState extends State<AiResultScreen> {
               SizedBox(height: 12.h),
             ],
 
-            if (!result.isCalibrated && result.isFromModel) ...[
-              _Banner(
-                icon: Icons.info_outline,
-                color: AppColors.of(context).warning,
-                message: 'ai_not_calibrated_banner'.tr(),
-              ),
-              SizedBox(height: 12.h),
-            ],
+            // The "not calibrated" banner was removed with scale calibration:
+            // it told the user to "set a scale with a reference object", a step
+            // that no longer exists in the flow, so the advice was unreachable.
+            // Measurements are always relative-size now.
 
             _StatCard(
               icon: Icons.straighten,
@@ -112,18 +108,10 @@ class _AiResultScreenState extends State<AiResultScreen> {
               color: primary,
               unit: 'cm'.tr(),
             ),
-            SizedBox(height: 10.h),
-            _StatCard(
-              svgAsset: 'assets/svg/arrow_down.svg',
-              value: result.depth,
-              // Depth cannot be read from a 2D photo; it is only shown when the
-              // clinician entered a probe measurement. 0 = not measured.
-              valueText: result.depth > 0 ? null : '—',
-              label: 'depth'.tr(),
-              color: primary,
-              unit: result.depth > 0 ? 'cm'.tr() : '',
-            ),
 
+            // The depth row was removed: a 2D photo cannot measure depth, and
+            // the manual-entry step that used to supply it is gone from the
+            // capture flow. Length and width are what the model produces.
             SizedBox(height: 20.h),
             _RiskBadge(badge: result.riskBadge),
             SizedBox(height: 16.h),
