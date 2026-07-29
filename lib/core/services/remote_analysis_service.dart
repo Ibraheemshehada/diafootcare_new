@@ -97,6 +97,12 @@ class RemoteAnalysisService {
     return AnalysisResult(
       length: d('length'),
       width: d('width'),
+      // Server sends the true segmented area as `area` (or `area_cm2` on older
+      // builds). Fall back to the bounding-rectangle estimate (length × width)
+      // only if neither is present.
+      area: (a['area'] as num?)?.toDouble() ??
+          (a['area_cm2'] as num?)?.toDouble() ??
+          (d('length') * d('width')),
       depth: d('depth'),
       tissueFindings: (a['tissue_findings'] as List?)
               ?.map((f) => TissueFinding.fromJson(Map<String, dynamic>.from(f as Map)))

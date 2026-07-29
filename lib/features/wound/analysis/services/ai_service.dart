@@ -305,6 +305,7 @@ class AiService {
       return AnalysisResult(
         length: length,
         width: width,
+        area: areaCm2, // segmented wound area (pixel count × scale²)
         depth: depth, // clinician-entered probe depth; 0 = not measured
         tissueFindings: tissueFindings,
         pusLevel: 'N/A', // legacy field — superseded by Model 3 infection/ischaemia
@@ -665,6 +666,7 @@ class AiService {
     return AnalysisResult(
       length: 8.1,
       width: 5.0,
+      area: 26.0,
       depth: 3.2,
       tissueType: 'Granulation',
       pusLevel: 'Moderate',

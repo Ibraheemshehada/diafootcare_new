@@ -10,6 +10,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../../core/services/analytics_service.dart';
 import '../../../core/widgets/app_dialogs.dart';
 import '../../../routes/app_routes.dart';
+import '../../settings/screens/terms_screen.dart';
 import '../../settings/viewmodel/settings_viewmodel.dart';
 import '../viewmodel/profile_viewmodel.dart';
 import '../widgets/profile_tile.dart';
@@ -191,7 +192,12 @@ class ProfileScreen extends StatelessWidget {
           ProfileTile(
             leading: Icons.description_rounded,
             title: 'terms'.tr(),
-            onTap: () {},
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => const TermsScreen(readOnly: true),
+              ),
+            ),
           ),
           ProfileTile(
             leading: Icons.elderly_rounded,

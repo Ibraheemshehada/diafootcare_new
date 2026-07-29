@@ -7,6 +7,11 @@ class AnalysisResult {
   final double width;
   final double depth;
 
+  /// Wound surface area in cm². From Model 1 this is the segmented-pixel count
+  /// scaled to cm² (the true wound area, smaller than length × width, which is
+  /// the bounding rectangle). Reconstructed records fall back to length × width.
+  final double area;
+
   /// Every tissue class the model considered, with its probability and the
   /// threshold it was judged against.
   ///
@@ -43,6 +48,7 @@ class AnalysisResult {
     required this.length,
     required this.width,
     required this.depth,
+    this.area = 0.0,
     this.tissueFindings = const [],
     required this.pusLevel,
     required this.inflammation,

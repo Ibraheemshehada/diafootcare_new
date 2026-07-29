@@ -8,7 +8,12 @@ class TermsScreen extends StatelessWidget {
   final bool
   blocking; // Determines if the user can navigate back or must accept the terms
 
-  const TermsScreen({super.key, this.blocking = false});
+  /// Review-only: the user opened this from Settings to re-read the terms. The
+  /// acceptance is shown but cannot be toggled — they already agreed, and
+  /// un-accepting here would leave the app in a contradictory state.
+  final bool readOnly;
+
+  const TermsScreen({super.key, this.blocking = false, this.readOnly = false});
 
   @override
   Widget build(BuildContext context) {
@@ -57,7 +62,10 @@ class TermsScreen extends StatelessWidget {
             SizedBox(height: 8.h),
             CheckboxListTile(
               value: settings.acceptedTerms,
-              onChanged: (v) => settings.setAcceptedTerms(v ?? false),
+              // Disabled in review mode: the user can see they accepted but
+              // cannot change the answer from here.
+              onChanged:
+                  readOnly ? null : (v) => settings.setAcceptedTerms(v ?? false),
               controlAffinity: ListTileControlAffinity.leading,
               dense: true,
               checkboxShape: RoundedRectangleBorder(

@@ -159,6 +159,10 @@ class WoundsRepository {
       return AnalysisResult(
         length: (map['length'] as num).toDouble(),
         width: (map['width'] as num).toDouble(),
+        // No stored area column yet; approximate from the bounding rectangle.
+        area: (map['area'] as num?)?.toDouble() ??
+            ((map['length'] as num).toDouble() *
+                (map['width'] as num).toDouble()),
         depth: (map['depth'] as num?)?.toDouble() ?? 0.0,
         tissueFindings: _decodeFindings(map['tissueFindings']),
         tissueType: map['tissueType'] as String? ?? 'Unknown',

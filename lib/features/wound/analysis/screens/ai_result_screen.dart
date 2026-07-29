@@ -108,6 +108,14 @@ class _AiResultScreenState extends State<AiResultScreen> {
               color: primary,
               unit: 'cm'.tr(),
             ),
+            SizedBox(height: 10.h),
+            _StatCard(
+              icon: Icons.crop_free,
+              value: result.area,
+              label: 'area'.tr(),
+              color: primary,
+              unit: 'cm2'.tr(),
+            ),
 
             // The depth row was removed: a 2D photo cannot measure depth, and
             // the manual-entry step that used to supply it is gone from the
