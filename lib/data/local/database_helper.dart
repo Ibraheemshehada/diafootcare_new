@@ -8,7 +8,7 @@ class DatabaseHelper {
   ///
   /// Exposed so tests assert against the same source of truth as the migration
   /// itself, instead of a literal that silently goes stale on the next bump.
-  static const int schemaVersion = 18;
+  static const int schemaVersion = 19;
 
   static final DatabaseHelper _instance = DatabaseHelper._();
   static Database? _db;
@@ -42,6 +42,10 @@ class DatabaseHelper {
             length REAL NOT NULL,
             width REAL NOT NULL,
             depth REAL,
+            -- True segmented wound area in cm² (pixel count × scale²), which is
+            -- smaller than the length × width bounding rectangle. Nullable: older
+            -- records predate it and fall back to length × width on read.
+            area REAL,
             tissueType TEXT,
             -- Per-class tissue findings as JSON: type, probability, whether it
             -- cleared its threshold, and the threshold used. tissueType above
@@ -245,6 +249,16 @@ class DatabaseHelper {
             await db.execute('ALTER TABLE wounds ADD COLUMN tissueFindings TEXT');
           } catch (e) {
             debugPrint('Note: wounds.tissueFindings not added: $e');
+          }
+        }
+        if (oldVersion < 19) {
+          // True segmented wound area (cm²). Existing scans stay NULL and fall
+          // back to length × width on read; the real area was never stored and
+          // cannot be recovered from a bounding rectangle after the fact.
+          try {
+            await db.execute('ALTER TABLE wounds ADD COLUMN area REAL');
+          } catch (e) {
+            debugPrint('Note: wounds.area not added: $e');
           }
         }
       },

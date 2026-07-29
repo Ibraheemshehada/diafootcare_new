@@ -640,8 +640,11 @@ class _ProgressChart extends StatelessWidget {
     required this.isLoading,
   });
 
-  /// Calculate wound area in mm² (for chart display)
-  double _calculateArea(double lengthCm, double widthCm) {
+  /// Wound area in mm² for chart display. Prefers the true segmented area
+  /// (cm² → mm²) and falls back to the length × width bounding rectangle for
+  /// records that predate stored area.
+  double _areaMm2({double? areaCm2, required double lengthCm, required double widthCm}) {
+    if (areaCm2 != null && areaCm2 > 0) return areaCm2 * 100;
     return (lengthCm * 10) * (widthCm * 10);
   }
 
@@ -651,15 +654,20 @@ class _ProgressChart extends StatelessWidget {
     // Add historical entries
     int index = 0;
     for (var entry in historyEntries) {
-      final area = _calculateArea(entry.lengthCm, entry.widthCm);
+      final area = _areaMm2(
+        areaCm2: entry.areaCm2,
+        lengthCm: entry.lengthCm,
+        widthCm: entry.widthCm,
+      );
       dataPoints.add(FlSpot(index.toDouble(), area));
       index++;
     }
 
     // Add current result at the end
-    final currentArea = _calculateArea(
-      currentResult.length,
-      currentResult.width,
+    final currentArea = _areaMm2(
+      areaCm2: currentResult.area,
+      lengthCm: currentResult.length,
+      widthCm: currentResult.width,
     );
     dataPoints.add(FlSpot(index.toDouble(), currentArea));
 

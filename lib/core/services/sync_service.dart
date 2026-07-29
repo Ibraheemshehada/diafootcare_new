@@ -90,13 +90,18 @@ class SyncService {
         _SyncSpec('wounds', null, (r) {
           final length = (r['length'] as num?)?.toDouble() ?? 0;
           final width = (r['width'] as num?)?.toDouble() ?? 0;
+          // Prefer the model's true segmented area. Records written before v19
+          // have none; fall back to the ellipse estimate so their payload shape
+          // is unchanged.
+          final storedArea = (r['area'] as num?)?.toDouble();
+          final area = (storedArea != null && storedArea > 0)
+              ? storedArea
+              : length * width * 0.785;
           return {
             'captured_at': _iso(r['createdAt']) ?? '${r['date']}T00:00:00Z',
             'length_cm': length,
             'width_cm': width,
-            // The app records length/width; area is derived here rather than
-            // stored twice and risking the two disagreeing.
-            'area_cm2': double.parse((length * width * 0.785).toStringAsFixed(2)),
+            'area_cm2': double.parse(area.toStringAsFixed(2)),
             'depth_cm': (r['depth'] as num?)?.toDouble(),
             // The server's tissue_json column was always meant to hold the
             // per-class answer; it only ever received the headline. Both go up
@@ -383,7 +388,7 @@ class SyncService {
           // so one malformed record cannot block the whole queue forever.
           debugPrint('🔄 Unmappable ${spec.table} row parked: $e');
           await db.update(spec.table, {'pending_sync': 2},
-              where: 'rowid = ?', whereArgs: [row['rowid']]);
+              where: 'rowid = ?', whereArgs: [row['_rowid']]);
         }
       }
 

@@ -5,6 +5,7 @@ class WoundEntry {
   final double lengthCm;
   final double widthCm;
   final double? depthCm;      // Depth measurement
+  final double? areaCm2;      // True segmented area; null on pre-v19 records
   final String inflammation;  // None / Mild / ...
   final double progressPct;   // +12 etc.
 
@@ -15,6 +16,7 @@ class WoundEntry {
     required this.lengthCm,
     required this.widthCm,
     this.depthCm,
+    this.areaCm2,
     required this.inflammation,
     required this.progressPct,
   });

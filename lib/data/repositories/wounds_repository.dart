@@ -28,6 +28,10 @@ class WoundsRepository {
           'imagePath': imagePath,
           'length': result.length,
           'width': result.width,
+          // True segmented area (cm²), persisted so history, the trend chart and
+          // sync use the real measurement rather than the length × width
+          // bounding-rectangle estimate. 0 when the model reported no area.
+          'area': result.area,
           'depth': result.depth,
           // The headline stays in its own column so history, exports and the
           // dashboard keep working unchanged; the full per-class answer goes
@@ -80,6 +84,7 @@ class WoundsRepository {
           lengthCm: length,
           widthCm: width,
           depthCm: depth,
+          areaCm2: (map['area'] as num?)?.toDouble(),
           inflammation: map['inflammation'] as String? ?? 'None',
           progressPct: _calculateProgress(length, width),
         );
@@ -134,6 +139,7 @@ class WoundsRepository {
         lengthCm: length,
         widthCm: width,
         depthCm: depth,
+        areaCm2: (map['area'] as num?)?.toDouble(),
         inflammation: map['inflammation'] as String? ?? 'None',
         progressPct: _calculateProgress(length, width),
       );
@@ -159,7 +165,8 @@ class WoundsRepository {
       return AnalysisResult(
         length: (map['length'] as num).toDouble(),
         width: (map['width'] as num).toDouble(),
-        // No stored area column yet; approximate from the bounding rectangle.
+        // Stored true segmented area; records written before v19 have none, so
+        // approximate from the bounding rectangle for those.
         area: (map['area'] as num?)?.toDouble() ??
             ((map['length'] as num).toDouble() *
                 (map['width'] as num).toDouble()),
