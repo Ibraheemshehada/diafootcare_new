@@ -692,9 +692,10 @@ class _ProgressChart extends StatelessWidget {
 
     if (dataPoints.isEmpty) {
       // Show only current result if no history
-      final currentArea = _calculateArea(
-        currentResult.length,
-        currentResult.width,
+      final currentArea = _areaMm2(
+        areaCm2: currentResult.area,
+        lengthCm: currentResult.length,
+        widthCm: currentResult.width,
       );
       final singlePoint = [FlSpot(0.0, currentArea)];
       // Guard against a zero-height range (currentArea == 0 -> maxY == 0),
