@@ -1,0 +1,439 @@
+<!--
+  DiaFootCare — System & Product Documentation (editable source)
+  Render to PDF with: docs/build_pdf.md steps (Chrome headless + stamp_pdf.py)
+  Screenshots: ../demo/screenshots (app) and web_screenshots (dashboard).
+-->
+<meta charset="utf-8">
+<title>DiaFootCare — System &amp; Product Documentation</title>
+<style>
+  :root{
+    --teal:#1f5c74; --teal-dark:#17475b; --teal-tint:#eef4f7;
+    --maroon:#8a3b3f; --maroon-tint:#f6ecec;
+    --ink:#232a2e; --muted:#5b6a72; --line:#d6dee2; --line-soft:#e7edf0;
+    --amber:#8a6d1f; --amber-tint:#f8f2e0; --green:#2f7d5b;
+  }
+  *{box-sizing:border-box}
+  html{font-family:"Calibri","Segoe UI",system-ui,sans-serif;color:var(--ink);
+       font-size:10.6pt;line-height:1.42;}
+  body{margin:0}
+  code,.mono{font-family:"Consolas","SF Mono",monospace;font-size:9.2pt;
+       background:#f3f5f6;padding:0 2px;border-radius:2px;color:#2b3b44;}
+  h1,h2,h3,h4{color:var(--teal-dark);line-height:1.2;margin:0 0 .35em;font-weight:700}
+  h2{font-size:16.5pt;padding-bottom:.18em;border-bottom:2px solid var(--teal);margin-top:0}
+  h2 .num{color:var(--teal)}
+  h3{font-size:12pt;margin-top:1.05em;color:var(--teal)}
+  h4{font-size:10.6pt;margin:.8em 0 .3em;color:var(--maroon)}
+  p{margin:.45em 0}
+  ul,ol{margin:.4em 0 .5em;padding-left:1.25em}
+  li{margin:.2em 0}
+  a{color:var(--teal);text-decoration:none}
+  @page{size:A4;margin:20mm 16mm 18mm}
+  .page{page-break-after:always}
+  .page:last-child{page-break-after:auto}
+  .newsec{page-break-before:always}
+  .keep{page-break-inside:avoid}
+
+  /* title */
+  .title-page{height:255mm;display:flex;flex-direction:column;justify-content:center}
+  .eyebrow{letter-spacing:.32em;text-transform:uppercase;color:var(--teal);font-weight:700;font-size:10pt}
+  .title-page h1{font-size:30pt;color:var(--teal-dark);margin:.15em 0 .1em;line-height:1.12}
+  .title-page .sub{font-size:14pt;color:var(--ink);font-weight:600;margin:.2em 0}
+  .title-page .pipeline{font-size:11.5pt;color:var(--muted);margin:.1em 0 1.1em}
+  .rule{height:3px;width:120px;background:var(--maroon);margin:.6em 0 1.4em}
+  .title-meta{font-size:10.5pt;color:var(--muted)} .title-meta strong{color:var(--ink)}
+
+  /* tables */
+  table{border-collapse:collapse;width:100%;margin:.6em 0 .3em;font-size:9.5pt}
+  th,td{border:.7px solid var(--line);padding:5px 8px;vertical-align:top;text-align:left}
+  thead th{background:var(--teal);color:#fff;font-weight:600;border-color:var(--teal)}
+  tbody tr:nth-child(even){background:#f6f9fa}
+  td.n{text-align:center;white-space:nowrap}
+  .cap{font-size:8.6pt;color:var(--muted);margin:.1em 0 1em;line-height:1.35}
+  .cap b{color:var(--ink)}
+
+  /* callouts */
+  .callout{border-left:4px solid var(--teal);background:var(--teal-tint);padding:8px 12px;margin:.7em 0;border-radius:0 4px 4px 0}
+  .callout .k{display:block;font-size:8.4pt;letter-spacing:.09em;text-transform:uppercase;font-weight:700;color:var(--teal-dark);margin-bottom:2px}
+  .callout.note{border-left-color:var(--amber);background:var(--amber-tint)} .callout.note .k{color:var(--amber)}
+  .callout.ok{border-left-color:var(--green);background:#eaf5ef} .callout.ok .k{color:var(--green)}
+  .callout p{margin:.25em 0}
+
+  /* phone screenshot gallery */
+  .phones{display:flex;flex-wrap:wrap;gap:10px;margin:.6em 0 .2em;justify-content:flex-start}
+  .phone{width:112px}
+  .phone img{width:112px;height:auto;border:1px solid var(--line);border-radius:9px;display:block}
+  .phone .t{font-size:7.6pt;color:var(--muted);text-align:center;margin-top:3px;line-height:1.2}
+  .phone2 .phone{width:150px} .phone2 .phone img{width:150px}
+
+  /* web screenshot */
+  figure{margin:.6em 0 .2em;page-break-inside:avoid}
+  .web img{width:100%;border:1px solid var(--line);border-radius:6px;display:block;
+    max-height:165mm;object-fit:cover;object-position:top center}
+  .web.tall img{max-height:210mm}
+  figure figcaption{font-size:8.6pt;color:var(--muted);margin-top:4px}
+  figure figcaption b{color:var(--ink)}
+  .lead{color:var(--muted)}
+  .toc .l1{font-weight:700;color:var(--teal-dark);margin:.5em 0 .1em}
+  .toc .l1 .pg{float:right;color:var(--muted);font-weight:400}
+  .toc .l2{margin:.05em 0 .05em 1.4em;color:var(--ink)} .toc .l2 .pg{float:right;color:var(--muted)}
+  .pill{display:inline-block;font-size:8pt;font-weight:700;padding:1px 7px;border-radius:9px;background:var(--teal-tint);color:var(--teal-dark)}
+  .two{display:flex;gap:14px} .two>div{flex:1}
+</style>
+
+<!-- ===================== TITLE ===================== -->
+<section class="page title-page">
+  <div class="eyebrow">DiaFootCare</div>
+  <h1>System &amp; Product Documentation</h1>
+  <div class="sub">Mobile Application · Clinical Web Dashboard · On-Device AI</div>
+  <div class="pipeline">A diabetic-foot-ulcer assessment platform for patients and their care team</div>
+  <div class="rule"></div>
+  <p style="max-width:150mm;color:var(--muted)">An end-to-end walkthrough of the DiaFootCare
+    platform — the patient mobile app, the clinician web dashboard, the AI analysis pipeline,
+    and how they are deployed and kept in sync — illustrated with screenshots of the running
+    software. Prepared as supporting documentation for doctoral research.</p>
+  <div style="height:12mm"></div>
+  <div class="title-meta">
+    <div><strong>Version 1.1</strong> &nbsp;·&nbsp; 29 July 2026 &nbsp;·&nbsp; app build 1.1.0 (2)
+      &nbsp;·&nbsp; <span class="pill" style="background:var(--amber-tint);color:var(--amber)">Pre-release — not yet released to users</span></div>
+    <div style="margin-top:.35em;font-size:9.5pt">Companion to the technical reference
+      <em>“On-Device Deep Learning for Diabetic-Foot-Ulcer Assessment”</em> (the three-model
+      documentation), which covers the machine-learning models in depth.</div>
+  </div>
+</section>
+
+<!-- ===================== CONTENTS ===================== -->
+<section class="page">
+  <h2>Contents</h2>
+  <div class="toc">
+    <div class="l1">1&nbsp;&nbsp;System overview <span class="pg">3</span></div>
+    <div class="l1">2&nbsp;&nbsp;The mobile application <span class="pg">4</span></div>
+    <div class="l2">2.1&nbsp;&nbsp;First launch: terms, consent, analysis mode <span class="pg">4</span></div>
+    <div class="l2">2.2&nbsp;&nbsp;Home &amp; everyday self-care <span class="pg">5</span></div>
+    <div class="l2">2.3&nbsp;&nbsp;Wound capture &amp; AI analysis <span class="pg">6</span></div>
+    <div class="l2">2.4&nbsp;&nbsp;History &amp; healing tracking <span class="pg">6</span></div>
+    <div class="l2">2.5&nbsp;&nbsp;Profile, data &amp; accessibility <span class="pg">7</span></div>
+    <div class="l1">3&nbsp;&nbsp;The clinical web dashboard <span class="pg">8</span></div>
+    <div class="l1">4&nbsp;&nbsp;AI analysis pipeline <span class="pg">16</span></div>
+    <div class="l1">5&nbsp;&nbsp;Architecture, sync &amp; deployment <span class="pg">17</span></div>
+    <div class="l1">6&nbsp;&nbsp;Release notes — v1.1.0 <span class="pg">18</span></div>
+  </div>
+
+  <div class="callout note" style="margin-top:2em">
+    <span class="k">Release status — not yet released to users</span>
+    <p><strong>DiaFootCare has not yet been released to end users.</strong> The <code>1.1.0 (2)</code>
+      build described here is deployed to the project server and is available to the research and
+      clinical team for internal testing and evaluation only. No public or participant release has
+      taken place, and no real patients are using the app. References to the app being “deployed” or
+      “available for download” mean it is staged on the project site for the team — not launched to
+      the public.</p>
+  </div>
+
+  <div class="callout" style="margin-top:.6em">
+    <span class="k">A note on the screenshots</span>
+    <p>Every screen in this document is a capture of the running software. The mobile screens
+      were captured on an Android device running app build <code>1.1.0 (2)</code>. The dashboard
+      screens were captured from a local instance seeded with <strong>fictional demo patients</strong>
+      — no real patient data appears anywhere in this document.</p>
+  </div>
+</section>
+
+<!-- ===================== 1. OVERVIEW ===================== -->
+<section class="page">
+  <h2><span class="num">1</span>&nbsp;&nbsp;System overview</h2>
+  <p>DiaFootCare helps people with diabetes monitor foot ulcers and helps their clinicians
+    supervise that monitoring remotely. It has three cooperating parts:</p>
+  <table>
+    <thead><tr><th>Component</th><th>Who uses it</th><th>What it does</th><th>Stack</th></tr></thead>
+    <tbody>
+      <tr><td><b>Mobile app</b></td><td>Patients / carers</td>
+        <td>Photographs a wound and analyses it on the device or via the server; tracks healing;
+          holds daily self-care, glucose, medication, appointments, reminders and well-being.</td>
+        <td>Flutter (Android), on-device TFLite, local SQLite</td></tr>
+      <tr><td><b>Web dashboard</b></td><td>Clinicians / study team</td>
+        <td>Reviews every patient's scans, healing trends, risk alerts, devices and engagement;
+          exports study data.</td>
+        <td>Laravel 12 API + Vue 3 SPA (Sanctum auth)</td></tr>
+      <tr><td><b>Inference server</b></td><td>(internal)</td>
+        <td>Runs the same three models server-side for patients who chose not to download them.</td>
+        <td>FastAPI + TFLite sidecar</td></tr>
+    </tbody>
+  </table>
+  <div class="cap"><b>Table 1.</b> The three components of the platform.</div>
+
+  <h3>1.1&nbsp;&nbsp;Two ways to analyse, one result</h3>
+  <p>Analysis runs <strong>on the phone</strong> (offline, after a one-time ~200 MB model
+    download) or <strong>on the server</strong> (online). Both paths run the identical models and
+    the identical measurement post-processing, so a wound yields the same result either way. Each
+    result records which path produced it. The patient chooses the mode at first launch and can
+    change it later.</p>
+
+  <h3>1.2&nbsp;&nbsp;What the AI reports</h3>
+  <p>From a single photograph the app produces wound <b>measurements</b> (length, width and
+    surface area), the <b>tissue types</b> present in the wound bed, and two clinically-validated
+    risk indicators — <b>infection</b> and <b>ischaemia</b> (blood flow) — combined into a single
+    risk badge. The models themselves are documented in depth in the companion three-model
+    technical reference; Section&nbsp;4 summarises them.</p>
+
+  <div class="callout ok">
+    <span class="k">Privacy by design</span>
+    <p>In offline mode a wound photograph never leaves the phone. In online mode it is sent over
+      an encrypted connection and the patient gives explicit, informed consent first (Section&nbsp;2.1).
+      Records sync to the clinician dashboard only for registered patients; the app is fully usable
+      as a guest with everything kept on-device.</p>
+  </div>
+</section>
+
+<!-- ===================== 2. MOBILE APP ===================== -->
+<section class="page newsec">
+  <h2><span class="num">2</span>&nbsp;&nbsp;The mobile application</h2>
+  <p class="lead">Flutter, Android. Bottom navigation: Home · History · Capture · Profile.
+    EN/AR localised, right-to-left aware.</p>
+
+  <h3>2.1&nbsp;&nbsp;First launch: terms, consent, analysis mode</h3>
+  <p>The first run establishes trust before any feature is used: plain-language terms, a genuine
+    informed-consent declaration that states exactly what is collected and that it is
+    <em>not anonymous</em>, and a choice of on-device or server analysis. Patients can sign in,
+    create an account, or continue as a guest.</p>
+  <div class="phones">
+    <div class="phone"><img src="../demo/screenshots/01_splash.png"><div class="t">Splash</div></div>
+    <div class="phone"><img src="../demo/screenshots/02_terms.png"><div class="t">Terms</div></div>
+    <div class="phone"><img src="../demo/screenshots/03_consent.png"><div class="t">Informed consent</div></div>
+    <div class="phone"><img src="../demo/screenshots/04_mode_choice.png"><div class="t">Analysis mode</div></div>
+    <div class="phone"><img src="../demo/screenshots/05_model_download.png"><div class="t">On-device models</div></div>
+    <div class="phone"><img src="../demo/screenshots/06_login.png"><div class="t">Login / guest</div></div>
+    <div class="phone"><img src="../demo/screenshots/07_signup.png"><div class="t">Sign up</div></div>
+  </div>
+  <div class="cap"><b>Figure 1.</b> The onboarding flow — trust, consent and mode selection before first use.</div>
+
+  <h3 class="newsec">2.2&nbsp;&nbsp;Home &amp; everyday self-care</h3>
+  <p>DiaFootCare is a daily companion, not only a scanner. The home dashboard greets the patient
+    with reminders, a self-care streak and a foot-care tip, and links to a full set of
+    diabetes-management tools: blood-glucose logging, medication adherence, a daily foot-care
+    checklist, appointments, reminders, notes, an education library and well-being questionnaires
+    (including the standardised System Usability Scale used by the study).</p>
+  <div class="phones">
+    <div class="phone"><img src="../demo/screenshots/10_home.png"><div class="t">Home</div></div>
+    <div class="phone"><img src="../demo/screenshots/22_selfcare.png"><div class="t">Daily self-care</div></div>
+    <div class="phone"><img src="../demo/screenshots/20_glucose.png"><div class="t">Blood glucose</div></div>
+    <div class="phone"><img src="../demo/screenshots/21_medication.png"><div class="t">Medications</div></div>
+    <div class="phone"><img src="../demo/screenshots/23_appointments.png"><div class="t">Appointments</div></div>
+    <div class="phone"><img src="../demo/screenshots/26_reminders.png"><div class="t">Reminders</div></div>
+    <div class="phone"><img src="../demo/screenshots/25_education.png"><div class="t">Education</div></div>
+    <div class="phone"><img src="../demo/screenshots/24_wellbeing.png"><div class="t">Well-being</div></div>
+    <div class="phone"><img src="../demo/screenshots/24c_sus.png"><div class="t">SUS questionnaire</div></div>
+    <div class="phone"><img src="../demo/screenshots/27_notes.png"><div class="t">Notes</div></div>
+  </div>
+  <div class="cap"><b>Figure 2.</b> Everyday self-care and study-measurement tools.</div>
+
+  <h3 class="newsec">2.3&nbsp;&nbsp;Wound capture &amp; AI analysis</h3>
+  <p>The core flow is fast: photo guidance → capture (or pick a photo) → confirm → analysis. Three
+    models run — segmentation for measurements, tissue classification, and infection/ischaemia — and
+    the result screen shows the wound's <b>length, width and surface area</b>, the tissue types in the
+    wound bed with confidence, the infection and blood-flow status, an overall <b>risk badge</b>, and
+    the healing trend.</p>
+  <div class="phones">
+    <div class="phone"><img src="../demo/screenshots/11a_capture_tips.png"><div class="t">Capture tips</div></div>
+    <div class="phone"><img src="../demo/screenshots/11_capture_camera.png"><div class="t">Camera</div></div>
+    <div class="phone"><img src="../demo/screenshots/12_preview.png"><div class="t">Preview</div></div>
+    <div class="phone"><img src="../demo/screenshots/14_result_top.png"><div class="t">Result — measurements</div></div>
+    <div class="phone"><img src="../demo/screenshots/14_result_mid.png"><div class="t">Result — tissue/infection</div></div>
+    <div class="phone"><img src="../demo/screenshots/14_result_bottom.png"><div class="t">Result — trend</div></div>
+  </div>
+  <div class="cap"><b>Figure 3.</b> From photo to analysis. As of v1.1 the measurements are
+    <b>length, width and area</b> (depth was removed — a 2-D photo cannot measure it).</div>
+
+  <div class="callout"><span class="k">New in 1.1 — surface area</span>
+    <p>The result now reports the wound's <b>surface area (cm²)</b> alongside length and width. Offline
+      this is the true segmented area (pixel count × scale²); online it comes from the server. It is the
+      most reliable single number for tracking whether a wound is growing or shrinking.</p>
+  </div>
+
+  <h3>2.4&nbsp;&nbsp;History &amp; healing tracking</h3>
+  <p>Every saved scan becomes a point on the patient's healing curve. The history tab summarises the
+    trend; opening a scan shows its measurements, tissue and risk, and how the wound has changed over
+    successive visits.</p>
+  <div class="phones">
+    <div class="phone"><img src="../demo/screenshots/15_history.png"><div class="t">Wound history</div></div>
+    <div class="phone"><img src="../demo/screenshots/16_healing_top.png"><div class="t">Healing progress</div></div>
+    <div class="phone"><img src="../demo/screenshots/16_wound_detail.png"><div class="t">Scan detail</div></div>
+    <div class="phone"><img src="../demo/screenshots/16_healing_bottom.png"><div class="t">Trend &amp; graph</div></div>
+  </div>
+  <div class="cap"><b>Figure 4.</b> Healing tracked over time.</div>
+
+  <h3>2.5&nbsp;&nbsp;Profile, data &amp; accessibility</h3>
+  <p>The profile manages the account, language, analysis mode and appearance. Patients can review
+    the terms (read-only), see their own engagement, export their data, and turn on senior-mode tips
+    for larger, simpler guidance.</p>
+  <div class="phones">
+    <div class="phone"><img src="../demo/screenshots/17_profile.png"><div class="t">Profile</div></div>
+    <div class="phone"><img src="../demo/screenshots/31_edit_profile.png"><div class="t">Edit profile</div></div>
+    <div class="phone"><img src="../demo/screenshots/28_usage.png"><div class="t">My activity</div></div>
+    <div class="phone"><img src="../demo/screenshots/30_export_data.png"><div class="t">Export data</div></div>
+    <div class="phone"><img src="../demo/screenshots/32_senior_tips.png"><div class="t">Senior tips</div></div>
+  </div>
+  <div class="cap"><b>Figure 5.</b> Profile, self-service data export and accessibility.
+    <b>New in 1.1:</b> Settings → Terms &amp; Conditions now opens a read-only review page.</div>
+</section>
+
+<!-- ===================== 3. WEB DASHBOARD ===================== -->
+<section class="page newsec">
+  <h2><span class="num">3</span>&nbsp;&nbsp;The clinical web dashboard</h2>
+  <p class="lead">Laravel 12 API + Vue 3 SPA. Token auth (Sanctum), role-based (admin / clinician),
+    EN/AR. Public landing page plus the authenticated dashboard below.</p>
+
+  <figure class="web"><img src="web_screenshots/01_landing.png">
+    <figcaption><b>Public landing page.</b> Explains the app and links to the Android download
+      (served at <code>diafootcare.tech</code>, version auto-read from the published build).</figcaption></figure>
+
+  <figure class="web"><img src="web_screenshots/10_dashboard.png">
+    <figcaption><b>Overview.</b> Headline counts (patients, scans, appointments, high-risk and
+      infection-flagged), healing/engagement trend charts, risk distribution, and the on-device vs
+      online mode split across the cohort.</figcaption></figure>
+
+  <figure class="web newsec"><img src="web_screenshots/11_patients.png">
+    <figcaption><b>Patients.</b> Every patient with an at-a-glance healing sparkline, so a clinician
+      can spot who is deteriorating without opening each record.</figcaption></figure>
+
+  <figure class="web tall"><img src="web_screenshots/12_patient_detail.png">
+    <figcaption><b>Patient detail.</b> One patient's latest measurements, device, recent scans,
+      medications, appointments and quality-of-life history in a single view.</figcaption></figure>
+
+  <figure class="web newsec"><img src="web_screenshots/13_scans.png">
+    <figcaption><b>Scan feed.</b> Every wound scan across the cohort — patient, date, measurements
+      (including area), tissue, and a colour-coded risk badge.</figcaption></figure>
+
+  <figure class="web"><img src="web_screenshots/17_alerts.png">
+    <figcaption><b>Alerts.</b> Scans that need attention — high-risk, infection and impaired blood
+      flow — surfaced so nothing is missed.</figcaption></figure>
+
+  <figure class="web newsec"><img src="web_screenshots/18_study.png">
+    <figcaption><b>Study.</b> Engagement and outcome metrics for the research cohort — active users,
+      completion rates and questionnaire results.</figcaption></figure>
+
+  <figure class="web"><img src="web_screenshots/14_devices.png">
+    <figcaption><b>Devices.</b> Each patient's app installation — platform, version, on-device vs
+      online mode, model version and last-seen time.</figcaption></figure>
+
+  <figure class="web newsec"><img src="web_screenshots/21_export.png">
+    <figcaption><b>Export.</b> One-click export of scans, glucose, self-care logs and questionnaire
+      responses (PDF / CSV) for analysis.</figcaption></figure>
+
+  <figure class="web"><img src="web_screenshots/20_users.png">
+    <figcaption><b>Users (admin).</b> Manage clinician and study-team accounts and roles.</figcaption></figure>
+
+  <div class="callout note">
+    <span class="k">Not shown</span>
+    <p>The dashboard also includes a <b>sync monitor</b> (device upload health), <b>appointments</b>
+      and <b>medications</b> views; in these screenshots they show the empty state because the demo
+      seed did not populate them.</p>
+  </div>
+</section>
+
+<!-- ===================== 4. AI PIPELINE ===================== -->
+<section class="page newsec">
+  <h2><span class="num">4</span>&nbsp;&nbsp;AI analysis pipeline</h2>
+  <p>Three deep-learning models cooperate. Models&nbsp;2 and&nbsp;3 share a single frozen CLIP
+    ViT-B/32 image encoder, evaluated once per image, so the installed footprint stays small and
+    inference stays fast. Full method, training and evaluation detail is in the companion
+    three-model technical reference; the summary:</p>
+  <table>
+    <thead><tr><th>#</th><th>Model</th><th>Output</th><th>Approach</th><th>Headline</th></tr></thead>
+    <tbody>
+      <tr><td class="n">1</td><td>Wound Segmentation &amp; Measurement</td>
+        <td>pixel mask → length / width / area</td>
+        <td>U-Net + MobileNetV2</td><td>Test Dice 0.818</td></tr>
+      <tr><td class="n">2</td><td>Tissue Classification</td>
+        <td>5 tissue types present in the wound bed</td>
+        <td>CLIP ViT-B/32 (frozen) + SVM head</td><td>AUC 0.825 · F1 0.733</td></tr>
+      <tr><td class="n">3</td><td>Infection &amp; Ischaemia</td>
+        <td>infection + blood-flow status → risk badge</td>
+        <td>CLIP ViT-B/32 (shared) + MLP head</td><td>Infection AUC 0.890 · Ischaemia AUC 0.987</td></tr>
+    </tbody>
+  </table>
+  <div class="cap"><b>Table 2.</b> The three deployed models. See the technical reference for datasets,
+    training schedule, metrics and limitations.</div>
+
+  <h3>4.1&nbsp;&nbsp;Measurement post-processing</h3>
+  <p>The mask is binarised, cleaned with morphology, and reduced to its largest component. Length and
+    width are the extents of the wound's principal (PCA) axes — the minimum-area rectangle, not an
+    axis-aligned box — and <b>area</b> is the wound-pixel count scaled to cm². Because the app runs
+    uncalibrated (no reference object), centimetre values are approximate and the reliable healing
+    signal is the <b>relative area trend</b> over time. Wound <b>depth is not produced</b> — a single
+    2-D photograph cannot recover it.</p>
+
+  <div class="callout ok"><span class="k">Parity</span>
+    <p>The on-device Dart post-processing and the server's Python post-processing are ported one-to-one,
+      so the same photograph gives the same numbers whether analysed offline or online. Both now emit
+      wound <code>area</code>.</p>
+  </div>
+</section>
+
+<!-- ===================== 5. ARCHITECTURE ===================== -->
+<section class="page newsec">
+  <h2><span class="num">5</span>&nbsp;&nbsp;Architecture, sync &amp; deployment</h2>
+  <h3>5.1&nbsp;&nbsp;How the pieces connect</h3>
+  <ul>
+    <li><b>App → API.</b> The Flutter app talks to a Laravel 12 REST API at
+      <code>https://diafootcare.tech/api/v1</code> (token auth). Guests work entirely offline; registered
+      patients sync their scans and records up to the server.</li>
+    <li><b>Online analysis.</b> For online mode the API forwards the photo to the FastAPI inference
+      sidecar, which runs the three models and returns the analysis; the API relays it to the app and
+      stores it against the patient.</li>
+    <li><b>Dashboard.</b> The Vue SPA consumes the same API to present the cohort to clinicians.</li>
+    <li><b>Local-first.</b> The app keeps a local SQLite history so every feature works without a
+      network; sync reconciles when connectivity returns.</li>
+  </ul>
+
+  <h3>5.2&nbsp;&nbsp;Deployment</h3>
+  <table>
+    <thead><tr><th>Layer</th><th>Where</th><th>How it ships</th></tr></thead>
+    <tbody>
+      <tr><td>Web app + API</td><td>Ubuntu 24.04 + CloudPanel VPS (<code>diafootcare.tech</code>)</td>
+        <td>Git push-to-deploy; assets rebuilt on the server</td></tr>
+      <tr><td>Inference sidecar</td><td>Same VPS, <code>dfc-inference</code> systemd service</td>
+        <td>Deployed with the repo; restarted on model/pipeline change</td></tr>
+      <tr><td>Database</td><td>MySQL/MariaDB (utf8mb4)</td><td>Laravel migrations</td></tr>
+      <tr><td>Android app</td><td>Direct APK download from the site <em>(staging/test channel — not a public store listing)</em></td>
+        <td>Universal release APK + a <code>version.json</code> the landing page reads</td></tr>
+    </tbody>
+  </table>
+  <div class="cap"><b>Table 3.</b> Deployment of each layer. TLS throughout; the app pins the production API.</div>
+</section>
+
+<!-- ===================== 6. RELEASE NOTES ===================== -->
+<section class="page newsec">
+  <h2><span class="num">6</span>&nbsp;&nbsp;Release notes — v1.1.0</h2>
+  <p class="lead">App build 1.1.0 (2) · 29 July 2026 · supersedes 1.0.0 (1).</p>
+  <div class="callout note"><span class="k">Status: internal / pre-release</span>
+    <p>This is an internal engineering update, <strong>not a public release</strong>. The build is
+      staged on the project server for the research and clinical team to test; it has not been
+      distributed to end users, and there are no user-facing release notes to publish yet.</p>
+  </div>
+  <h4>Added</h4>
+  <ul>
+    <li><b>Wound surface area (cm²)</b> on the analysis result, alongside length and width — the true
+      segmented area offline, the server's area online, with a length × width fallback for older records.
+      The measurement is carried end-to-end (app model → result screen; API/inference now emit an
+      <code>area</code> field).</li>
+  </ul>
+  <h4>Fixed</h4>
+  <ul>
+    <li><b>Settings → Terms &amp; Conditions</b> did nothing; it now opens the terms in a
+      <b>read-only review page</b> — the acceptance is shown but cannot be changed from there.</li>
+  </ul>
+  <h4>Deployed for the team in this update</h4>
+  <ul>
+    <li>Universal Android APK rebuilt and <b>staged</b> on <code>diafootcare.tech</code> for internal
+      testing; the site's <code>version.json</code> reports <b>1.1.0 (build 2)</b>, which the download
+      page reflects automatically. This is a staging/test channel, not a public launch.</li>
+    <li>The inference server was updated and restarted so online analysis returns the new
+      <code>area</code> field, matching the on-device result.</li>
+  </ul>
+  <div class="callout ok"><span class="k">Consistency</span>
+    <p>App, API, inference server and the download page were updated together, so a wound analysed on any
+      test phone — offline or online — reports the same measurements, and the staged build matches what
+      the page reports. When the app is eventually released to users, this coherence carries over.</p>
+  </div>
+  <p style="text-align:center;color:var(--muted);margin-top:2em;font-size:9.5pt">
+    End of system &amp; product documentation — DiaFootCare v1.1</p>
+</section>

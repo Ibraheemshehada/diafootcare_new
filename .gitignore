@@ -52,3 +52,9 @@ app.*.map.json
 # Local APK build artifacts (someone dropped a built APK here). The website
 # copy is the distribution channel; git is not.
 /dist/
+
+# Root-level convenience copies of the documentation PDFs.
+# The canonical, version-controlled copies live in docs/.
+/DaiFootCare_Full_Documentation.pdf
+/DaiFootCare_Models_Documentation.pdf
+/DaiFootCare_System_Documentation.pdf

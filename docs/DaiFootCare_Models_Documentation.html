@@ -1,0 +1,879 @@
+<!--
+  DaiFootCare — AI Models Documentation (editable source)
+  Rendered to PDF with headless Chrome:  see docs/build_pdf.md
+  v1.1 (26 July 2026): depth output removed; scale-calibration step retired;
+  length/width described via PCA principal axes (minAreaRect); DB schema v18.
+-->
+<meta charset="utf-8">
+<title>DaiFootCare — AI Models Documentation</title>
+<style>
+  :root{
+    --teal:#1f5c74; --teal-dark:#17475b; --teal-tint:#eef4f7;
+    --maroon:#8a3b3f; --maroon-tint:#f6ecec;
+    --ink:#232a2e; --muted:#5b6a72; --line:#d6dee2; --line-soft:#e7edf0;
+    --amber:#8a6d1f; --amber-tint:#f8f2e0;
+  }
+  *{box-sizing:border-box}
+  html{font-family:"Calibri","Segoe UI",system-ui,sans-serif;color:var(--ink);
+       font-size:10.6pt; line-height:1.42;}
+  body{margin:0;padding:0;}
+  code,.mono{font-family:"Consolas","SF Mono",monospace;font-size:9.3pt;
+       background:#f3f5f6;padding:0 2px;border-radius:2px;color:#2b3b44;}
+  h1,h2,h3{color:var(--teal-dark);line-height:1.2;margin:0 0 .35em;font-weight:700;}
+  h2{font-size:16.5pt;padding-bottom:.18em;border-bottom:2px solid var(--teal);
+     margin-top:0;}
+  h2 .num{color:var(--teal);}
+  h3{font-size:12pt;margin-top:1.1em;color:var(--teal);}
+  h4{font-size:10.6pt;margin:.9em 0 .3em;color:var(--maroon);font-weight:700;
+     text-transform:none;}
+  p{margin:.45em 0;}
+  ul,ol{margin:.4em 0 .5em;padding-left:1.25em;}
+  li{margin:.22em 0;}
+  a{color:var(--teal);text-decoration:none;}
+
+  /* ---- page setup ---- */
+  @page{ size:A4; margin:20mm 17mm 18mm; }
+  .page{ page-break-after:always; }
+  .page:last-child{ page-break-after:auto; }
+  .newsec{ page-break-before:always; }
+
+  /* running header band (repeats each printed page) */
+  .runhead{ position:fixed; top:-13mm; left:0; right:0; height:9mm;
+     font-size:8.3pt; color:var(--muted); letter-spacing:.02em;
+     border-bottom:.6px solid var(--line); display:flex;
+     justify-content:space-between; align-items:flex-end; padding-bottom:2px;}
+  .runhead .brand{ color:var(--teal); font-weight:700; }
+
+  /* ---- title page ---- */
+  .title-page{ height:257mm; display:flex; flex-direction:column;
+     justify-content:center; }
+  .eyebrow{ letter-spacing:.32em; text-transform:uppercase; color:var(--teal);
+     font-weight:700; font-size:10pt; }
+  .title-page h1{ font-size:30pt; color:var(--teal-dark); margin:.15em 0 .1em;
+     line-height:1.12; }
+  .title-page .sub{ font-size:14pt; color:var(--ink); font-weight:600;
+     margin:.2em 0; }
+  .title-page .pipeline{ font-size:11.5pt; color:var(--muted); margin:.1em 0 1.1em; }
+  .rule{ height:3px; width:120px; background:var(--maroon); margin:.6em 0 1.4em; }
+  .title-meta{ font-size:10.5pt; color:var(--muted); }
+  .title-meta strong{ color:var(--ink); }
+
+  /* ---- tables ---- */
+  table{ border-collapse:collapse; width:100%; margin:.6em 0 .3em;
+     font-size:9.5pt; }
+  th,td{ border:.7px solid var(--line); padding:5px 8px; vertical-align:top;
+     text-align:left; }
+  thead th{ background:var(--teal); color:#fff; font-weight:600;
+     border-color:var(--teal); }
+  tbody tr:nth-child(even){ background:#f6f9fa; }
+  td.n{ text-align:center; white-space:nowrap; }
+  .tblcap,.figcap{ font-size:8.6pt; color:var(--muted); margin:.15em 0 1em;
+     line-height:1.35; }
+  .tblcap b,.figcap b{ color:var(--ink); }
+
+  /* ---- callouts ---- */
+  .callout{ border-left:4px solid var(--teal); background:var(--teal-tint);
+     padding:8px 12px; margin:.7em 0; border-radius:0 4px 4px 0; }
+  .callout .k{ display:block; font-size:8.4pt; letter-spacing:.09em;
+     text-transform:uppercase; font-weight:700; color:var(--teal-dark);
+     margin-bottom:2px; }
+  .callout.limit{ border-left-color:var(--maroon); background:var(--maroon-tint); }
+  .callout.limit .k{ color:var(--maroon); }
+  .callout.note{ border-left-color:var(--amber); background:var(--amber-tint); }
+  .callout.note .k{ color:var(--amber); }
+  .callout p{ margin:.25em 0; }
+
+  .example{ font-family:"Consolas",monospace; font-size:9.3pt;
+     background:#f3f5f6; border:.7px solid var(--line-soft); border-radius:4px;
+     padding:6px 10px; margin:.5em 0; color:#2b3b44; }
+
+  /* ---- table of contents ---- */
+  .toc{ font-size:10.5pt; }
+  .toc .l1{ font-weight:700; color:var(--teal-dark); margin:.55em 0 .1em; }
+  .toc .l2{ color:var(--ink); margin:.06em 0 .06em 1.4em; display:flex;
+     justify-content:space-between; }
+  .toc .l1 .pg{ float:right; color:var(--muted); font-weight:400; }
+  .toc .l2 .pg{ color:var(--muted); }
+
+  .lead{ color:var(--muted); }
+  .keep{ page-break-inside:avoid; }
+  figure{ margin:.6em 0 0; page-break-inside:avoid; }
+  .fig-svg{ width:100%; height:auto; border:.7px solid var(--line-soft);
+     border-radius:6px; background:#fff; }
+</style>
+
+<!-- Running header and page-number footer are stamped into the top/bottom page
+     margins after rendering (docs/stamp_pdf.py), which is more robust across
+     page breaks than a CSS position:fixed band. -->
+
+<!-- ============================ TITLE PAGE ============================ -->
+<section class="page title-page">
+  <div class="eyebrow">DaiFootCare</div>
+  <h1>On-Device Deep Learning for<br>Diabetic-Foot-Ulcer Assessment</h1>
+  <div class="sub">Model Design, Training, and Evaluation</div>
+  <div class="pipeline">Segmentation · Tissue Classification · Infection &amp; Ischaemia</div>
+  <div class="rule"></div>
+  <p style="max-width:150mm;color:var(--muted);">A technical reference for the
+    three-model analysis pipeline, prepared as supporting documentation for
+    doctoral research.</p>
+  <div style="height:14mm"></div>
+  <div class="title-meta">
+    <div><strong>Version 1.1</strong> &nbsp;·&nbsp; Last updated 26 July 2026</div>
+    <div style="margin-top:.35em;font-size:9.5pt;">Supersedes v1.0 (2 July 2026).
+      See the <em>Revision note</em> overleaf.</div>
+  </div>
+</section>
+
+<!-- ============================ CONTENTS ============================ -->
+<section class="page">
+  <h2>Contents</h2>
+  <div class="toc">
+    <div class="l1">Revision note (v1.1) <span class="pg">2</span></div>
+    <div class="l1">1&nbsp;&nbsp;Overview and System Design <span class="pg">3</span></div>
+    <div class="l2"><span>1.1&nbsp;&nbsp;Design principle: one shared backbone</span><span class="pg">3</span></div>
+    <div class="l2"><span>1.2&nbsp;&nbsp;Model summary</span><span class="pg">4</span></div>
+    <div class="l2"><span>1.3&nbsp;&nbsp;Datasets used across the project</span><span class="pg">4</span></div>
+    <div class="l1">2&nbsp;&nbsp;Model 1 — Wound Segmentation &amp; Measurement <span class="pg">5</span></div>
+    <div class="l2"><span>2.1&nbsp;&nbsp;Purpose and task</span><span class="pg">5</span></div>
+    <div class="l2"><span>2.2&nbsp;&nbsp;Datasets</span><span class="pg">5</span></div>
+    <div class="l2"><span>2.3&nbsp;&nbsp;Architecture and loss</span><span class="pg">5</span></div>
+    <div class="l2"><span>2.4&nbsp;&nbsp;Measurement post-processing</span><span class="pg">6</span></div>
+    <div class="l2"><span>2.5&nbsp;&nbsp;Results</span><span class="pg">6</span></div>
+    <div class="l2"><span>2.6&nbsp;&nbsp;Exported artefacts</span><span class="pg">7</span></div>
+    <div class="l2"><span>2.7&nbsp;&nbsp;Limitations</span><span class="pg">7</span></div>
+    <div class="l1">3&nbsp;&nbsp;Model 2 — Tissue Classification <span class="pg">8</span></div>
+    <div class="l1">4&nbsp;&nbsp;Model 3 — Infection &amp; Ischaemia <span class="pg">10</span></div>
+    <div class="l1">5&nbsp;&nbsp;Shared Preprocessing <span class="pg">12</span></div>
+    <div class="l1">6&nbsp;&nbsp;Application Integration <span class="pg">12</span></div>
+    <div class="l1">7&nbsp;&nbsp;References <span class="pg">13</span></div>
+  </div>
+
+  <h3 style="margin-top:2.2em;">Revision note (v1.1)</h3>
+  <div class="callout note">
+    <span class="k">What changed since v1.0</span>
+    <p>This revision records a change to the mobile application's measurement
+      output. The <strong>estimated wound depth</strong> has been removed from the
+      pipeline and the user interface. A single two-dimensional photograph cannot
+      recover true wound depth; the earlier value was a pixel-density heuristic
+      rather than a genuine three-dimensional measurement, and the optional
+      manual-probe entry and reference-object scale-calibration steps were retired
+      to simplify the capture flow. Model 1 now reports <strong>length, width, and
+      area</strong> only. The segmentation network, its training procedure, and all
+      reported metrics are <em>unchanged</em>; only the derived-measurement
+      post-processing and its documentation are affected. Sections&nbsp;1.2, 2.1,
+      2.4, 2.5, 2.7 and&nbsp;6, and Figure&nbsp;1, have been updated accordingly.</p>
+  </div>
+</section>
+
+<!-- ============================ SECTION 1 ============================ -->
+<section class="page">
+  <h2><span class="num">1</span>&nbsp;&nbsp;Overview and System Design</h2>
+  <p>This document is the technical reference for the machine-learning components
+    of DaiFootCare, a mobile application that performs automated assessment of
+    diabetic foot ulcers (DFU) entirely on-device. Three deep-learning models
+    cooperate in a single inference pipeline: a wound-segmentation model that
+    produces pixel-level masks and derived clinical measurements, a
+    tissue-classification model that identifies the tissue types present in the
+    wound bed, and an infection-and-ischaemia model that estimates two
+    clinically-validated risk indicators. Each section below documents the
+    purpose, data provenance, architecture, training procedure, evaluation
+    protocol, results, and limitations of a model, at a level of detail intended
+    to support reproduction and academic reporting.</p>
+
+  <h3>1.1&nbsp;&nbsp;Design principle: one shared backbone</h3>
+  <p>The central architectural decision of the system is that Models 2 and 3 share
+    a single frozen CLIP ViT-B/32 image encoder
+    (<code>clip_backbone_fp16.tflite</code>). The backbone is the only large asset
+    in the deployment. It is loaded once and executed once per input image to
+    produce a 512-dimensional embedding; each downstream task then contributes
+    only a small &ldquo;head&rdquo; network &mdash; 20&nbsp;MB for tissue
+    classification and 262&nbsp;KB for infection/ischaemia. Model 1 (segmentation)
+    is standalone. This factoring keeps the installed application small and keeps
+    per-image inference fast, because the expensive encoder pass is amortised
+    across two clinical tasks.</p>
+
+  <figure>
+    <!-- Figure 1 recreated as vector SVG; the "depth" output has been removed. -->
+    <svg class="fig-svg" viewBox="0 0 1120 590" xmlns="http://www.w3.org/2000/svg"
+         font-family="Calibri, Segoe UI, sans-serif">
+      <defs>
+        <marker id="ah" markerWidth="9" markerHeight="9" refX="7" refY="4.2"
+                orient="auto"><path d="M0,0 L8,4.2 L0,8.4 Z" fill="#1f5c74"/></marker>
+      </defs>
+      <text x="24" y="34" font-size="20" font-weight="700" fill="#274b5f">DaiFootCare — on-device inference pipeline</text>
+      <line x1="24" y1="48" x2="620" y2="48" stroke="#c9d3d9" stroke-width="1.4"/>
+
+      <!-- edges (draw under boxes) -->
+      <g stroke="#1f5c74" stroke-width="2.4" fill="none" marker-end="url(#ah)">
+        <path d="M150,300 H205"/>                       <!-- photo -> split -->
+        <path d="M207,300 V128 H288"/>                  <!-- up to Model 1 -->
+        <path d="M207,300 V430 H288"/>                  <!-- down to backbone -->
+        <path d="M540,128 H770"/>                       <!-- Model1 -> Measurements -->
+        <path d="M540,430 V330 H612"/>                  <!-- backbone -> Model2 -->
+        <path d="M540,430 V520 H612"/>                  <!-- backbone -> Model3 -->
+        <path d="M860,330 H905"/>                       <!-- Model2 -> tissue out -->
+        <path d="M860,520 H905"/>                       <!-- Model3 -> risk out -->
+      </g>
+      <circle cx="207" cy="300" r="4.5" fill="#1f5c74"/>
+      <circle cx="540" cy="430" r="4.5" fill="#1f5c74"/>
+
+      <!-- Wound photo -->
+      <g>
+        <rect x="24" y="256" width="126" height="90" rx="12" fill="#fff"
+              stroke="#1f5c74" stroke-width="1.6"/>
+        <rect x="58" y="272" width="58" height="42" rx="7" fill="#eef4f7"
+              stroke="#9db6c2" stroke-width="1.4"/>
+        <circle cx="87" cy="293" r="12" fill="none" stroke="#8a3b3f" stroke-width="3"/>
+        <circle cx="87" cy="293" r="4.5" fill="#8a3b3f"/>
+        <text x="87" y="336" font-size="15" font-weight="700" fill="#274b5f"
+              text-anchor="middle">Wound photo</text>
+      </g>
+
+      <!-- Model 1 (standalone, maroon border + maroon header) -->
+      <g>
+        <rect x="288" y="86" width="252" height="84" rx="10" fill="#fff"
+              stroke="#8a3b3f" stroke-width="1.6"/>
+        <path d="M288,96 a10,10 0 0 1 10,-10 h232 a10,10 0 0 1 10,10 v18 h-252 Z"
+              fill="#8a3b3f"/>
+        <text x="414" y="107" font-size="13.5" font-weight="700" fill="#fff"
+              text-anchor="middle">MODEL 1 · Segmentation</text>
+        <text x="414" y="134" font-size="12.5" font-weight="700" fill="#274b5f"
+              text-anchor="middle">U-Net + MobileNetV2</text>
+        <text x="414" y="152" font-size="10.5" fill="#5b6a72" text-anchor="middle">320×320 → pixel wound mask</text>
+        <text x="414" y="165" font-size="10.5" fill="#5b6a72" text-anchor="middle">standalone · fp16 TFLite (12 MB)</text>
+      </g>
+
+      <!-- Measurements output (depth removed) -->
+      <g>
+        <rect x="770" y="86" width="326" height="84" rx="10" fill="#f5f8fa"
+              stroke="#8a3b3f" stroke-width="1.4"/>
+        <text x="933" y="118" font-size="13.5" font-weight="700" fill="#274b5f"
+              text-anchor="middle">Measurements</text>
+        <text x="933" y="140" font-size="12" font-weight="700" fill="#1f5c74"
+              text-anchor="middle">length · width · area</text>
+        <text x="933" y="158" font-size="10.5" fill="#5b6a72" text-anchor="middle">e.g. 1.38 × 1.57 cm, 1.65 cm²  (relative)</text>
+      </g>
+
+      <!-- CLIP backbone (shared, filled teal) -->
+      <g>
+        <rect x="288" y="388" width="252" height="84" rx="10" fill="#1f5c74"/>
+        <text x="414" y="416" font-size="13.5" font-weight="700" fill="#fff"
+              text-anchor="middle">CLIP ViT-B/32 backbone</text>
+        <text x="414" y="437" font-size="10.8" fill="#dce8ee" text-anchor="middle">frozen · run ONCE per image</text>
+        <text x="414" y="452" font-size="10.8" fill="#dce8ee" text-anchor="middle">image → 512-d embedding</text>
+        <text x="414" y="466" font-size="10.8" fill="#dce8ee" text-anchor="middle">shared asset · fp16 (175 MB)</text>
+      </g>
+
+      <!-- Model 2 head -->
+      <g>
+        <rect x="612" y="292" width="248" height="76" rx="10" fill="#fff"
+              stroke="#1f5c74" stroke-width="1.5"/>
+        <text x="736" y="318" font-size="12.5" font-weight="700" fill="#274b5f"
+              text-anchor="middle">MODEL 2 · Tissue head</text>
+        <text x="736" y="338" font-size="10.5" fill="#5b6a72" text-anchor="middle">SVM-as-TFLite · 5 classes</text>
+        <text x="736" y="353" font-size="10.5" fill="#5b6a72" text-anchor="middle">20 MB · multi-label probs</text>
+      </g>
+      <!-- Model 3 head -->
+      <g>
+        <rect x="612" y="482" width="248" height="76" rx="10" fill="#fff"
+              stroke="#1f5c74" stroke-width="1.5"/>
+        <text x="736" y="508" font-size="12.5" font-weight="700" fill="#274b5f"
+              text-anchor="middle">MODEL 3 · Infection head</text>
+        <text x="736" y="528" font-size="10.5" fill="#5b6a72" text-anchor="middle">MLP · 4-class softmax</text>
+        <text x="736" y="543" font-size="10.5" fill="#5b6a72" text-anchor="middle">262 KB · infection / ischaemia</text>
+      </g>
+
+      <!-- outputs -->
+      <g>
+        <rect x="905" y="298" width="191" height="64" rx="10" fill="#f5f8fa"
+              stroke="#c9d3d9" stroke-width="1.4"/>
+        <text x="1000" y="324" font-size="12" font-weight="700" fill="#274b5f"
+              text-anchor="middle">Tissue type</text>
+        <text x="1000" y="344" font-size="10.3" fill="#5b6a72" text-anchor="middle">granulation, slough, …</text>
+      </g>
+      <g>
+        <rect x="905" y="488" width="191" height="64" rx="10" fill="#f5f8fa"
+              stroke="#c9d3d9" stroke-width="1.4"/>
+        <text x="1000" y="514" font-size="12" font-weight="700" fill="#274b5f"
+              text-anchor="middle">Risk badge</text>
+        <text x="1000" y="534" font-size="10.3" fill="#5b6a72" text-anchor="middle">Normal / Infection / High</text>
+      </g>
+
+      <!-- legend -->
+      <g font-size="10.3" fill="#5b6a72">
+        <rect x="24" y="566" width="15" height="12" rx="2" fill="#1f5c74"/>
+        <text x="45" y="576">Shared frozen backbone (run once)</text>
+        <rect x="272" y="566" width="15" height="12" rx="2" fill="#fff" stroke="#8a3b3f" stroke-width="1.4"/>
+        <text x="293" y="576">Standalone model</text>
+        <rect x="430" y="566" width="15" height="12" rx="2" fill="#fff" stroke="#1f5c74" stroke-width="1.4"/>
+        <text x="451" y="576">Task head</text>
+        <rect x="545" y="566" width="15" height="12" rx="2" fill="#f5f8fa" stroke="#c9d3d9" stroke-width="1.4"/>
+        <text x="566" y="576">Output shown in app</text>
+      </g>
+    </svg>
+    <figcaption class="figcap"><b>Figure 1. High-level dataflow.</b> The CLIP
+      backbone is evaluated a single time per image and feeds both classification
+      heads; Model 1 runs independently to produce measurements. As of v1.1 the
+      measurement output is length, width and area only &mdash; depth has been
+      removed (see the Revision note).</figcaption>
+  </figure>
+
+  <h3 class="newsec">1.2&nbsp;&nbsp;Model summary</h3>
+  <table>
+    <thead><tr><th>#</th><th>Model</th><th>Task</th><th>Backbone</th>
+      <th>Deployed file(s)</th><th>Headline result</th></tr></thead>
+    <tbody>
+      <tr>
+        <td class="n">1</td>
+        <td>Wound Segmentation &amp; Measurement</td>
+        <td>pixel mask → length / width / area</td>
+        <td>U-Net + MobileNetV2</td>
+        <td><code>model1_wound_fp16.tflite</code> (12 MB)</td>
+        <td>Test Dice 0.818 · val acc 0.89</td>
+      </tr>
+      <tr>
+        <td class="n">2</td>
+        <td>Tissue Classification</td>
+        <td>5 tissue types present in wound</td>
+        <td>CLIP ViT-B/32 (frozen) + SVM head</td>
+        <td><code>clip_backbone_fp16.tflite</code> (175 MB) + <code>tissue_head.tflite</code> (20 MB)</td>
+        <td>AUC 0.825 / F1 0.733</td>
+      </tr>
+      <tr>
+        <td class="n">3</td>
+        <td>Infection &amp; Ischaemia</td>
+        <td>infection + blood-flow status</td>
+        <td>CLIP ViT-B/32 (frozen, shared) + MLP head</td>
+        <td><code>infection_ischaemia_head.tflite</code> (262 KB)</td>
+        <td>Infection AUC 0.890 · Ischaemia AUC 0.987</td>
+      </tr>
+    </tbody>
+  </table>
+  <div class="tblcap"><b>Table 1.</b> The three models, their tasks, backbones,
+    deployed artefacts, and headline evaluation metrics.</div>
+
+  <h3>1.3&nbsp;&nbsp;Datasets used across the project</h3>
+  <p>Five source collections are used across the three models: DFUTissue and
+    DFUTissueSegNet&nbsp;[6] (finely-annotated tissue and wound masks), DFUC2020
+    and DFUC2021 (the Diabetic Foot Ulcer Challenge collections&nbsp;[7]), and
+    <code>dfu-extra-labels</code>, a set of doctor-reviewed annotations added
+    specifically for this project. The role each dataset plays differs by model and
+    is documented in the relevant section. For the origin, licensing, and
+    inter-relationship of the Challenge datasets, readers are referred to the
+    official DFU dataset overview&nbsp;[7]; the specific Challenge papers required
+    by the dataset providers are cited in full in Section&nbsp;7.</p>
+</section>
+
+<!-- ============================ SECTION 2 ============================ -->
+<section class="page newsec">
+  <h2><span class="num">2</span>&nbsp;&nbsp;Model 1 — Wound Segmentation &amp; Measurement</h2>
+  <p class="lead">Notebook: <code>model-1-kag.ipynb</code> (Kaggle, GPU). &nbsp;
+    Deployed artefact: <code>model1_wound_fp16.tflite</code>.</p>
+
+  <h3>2.1&nbsp;&nbsp;Purpose and task</h3>
+  <p>Model 1 locates the wound region in a photograph as a pixel-level mask and
+    then converts that mask into clinical measurements: <strong>length, width, and
+    area</strong>. Formally the task is binary semantic segmentation &mdash; every
+    pixel is classified as either wound or background. The network consumes an
+    image tensor of shape <code>[1, 320, 320, 3]</code> (float32, values in
+    [0,1]) and produces a per-pixel wound-probability mask of shape
+    <code>[1, 320, 320, 1]</code>. A deterministic post-processing stage converts
+    this mask into measurements.</p>
+  <div class="callout">
+    <span class="k">On wound depth</span>
+    <p>Depth is deliberately <strong>not</strong> produced. A single 2-D
+      photograph, taken with an ordinary phone camera and no reference geometry,
+      does not contain the information needed to recover physical wound depth. An
+      earlier build reported a depth figure derived from wound-pixel density; this
+      was a heuristic, not a genuine three-dimensional measurement, and it was
+      removed in v1.1. Depth, where clinically required, must be obtained from a
+      sterile probe or a dedicated depth sensor and is out of scope for the
+      on-device pipeline.</p>
+  </div>
+
+  <h3>2.2&nbsp;&nbsp;Datasets</h3>
+  <table>
+    <thead><tr><th>Dataset</th><th>Role</th><th>Notes</th></tr></thead>
+    <tbody>
+      <tr><td>DFUTissue (Labeled / Original)</td>
+        <td>Primary target — precise pixel masks</td>
+        <td>≈75 finely-annotated images; the true supervision signal. Validation
+          and test use only these, so reported metrics reflect genuine
+          wound-boundary quality.</td></tr>
+      <tr><td>DFUC2020</td>
+        <td>Weak pseudo-masks (bounding boxes)</td>
+        <td>Coarse box-derived masks used for training only, capped at ≈250
+          examples to avoid pulling the model away from precise boundaries.</td></tr>
+      <tr><td>DFUC2021</td>
+        <td>Unlabeled images</td>
+        <td>Used solely to supply the representative dataset for int8 export; it is
+          a classification set with no localisation labels.</td></tr>
+    </tbody>
+  </table>
+  <div class="tblcap"><b>Table 2.</b> Data sources for Model 1 and the distinct
+    role each plays in training and evaluation.</div>
+  <p>To make the most of the small precise set, the finely-annotated images (from
+    DFUTissue&nbsp;[6], with the weak box masks drawn from DFUC2020&nbsp;[9,10]) are
+    oversampled ×3 relative to the box masks, and strong augmentation
+    (horizontal/vertical flips, rotations, and random cutout/erasing) is applied to
+    improve generalisation and counter overfitting on the roughly 75 precise
+    examples.</p>
+
+  <h3>2.3&nbsp;&nbsp;Architecture and loss</h3>
+  <ul>
+    <li><b>Backbone:</b> a U-Net decoder&nbsp;[1] built on a pretrained
+      MobileNetV2&nbsp;[2] encoder (ImageNet transfer learning). Encoder skip
+      connections are taken at input /2, /4, /8, /16 with the bottleneck at /32;
+      the backbone input is internally rescaled to [-1, 1]. A 320×320 input (÷32)
+      preserves finer wound-boundary detail than a 256×256 input.</li>
+    <li><b>Loss:</b> 0.5 × BCE + Focal-Tversky&nbsp;[3]. The Tversky term uses
+      α&nbsp;=&nbsp;0.3, β&nbsp;=&nbsp;0.7, which penalises missed wound pixels more
+      heavily to raise recall and Dice; the focal component (γ&nbsp;=&nbsp;0.75)
+      concentrates learning on the small wound region.</li>
+  </ul>
+  <h4>Training schedule (multi-phase)</h4>
+  <ol>
+    <li><b>Phase 1</b> — freeze the encoder and train the decoder only (25 epochs,
+      learning rate 1e-3).</li>
+    <li><b>Phase 2</b> — fine-tune the top 36 of 155 encoder layers with
+      batch-normalisation frozen (learning rate 5e-5).</li>
+    <li><b>Self-training</b> — add high-confidence pseudo-labels and continue
+      training; the best-of-both checkpoint is retained by validation loss.</li>
+  </ol>
+  <p>Callbacks and regime: <code>ModelCheckpoint</code> (best val_loss),
+    <code>ReduceLROnPlateau</code>, and <code>EarlyStopping</code> with best-weight
+    restoration. Mixed-precision training is used on GPU.</p>
+
+  <h3>2.4&nbsp;&nbsp;Measurement post-processing</h3>
+  <p>The mask-to-measurement conversion is deterministic and is ported one-to-one
+    from the training notebook into the app's Dart code, guaranteeing that
+    on-device measurements match the reference implementation:</p>
+  <ol>
+    <li>Binarise the probability mask (default threshold 0.5, with a half-peak
+      fallback if no pixel clears the threshold).</li>
+    <li>Apply a 5×5 morphological open then close to remove specks and fill small
+      holes.</li>
+    <li>Retain the largest connected component as the wound.</li>
+    <li><b>Length and width</b> are the extents along the wound's principal (PCA)
+      axes &mdash; i.e. the minimum-area rectangle enclosing the component,
+      equivalent to <code>cv2.minAreaRect</code> in the notebook rather than an
+      axis-aligned bounding box &mdash; scaled to centimetres. <b>Area</b> is the
+      wound-pixel count × scale². The scale is a pixels-per-cm factor.</li>
+    <li><b>Scale (always uncalibrated in v1.1).</b> The application no longer
+      collects a reference-object calibration, so no true pixels-per-cm factor is
+      available. The wider side of the frame is assumed to span
+      <code>_assumedFrameCm = 12&nbsp;cm</code>, the derived factor scales with
+      image resolution, and the result is flagged <code>isCalibrated = false</code>.
+      Consequently the centimetre values are approximate; the reliable healing
+      signal is the <b>relative area trend over time</b>, not absolute
+      centimetres.</li>
+  </ol>
+  <div class="callout limit">
+    <span class="k">Removed step</span>
+    <p>The former step&nbsp;8, an estimated depth = wound-pixel density × 1.5&nbsp;mm,
+      has been deleted. It was a heuristic, not a true 3-D measurement, and no
+      longer forms part of the pipeline.</p>
+  </div>
+
+  <h3>2.5&nbsp;&nbsp;Results</h3>
+  <p>Two families of metrics are reported. First, per-epoch training metrics logged
+    by Keras at the selected checkpoint (best validation loss, epoch 2 of the
+    fine-tuning phase): pixel accuracy, intersection-over-union (IoU / Jaccard),
+    and the differentiable soft-Dice coefficient. Second, the final segmentation
+    quality computed after the full post-processing pipeline (binarisation,
+    morphology, largest-component selection) on the held-out precise masks, which
+    is the figure that reflects true wound-boundary quality.</p>
+  <table>
+    <thead><tr><th>Split</th><th>Pixel accuracy</th><th>IoU (Jaccard)</th><th>Dice</th></tr></thead>
+    <tbody>
+      <tr><td>Training (selected checkpoint)</td><td class="n">0.945</td><td class="n">0.597</td><td class="n">0.746</td></tr>
+      <tr><td>Validation (per-epoch, Keras)</td><td class="n">0.892</td><td class="n">0.526</td><td class="n">0.689</td></tr>
+      <tr><td>Validation (final, post-processed)</td><td class="n">—</td><td class="n">—</td><td class="n">0.706</td></tr>
+      <tr><td>Test (held-out, 8-view TTA)</td><td class="n">—</td><td class="n">—</td><td class="n">0.818</td></tr>
+    </tbody>
+  </table>
+  <div class="tblcap"><b>Table 3.</b> Segmentation performance.
+    Training/validation pixel accuracy, IoU and soft-Dice are per-epoch Keras
+    metrics at the selected checkpoint (epoch 2). The final post-processed
+    validation Dice (0.706) and the held-out test Dice (0.818, 8-view test-time
+    augmentation) are the primary quality figures. Best mask threshold on
+    validation: 0.58.</div>
+  <div class="callout">
+    <span class="k">Reading the metrics</span>
+    <p>Pixel accuracy is high (≈0.89–0.95) partly because background pixels
+      dominate the frame, so a model is &ldquo;correct&rdquo; on most pixels before
+      locating the wound at all. For this reason Dice and IoU are the primary
+      segmentation metrics and pixel accuracy is reported only as a supporting
+      figure. The per-epoch (soft) Dice and the final post-processed Dice differ
+      slightly (0.689 vs. 0.706 on validation) because the latter is computed after
+      binarisation and morphological clean-up rather than on the raw probability
+      map.</p>
+  </div>
+  <p>Example output:</p>
+  <div class="example">{ length 1.38 cm, width 1.57 cm, area 1.65 cm² } &nbsp;
+    <span style="color:#5b6a72">// approximate — isCalibrated = false</span></div>
+
+  <h3>2.6&nbsp;&nbsp;Exported artefacts</h3>
+  <ul>
+    <li><code>model1_wound_fp16.tflite</code> — 12.1 MB — deployed in the
+      application.</li>
+    <li><code>model1_wound_int8.tflite</code> — 6.5 MB — a smaller alternative; int8
+      quantisation makes the derived measurements noisier.</li>
+  </ul>
+
+  <h3>2.7&nbsp;&nbsp;Limitations</h3>
+  <div class="callout limit">
+    <span class="k">Limitations of Model 1</span>
+    <p>Absolute centimetre values are not reliable without a calibration reference
+      object in the frame. Because the application runs uncalibrated (it assumes a
+      12&nbsp;cm frame width and flags <code>isCalibrated = false</code>), only the
+      <b>relative area trend</b> over successive visits should be treated as a
+      healing signal; single-visit centimetre figures are indicative only. Wound
+      <b>depth is not measured</b> at all &mdash; it cannot be recovered from a
+      2-D image and is out of scope for this pipeline. Finally, the precise-mask
+      training set is small (≈75 images), which augmentation and the weak DFUC2020
+      box masks only partly compensate for.</p>
+  </div>
+</section>
+
+<!-- ============================ SECTION 3 ============================ -->
+<section class="page newsec">
+  <h2><span class="num">3</span>&nbsp;&nbsp;Model 2 — Tissue Classification</h2>
+  <p class="lead">Notebook: <code>dfut-model3-newdata-gold.ipynb</code>. &nbsp;
+    Deployed: <code>clip_backbone_fp16.tflite</code> + <code>tissue_head.tflite</code>
+    (+ <code>tissue_head_meta.json</code>).</p>
+
+  <h3>3.1&nbsp;&nbsp;Purpose and task</h3>
+  <p>Model 2 identifies which tissue types are visible in the wound bed. Because
+    several tissue types can be present simultaneously, this is a multi-label
+    classification problem rather than a single-label one. A CLIP-preprocessed
+    wound image is mapped to a 512-dimensional embedding, from which five
+    independent probabilities are produced. A tissue is judged present when its
+    probability meets or exceeds its individually-tuned threshold.</p>
+  <p><b>Classes (5):</b> epithelial, granulation, necrosis, callus, slough. The
+    fibrin class was dropped because the clean evaluation set contained only two
+    positive examples, too few to score reliably.</p>
+  <div class="callout">
+    <span class="k">Classification, not segmentation</span>
+    <p>Model 2 answers &ldquo;is each tissue type present in this wound?&rdquo; at
+      the image level. It does not produce pixel masks of tissue regions &mdash;
+      that distinction matters when interpreting its outputs against the pixel-level
+      Model 1.</p>
+  </div>
+
+  <h3>3.2&nbsp;&nbsp;Datasets</h3>
+  <table>
+    <thead><tr><th>Dataset</th><th>Role</th></tr></thead>
+    <tbody>
+      <tr><td>DFUTissue</td><td>Tissue-labeled wound images.</td></tr>
+      <tr><td>Source A doctor labels (<code>dfu-extra-labels</code>)</td>
+        <td>367 doctor-reviewed images (…orignalimagereNamed….xlsx).</td></tr>
+      <tr><td>DFUC2020 doctor labels (<code>dfuc2020_annotations-4.csv</code>)</td>
+        <td>810 training images carrying real 6-class doctor labels (previously
+          only bounding boxes).</td></tr>
+    </tbody>
+  </table>
+  <div class="tblcap"><b>Table 4.</b> Tissue-classification data sources.
+    Doctor-reviewed labels were added specifically for this project.</div>
+  <p>Pooling these sources yields a gold set of 1,176 doctor-labeled images;
+    training is further expanded by augmentation. Evaluation is reported on the 366
+    Source-A images so that results are directly comparable to the historic best
+    baseline.</p>
+
+  <h3>3.3&nbsp;&nbsp;Architecture</h3>
+  <ul>
+    <li><b>Encoder:</b> a frozen CLIP ViT-B/32&nbsp;[4] image encoder producing a
+      512-d embedding. This embedding carries the predictive power &mdash; a
+      from-scratch CNN scored near-random (≈0.55 AUC).</li>
+    <li><b>Head:</b> a per-class RBF-SVM trained on the CLIP embeddings.</li>
+    <li><b>Mobile export:</b> the SVM is reproduced exactly as TensorFlow
+      operations (&ldquo;SVM-as-TFLite&rdquo;), verified to within 8e-6 of the
+      desktop SVM, and exported as <code>tissue_head.tflite</code>.</li>
+    <li><b>Research vs. mobile:</b> the research-best desktop variant rank-averages
+      CLIP ⊕ DINOv2&nbsp;[5], but DINOv2 (ViT-L, ≈1.2 GB) is impractical on phones,
+      so the deployed mobile build is CLIP-only.</li>
+  </ul>
+
+  <h3>3.4&nbsp;&nbsp;Results (Source-A evaluation)</h3>
+  <table>
+    <thead><tr><th>Variant</th><th>AUC</th><th>F1</th></tr></thead>
+    <tbody>
+      <tr><td>Historic best</td><td class="n">0.835</td><td class="n">0.656</td></tr>
+      <tr><td>Desktop best (CLIP ⊕ DINOv2 ensemble)</td><td class="n">0.838</td><td class="n">0.726</td></tr>
+      <tr><td>Mobile (CLIP + SVM-as-TFLite, deployed)</td><td class="n">0.825</td><td class="n">0.733</td></tr>
+    </tbody>
+  </table>
+  <div class="tblcap"><b>Table 5.</b> Tissue-classification results. The deployed
+    mobile model exceeds the historic best on F1 by +0.077 while running fully
+    on-device.</div>
+
+  <h3>3.5&nbsp;&nbsp;Output and thresholds</h3>
+  <p>The model ships raw probabilities; the application applies per-class
+    thresholds read from <code>tissue_head_meta.json</code>: epithelial 0.09,
+    granulation 0.43, necrosis 0.60, callus 0.45, slough 0.63. The stored
+    cross-validation metrics are AUC 0.825 and F1 0.7327.</p>
+
+  <h3>3.6&nbsp;&nbsp;Files</h3>
+  <table>
+    <thead><tr><th>File</th><th>Size</th><th>Role</th></tr></thead>
+    <tbody>
+      <tr><td><code>clip_backbone_fp16.tflite</code></td><td class="n">175 MB</td>
+        <td>image (1,224,224,3) → 512-d embedding (shared with Model 3)</td></tr>
+      <tr><td><code>tissue_head.tflite</code></td><td class="n">20 MB</td>
+        <td>512-d → 5 probabilities</td></tr>
+      <tr><td><code>tissue_head_meta.json</code></td><td class="n">—</td>
+        <td>class order, thresholds, cross-validation metrics</td></tr>
+    </tbody>
+  </table>
+  <div class="tblcap"><b>Table 6.</b> Deployed artefacts for Model 2.</div>
+
+  <h3>3.7&nbsp;&nbsp;Limitations</h3>
+  <div class="callout limit">
+    <span class="k">Limitations of Model 2</span>
+    <p>The mobile build is CLIP-only (no DINOv2), trading a small accuracy margin
+      for a large reduction in size. The fibrin class is not scoreable because too
+      few labelled examples exist.</p>
+  </div>
+</section>
+
+<!-- ============================ SECTION 4 ============================ -->
+<section class="page newsec">
+  <h2><span class="num">4</span>&nbsp;&nbsp;Model 3 — Infection &amp; Ischaemia</h2>
+  <p class="lead">Script: <code>train_model3_infection.py</code>. &nbsp; Deployed:
+    shared CLIP backbone + <code>infection_ischaemia_head.tflite</code>
+    (+ <code>infection_ischaemia_head_meta.json</code>). Full detail in
+    <code>MODEL3_INFECTION_HANDOFF.md</code>.</p>
+
+  <h3>4.1&nbsp;&nbsp;Purpose</h3>
+  <p>Model 3 replaces an originally-planned &ldquo;Pus Level&rdquo; output, for
+    which no pus-severity labels exist. Instead it predicts two clinically-validated
+    indicators: Infection and Ischaemia (blood flow). The recognition of these two
+    conditions from DFU images, and the underlying dataset design, follow the
+    framework established by Goyal et al.&nbsp;[12] and the DFUC 2021
+    Challenge&nbsp;[8].</p>
+
+  <h3>4.2&nbsp;&nbsp;Task formulation</h3>
+  <p>The model is trained as a 4-class softmax over
+    <code>[none, infection, ischaemia, both]</code> &mdash; the DFUC 2021 label
+    structure&nbsp;[7,8]. From the softmax the application derives two independent
+    binaries:</p>
+  <ul>
+    <li>P(infection) = P(infection) + P(both) → threshold 0.41 → Present / Not
+      Present.</li>
+    <li>P(ischaemia) = P(ischaemia) + P(both) → threshold 0.61 → Impaired /
+      Adequate.</li>
+  </ul>
+  <p>This derived-binary formulation handles the rare ischaemia class far better
+    than a direct 4-way argmax. The two binaries feed two UI rows and a top-level
+    risk badge: none → Normal, infection → Infection Detected, ischaemia →
+    Impaired Blood Flow, both → High Risk.</p>
+
+  <h3>4.3&nbsp;&nbsp;Datasets</h3>
+  <p>Datasets are pooled with one representative image per wound:</p>
+  <table>
+    <thead><tr><th>Dataset</th><th>Wounds</th><th>none / infection / ischaemia / both</th><th>Notes</th></tr></thead>
+    <tbody>
+      <tr><td>DFUC 2021 (train.csv)</td><td class="n">5,955</td><td class="n">2552 / 2555 / 227 / 621</td>
+        <td>Whole-image labels; 3,994 unlabeled rows dropped.</td></tr>
+      <tr><td>Part B (DFUNet)</td><td class="n">1,447</td><td class="n">595 / 642 / 24 / 186</td>
+        <td>Jointly labeled (same wound in both Infection &amp; Ischaemia folders) →
+          maps to 4-class.</td></tr>
+      <tr><td>Pooled</td><td class="n">7,402</td><td class="n">3147 / 3197 / 251 / 807</td>
+        <td>Part B lifts the scarce ischaemia / both classes.</td></tr>
+    </tbody>
+  </table>
+  <div class="tblcap"><b>Table 7.</b> Pooled infection/ischaemia dataset. Class
+    counts show how Part B reinforces the under-represented ischaemia and both
+    classes.</div>
+  <p>Part B's pre-made augmentation copies (<code>_M</code> mirror, <code>_R</code>
+    rotations) are collapsed to one crop per wound: because the backbone is frozen,
+    augments add no signal and risk leakage. Cross-validation uses
+    <code>StratifiedGroupKFold(5)</code> grouped by wound, eliminating augment- and
+    patch-level leakage.</p>
+
+  <h3>4.4&nbsp;&nbsp;Architecture</h3>
+  <ul>
+    <li><b>Encoder:</b> the same frozen CLIP ViT-B/32&nbsp;[4] as Model 2
+      (<code>clip_backbone_fp16.tflite</code>), verified byte-identical (MD5) to
+      the backbone the head was trained against.</li>
+    <li><b>Head:</b> L2-normalize → Dense(256, ReLU) → Dropout(0.5) →
+      Dense(4, softmax), trained with label smoothing 0.05 and class-balanced
+      weights.</li>
+    <li><b>Model selection:</b> the head was chosen through two grouped-CV
+      bake-offs (<code>model3_infection_experiments*.py</code>). The MLP beat linear
+      logistic regression; label smoothing then beat weight-decay, focal loss, and
+      a 5-seed ensemble &mdash; at zero extra size (a single 262 KB head).</li>
+    <li><b>Export:</b> fp16 TFLite; Keras↔TFLite parity max-abs-diff of
+      1.2e-04.</li>
+  </ul>
+
+  <h3>4.5&nbsp;&nbsp;Results (5-fold grouped CV, out-of-fold)</h3>
+  <table>
+    <thead><tr><th>Metric</th><th>Infection</th><th>Ischaemia</th></tr></thead>
+    <tbody>
+      <tr><td>AUC</td><td class="n">0.890</td><td class="n">0.987</td></tr>
+      <tr><td>F1 @ tuned threshold</td><td class="n">0.829</td><td class="n">0.872</td></tr>
+      <tr><td>Threshold</td><td class="n">0.41</td><td class="n">0.61</td></tr>
+    </tbody>
+  </table>
+  <div class="tblcap"><b>Table 8.</b> Out-of-fold cross-validated performance for
+    the two derived binaries.</div>
+  <p>Aggregate performance: macro-binary AUC 0.939, macro-F1 0.850; 4-class
+    accuracy 0.776. Per-source AUCs are near-identical across DFUC 2021 and Part B,
+    confirming that pooling generalises.</p>
+  <p>Progression: linear logistic regression 0.838 / 0.963 (macro-F1 0.788) → MLP
+    0.885 / 0.985 (0.842) → MLP + label-smoothing 0.890 / 0.987 (0.850).</p>
+
+  <h3>4.6&nbsp;&nbsp;Files</h3>
+  <table>
+    <thead><tr><th>File</th><th>Size</th><th>Role</th></tr></thead>
+    <tbody>
+      <tr><td><code>infection_ischaemia_head.tflite</code></td><td class="n">262 KB</td>
+        <td>512-d embedding → 4-class softmax</td></tr>
+      <tr><td><code>infection_ischaemia_head_meta.json</code></td><td class="n">—</td>
+        <td>classes, derived-binary map, thresholds, badge rule</td></tr>
+    </tbody>
+  </table>
+  <div class="tblcap"><b>Table 9.</b> Deployed artefacts for Model 3. Note the head
+    is under 0.3 MB.</div>
+
+  <h3>4.7&nbsp;&nbsp;Limitations</h3>
+  <div class="callout limit">
+    <span class="k">Limitations of Model 3</span>
+    <p>Infection reflects broad clinical criteria (redness, warmth, pain,
+      discharge), not exudate alone; neuropathic patients may under-present, so the
+      output is not a sole diagnostic basis. The ischaemia AUC of 0.987 is near
+      ceiling, whereas infection (0.890) retains the remaining headroom &mdash; the
+      next levers are wound-crop preprocessing via Model 1 or additional Part B
+      crops, both at essentially zero extra deployment size.</p>
+  </div>
+</section>
+
+<!-- ============================ SECTION 5 + 6 ============================ -->
+<section class="page newsec">
+  <h2><span class="num">5</span>&nbsp;&nbsp;Shared Preprocessing</h2>
+  <h3>5.1&nbsp;&nbsp;CLIP preprocessing (Models 2 &amp; 3)</h3>
+  <p>This pipeline must match CLIP exactly, or classification accuracy collapses:</p>
+  <ol>
+    <li>Decode the image to RGB.</li>
+    <li>Resize so the shorter side = 224 (bicubic).</li>
+    <li>Centre-crop to 224 × 224.</li>
+    <li>Divide by 255 → [0,1].</li>
+    <li>Per-channel normalise: mean = [0.48145466, 0.45782750, 0.40821073],
+      std = [0.26862954, 0.26130258, 0.27577711].</li>
+    <li>Feed NHWC float32 <code>[1,224,224,3]</code>, channel order RGB.</li>
+  </ol>
+  <h3>5.2&nbsp;&nbsp;Model 1 preprocessing</h3>
+  <p>Model 1 uses its own pipeline: resize to 320 × 320, divide by 255 → [0,1].
+    The [-1,1] rescale required by the MobileNetV2 backbone is baked into the
+    exported graph.</p>
+
+  <h2 style="margin-top:1.2em"><span class="num">6</span>&nbsp;&nbsp;Application Integration</h2>
+  <ul>
+    <li><b>Assets:</b> <code>assets/models/</code> holds all four TFLite files
+      (<code>model1_wound_fp16.tflite</code>, <code>clip_backbone_fp16.tflite</code>,
+      <code>tissue_head.tflite</code>, <code>infection_ischaemia_head.tflite</code>)
+      plus the two <code>*_meta.json</code> files.</li>
+    <li><b>Capture flow:</b> photo → preview → analysis. The reference-object scale
+      calibration and manual-depth steps that formerly sat between the photo and
+      the result have been removed, so capture now proceeds directly to analysis
+      and measurements run uncalibrated (see §2.4).</li>
+    <li><b>Service:</b> <code>AiService</code>
+      (<code>lib/features/wound/analysis/services/ai_service.dart</code>) loads all
+      models, runs Model 1 for measurements, and runs the CLIP backbone once for
+      both heads.</li>
+    <li><b>Result model:</b> <code>AnalysisResult</code> carries the measurements
+      (length, width, area), <code>tissueType</code>, <code>infection</code>,
+      <code>ischaemia</code>, and <code>riskBadge</code>. The legacy
+      <code>depth</code> field is retained in the data class but is no longer
+      populated or displayed (it defaults to 0), preserving database and
+      synchronisation compatibility.</li>
+    <li><b>UI:</b> the results screen shows the length and width measurement cards,
+      the risk badge, the tissue findings, and the Infection and Blood-Flow rows;
+      the depth row and the &ldquo;not calibrated&rdquo; banner were removed with
+      the depth/calibration steps. History and persistence (local SQLite, schema
+      v18) store infection/ischaemia; the interface is EN/AR localised.</li>
+    <li><b>Offline verification:</b> <code>python
+      mobile_export/reference_inference.py &lt;image.jpg&gt;</code> runs the
+      backbone once and prints both heads' outputs.</li>
+  </ul>
+</section>
+
+<!-- ============================ SECTION 7 ============================ -->
+<section class="page newsec">
+  <h2><span class="num">7</span>&nbsp;&nbsp;References</h2>
+  <p>References are grouped into methods/architectures and datasets. The dataset
+    entries [7]–[12] are the citations mandated by the dataset providers
+    (Manchester Metropolitan University, Diabetic Foot Ulcer Challenge) and are
+    reproduced as officially required; they must be cited in any publication that
+    uses the DFUC collections. Adapt the formatting to the citation style required
+    by your institution (the entries below follow a plain numbered convention).</p>
+
+  <h4>Methods and architectures</h4>
+  <ol style="font-size:9.6pt;line-height:1.4;">
+    <li>O. Ronneberger, P. Fischer, and T. Brox, &ldquo;U-Net: Convolutional
+      Networks for Biomedical Image Segmentation,&rdquo; in <i>Medical Image
+      Computing and Computer-Assisted Intervention (MICCAI) 2015</i>, LNCS vol.
+      9351, Springer, 2015, pp. 234–241. arXiv:1505.04597.</li>
+    <li>M. Sandler, A. Howard, M. Zhu, A. Zhmoginov, and L.-C. Chen,
+      &ldquo;MobileNetV2: Inverted Residuals and Linear Bottlenecks,&rdquo; in
+      <i>Proc. IEEE/CVF Conf. Computer Vision and Pattern Recognition (CVPR)</i>,
+      2018, pp. 4510–4520. arXiv:1801.04381.</li>
+    <li>N. Abraham and N. M. Khan, &ldquo;A Novel Focal Tversky Loss Function with
+      Improved Attention U-Net for Lesion Segmentation,&rdquo; in <i>Proc. IEEE
+      16th Int. Symp. Biomedical Imaging (ISBI)</i>, 2019, pp. 683–687.
+      arXiv:1810.07842.</li>
+    <li>A. Radford, J. W. Kim, C. Hallacy, et al., &ldquo;Learning Transferable
+      Visual Models from Natural Language Supervision&rdquo; (CLIP), in <i>Proc.
+      38th Int. Conf. Machine Learning (ICML)</i>, PMLR vol. 139, 2021,
+      pp. 8748–8763. arXiv:2103.00020.</li>
+    <li>M. Oquab, T. Darcet, T. Moutakanni, et al., &ldquo;DINOv2: Learning Robust
+      Visual Features without Supervision,&rdquo; 2023. arXiv:2304.07193.</li>
+  </ol>
+  <h4>Datasets</h4>
+  <ol start="6" style="font-size:9.6pt;line-height:1.4;">
+    <li>M. K. Dhar et al., &ldquo;Wound Tissue Segmentation in Diabetic Foot Ulcer
+      Images Using Deep Learning: A Pilot Study,&rdquo; 2024. arXiv:2406.16012.
+      (DFUTissue dataset; code and data:
+      github.com/uwm-bigdata/DFUTissueSegNet.)</li>
+    <li>M. H. Yap, C. Kendrick, N. D. Reeves, M. Goyal, J. M. Pappachan, and
+      B. Cassidy, &ldquo;Development of Diabetic Foot Ulcer Datasets: An
+      Overview,&rdquo; in <i>Diabetic Foot Ulcers Grand Challenge</i>, 2021,
+      pp. 1–18. arXiv:2201.00163. doi:10.1007/978-3-030-94907-5_1.</li>
+    <li>M. H. Yap, B. Cassidy, J. M. Pappachan, C. O'Shea, D. Gillespie, and
+      N. D. Reeves, &ldquo;Analysis Towards Classification of Infection and
+      Ischaemia of Diabetic Foot Ulcers,&rdquo; in <i>2021 IEEE EMBS International
+      Conference on Biomedical and Health Informatics (BHI)</i>, IEEE, 2021,
+      pp. 1–4.</li>
+    <li>B. Cassidy, N. D. Reeves, J. M. Pappachan, D. Gillespie, C. O'Shea,
+      S. Rajbhandari, A. G. Maiya, E. Frank, A. J. Boulton, D. G. Armstrong, and
+      B. Najafi, &ldquo;The DFUC 2020 Dataset: Analysis Towards Diabetic Foot Ulcer
+      Detection,&rdquo; <i>touchREVIEWS in Endocrinology</i>, vol. 17, no. 1, p. 5,
+      2021.</li>
+    <li>M. Goyal, N. D. Reeves, S. Rajbhandari, and M. H. Yap, &ldquo;Robust
+      Methods for Real-Time Diabetic Foot Ulcer Detection and Localization on
+      Mobile Devices,&rdquo; <i>IEEE Journal of Biomedical and Health
+      Informatics</i>, vol. 23, no. 4, pp. 1730–1741, 2018.</li>
+    <li>M. Goyal, N. D. Reeves, A. K. Davison, S. Rajbhandari, J. Spragg, and
+      M. H. Yap, &ldquo;DFUNet: Convolutional Neural Networks for Diabetic Foot
+      Ulcer Classification,&rdquo; <i>IEEE Transactions on Emerging Topics in
+      Computational Intelligence</i>, vol. 4, no. 5, pp. 728–739, 2018.</li>
+    <li>M. Goyal, N. D. Reeves, S. Rajbhandari, N. Ahmad, C. Wang, and M. H. Yap,
+      &ldquo;Recognition of Ischaemia and Infection in Diabetic Foot Ulcers:
+      Dataset and Techniques,&rdquo; <i>Computers in Biology and Medicine</i>,
+      vol. 117, p. 103616, 2020.</li>
+  </ol>
+  <div class="callout note">
+    <span class="k">Note on citations</span>
+    <p>Entries [7]–[12] are the citations required by the DFUC dataset providers and
+      should be reproduced in full in any publication using these datasets; the
+      overview paper [7] documents the origin and interconnection of the Challenge
+      collections. Still to be added by the author: a citation/approval statement
+      for the doctor-annotated <code>dfu-extra-labels</code> set, and, if reproduced
+      from a specific implementation, a source for the CLIP preprocessing constants.
+      The datasets are released for non-commercial research use only &mdash; confirm
+      each licence before publication.</p>
+  </div>
+  <p style="text-align:center;color:var(--muted);margin-top:2em;font-size:9.5pt;">
+    End of technical reference — DaiFootCare model documentation v1.1</p>
+</section>
