@@ -68,10 +68,28 @@ fvm flutter test            # widget + unit tests
 Models are pulled through **Git LFS** — run `git lfs install` once, then `git lfs pull`.
 In the app, models are otherwise delivered at runtime (offline bundle download or online mode).
 
+## Project repositories & version lineage
+This is the **third and current** iteration of the DiaFootCare mobile app — earlier
+prototypes were rebuilt into this repository. The models, labelling tool, and web tier
+live in sibling repositories.
+
+| Repository | Role | Stack | Visibility |
+|---|---|---|---|
+| [diafootcare](https://github.com/Ibraheemshehada/diafootcare) | Mobile app — **v1**, first prototype (Aug 2025) | Flutter | public |
+| [diafootcarev2](https://github.com/Ibraheemshehada/diafootcarev2) | Mobile app — **v2** (Aug–Oct 2025) | Flutter | public |
+| **diafootcare_new** — *this repo* | Mobile app — **current** (Oct 2025 →) | Flutter | public |
+| [DF](https://github.com/Ibraheemshehada/DF) | Model training & experiments (notebooks) | Jupyter | public |
+| [dfuc-annotator](https://github.com/Ibraheemshehada/dfuc-annotator) | DFU tissue-label annotation tool | HTML/JS | public |
+| [daifootcare-web](https://github.com/Ibraheemshehada/daifootcare-web) | Web tier — clinician dashboard, API & server-side inference | Python | private |
+
+*The v1 / v2 app repos are kept for history; active development is here. Datasets and raw
+model binaries are not stored in any of these repositories.*
+
 ## System tiers
-DiaFootCare is three tiers: this **mobile app**, a **Laravel API**, and a **Vue 3 clinician
-dashboard** (separate repos), with a **Python/FastAPI** service for server-side inference.
-See the [System Documentation](docs/DaiFootCare_System_Documentation.html).
+DiaFootCare is a mobile app (this repo) plus a **web / server tier** — clinician dashboard,
+API, and a server-side inference service — maintained in the separate
+[daifootcare-web](https://github.com/Ibraheemshehada/daifootcare-web) repository.
+Architecture and deployment are covered in the [System Documentation](docs/DaiFootCare_System_Documentation.html).
 
 ---
 *Built with Flutter · TensorFlow Lite · CLIP. See the [Design-Modification Log](docs/DESIGN_MODIFICATION_LOG.md) for the full evolution.*

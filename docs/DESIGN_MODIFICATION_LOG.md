@@ -14,6 +14,15 @@ detailed trackers and research documentation linked at the bottom.
 - **Release status:** internal/clinical-team testing — **not yet released to end users**
 - **History span:** 2025-10-31 → 2026-08-03 · 90 commits on `main`
 
+### Repository lineage
+This repository (`diafootcare_new`) is the **third iteration** of the DiaFootCare mobile
+app. The first two prototypes — [`diafootcare`](https://github.com/Ibraheemshehada/diafootcare)
+(v1, Aug 2025) and [`diafootcarev2`](https://github.com/Ibraheemshehada/diafootcarev2)
+(v2, Aug–Oct 2025) — were rebuilt into this one, the active codebase since 2025-10-31.
+Sibling repositories: model training in [`DF`](https://github.com/Ibraheemshehada/DF)
+(notebooks), tissue labelling in [`dfuc-annotator`](https://github.com/Ibraheemshehada/dfuc-annotator),
+and the web / server tier in `daifootcare-web` (private). Full map in the [README](../README.md).
+
 ---
 
 ## 1. Application version history
