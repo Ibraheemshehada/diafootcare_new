@@ -34,8 +34,8 @@ and the web / server tier — a Laravel API + Vue 3 dashboard + Python inference
 | **1.1.0+2** | R2–R5 | 2026-07-02 → 2026-07-30 | 3-model on-device pipeline, offline/online modes, sync, clinical suite, iOS-ready |
 | *(docs)* | R6 | 2026-07 → 2026-08 | Research documentation + full model-metric verification (no app-code change) |
 
-Build numbers follow `major.minor.patch+build`. The database schema advanced
-independently from **v1 → v12** across these rounds (see §4).
+Build numbers follow `major.minor.patch+build`. The local database schema advanced
+independently from **v1 → v19** across these rounds (see §4).
 
 ---
 
@@ -144,12 +144,17 @@ Each model went through explicit design iterations; the **deployed** configurati
 ---
 
 ## 4. Data layer & schema evolution
-The local SQLite schema migrated forward without data loss (`onUpgrade`) across rounds:
+The local SQLite schema migrated forward without data loss (guarded `onUpgrade` steps),
+reaching **v19** (`DatabaseHelper.schemaVersion`). Key milestones:
 
-- **→ v10** engagement `analytics_events`
-- **→ v11** `sus_responses` (usability study)
-- **→ v12** `analytics_events.value`
-- Round-4/5 additions: `local_uuid` insert-trigger; wound **`area`** (true segmented cm²) and per-class **`tissueFindings`** JSON alongside the legacy headline label.
+- **v10** `analytics_events` · **v11** `sus_responses` (usability study) · **v12** `analytics_events.value`
+- **v13** `consents` table + `sus_responses.consent_version` (versioned data-sharing consent)
+- **v14–v15** offline-sync columns + `engagement_daily` rollup table (Round 3)
+- **v16** `local_uuid` insert-trigger + backfill of missing ids (Round 4)
+- **v17** `wounds.tissueFindings` (per-class multi-label tissue) · **v18** `wounds.analysedOn`
+- **v19** `wounds.area` — true segmented area in cm² (Round 5); older rows stay NULL and fall back to length × width on read
+
+Every step is additive and guarded (a failed `ALTER` cannot block the database from opening), so existing installs auto-migrate with no wipe.
 
 ---
 
