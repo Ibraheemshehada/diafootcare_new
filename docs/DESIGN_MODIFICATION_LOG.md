@@ -21,7 +21,8 @@ app. The first two prototypes — [`diafootcare`](https://github.com/Ibraheemshe
 (v2, Aug–Oct 2025) — were rebuilt into this one, the active codebase since 2025-10-31.
 Sibling repositories: model training in [`DF`](https://github.com/Ibraheemshehada/DF)
 (notebooks), tissue labelling in [`dfuc-annotator`](https://github.com/Ibraheemshehada/dfuc-annotator),
-and the web / server tier in `daifootcare-web` (private). Full map in the [README](../README.md).
+and the web / server tier — a Laravel API + Vue 3 dashboard + Python inference monorepo — in
+[`daifootcare-web`](https://github.com/Ibraheemshehada/daifootcare-web). Full map in the [README](../README.md).
 
 ---
 
@@ -156,9 +157,10 @@ The local SQLite schema migrated forward without data loss (`onUpgrade`) across 
 The mobile app is one of three tiers, added in Rounds 3–4:
 
 - **Mobile app** — this repository (Flutter, on-device inference + online mode).
-- **API** — Laravel backend (separate repo): identity, sync ingestion, model manifest/hosting.
-- **Dashboard** — Vue 3 clinician web dashboard (separate repo): patient list, scans, detail.
-- **Inference service** — a Python/FastAPI service performs Mode-A (server) inference, since PHP has no TFLite runtime.
+- **Web / server tier** — the [`daifootcare-web`](https://github.com/Ibraheemshehada/daifootcare-web) monorepo:
+  - **API** — Laravel backend: identity, sync ingestion, model manifest/hosting.
+  - **Dashboard** — Vue 3 clinician web dashboard: patient list, scans, detail.
+  - **Inference service** — a Python/FastAPI service performs Mode-A (server) inference, since PHP has no TFLite runtime.
 
 Deployment topology and the online/offline decision are documented in the [System Documentation](DaiFootCare_System_Documentation.html).
 

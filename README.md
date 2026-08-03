@@ -80,15 +80,16 @@ live in sibling repositories.
 | **diafootcare_new** — *this repo* | Mobile app — **current** (Oct 2025 →) | Flutter | public |
 | [DF](https://github.com/Ibraheemshehada/DF) | Model training & experiments (notebooks) | Jupyter | public |
 | [dfuc-annotator](https://github.com/Ibraheemshehada/dfuc-annotator) | DFU tissue-label annotation tool | HTML/JS | public |
-| [daifootcare-web](https://github.com/Ibraheemshehada/daifootcare-web) | Web tier — clinician dashboard, API & server-side inference | Python | private |
+| [daifootcare-web](https://github.com/Ibraheemshehada/daifootcare-web) | Web tier — Laravel API + Vue 3 dashboard + Python inference (monorepo) | Laravel · Vue · Python | public |
 
 *The v1 / v2 app repos are kept for history; active development is here. Datasets and raw
 model binaries are not stored in any of these repositories.*
 
 ## System tiers
-DiaFootCare is a mobile app (this repo) plus a **web / server tier** — clinician dashboard,
-API, and a server-side inference service — maintained in the separate
-[daifootcare-web](https://github.com/Ibraheemshehada/daifootcare-web) repository.
+DiaFootCare is a mobile app (this repo) plus a **web / server tier** — a **Laravel API**,
+a **Vue 3 clinician dashboard**, and a **Python inference service** (Mode-A, since PHP has no
+TFLite runtime) — together in the
+[daifootcare-web](https://github.com/Ibraheemshehada/daifootcare-web) monorepo.
 Architecture and deployment are covered in the [System Documentation](docs/DaiFootCare_System_Documentation.html).
 
 ---
