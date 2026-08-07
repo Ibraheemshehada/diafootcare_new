@@ -57,7 +57,12 @@ class DiaFootApp extends StatelessWidget {
               final themeMode = inner.watch<SettingsViewModel>().themeMode;
               return MaterialApp(
                 debugShowCheckedModeBanner: false,
-                title: tr('app_name'),
+                // onGenerateTitle, not title: `title` is evaluated during the
+                // first build, before EasyLocalization has finished loading the
+                // JSON, so tr('app_name') returned the raw key and the Android
+                // task switcher showed "app_name". onGenerateTitle is called
+                // with a context that already has the localisations attached.
+                onGenerateTitle: (context) => tr('app_name'),
                 theme: lightTheme,
                 darkTheme: darkTheme,
                 themeMode: themeMode,

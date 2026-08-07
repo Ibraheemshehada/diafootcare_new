@@ -91,6 +91,21 @@ class RemoteAnalysisService {
     }
   }
 
+  /// P(infection) for the banded triage, however the server expressed it.
+  ///
+  /// When an older server sends no probability we fall back to its headline and
+  /// map "Not Present" to the UNCERTAIN band rather than the low one: the
+  /// server's cut-off is 0.41 while the low band ends at 0.30, so a negative
+  /// there could genuinely be either, and the safe way to be wrong is towards a
+  /// second look.
+  static double _infectionProbability(Map<String, dynamic> a) {
+    final raw = a['infection_probability'] ?? a['infection_prob'];
+    if (raw is num) return raw.toDouble().clamp(0.0, 1.0);
+    final headline = (a['infection'] as String?)?.toLowerCase();
+    if (headline == null || headline == 'n/a') return 0.35;
+    return headline.contains('not') ? 0.35 : 0.85;
+  }
+
   AnalysisResult _fromJson(Map<String, dynamic> a) {
     double d(String k) => (a[k] as num?)?.toDouble() ?? 0.0;
 
@@ -116,6 +131,10 @@ class RemoteAnalysisService {
       pusLevel: 'N/A',
       inflammation: 'N/A',
       infection: a['infection'] as String? ?? 'N/A',
+      // Raw probability, not the server's yes/no: without it this field
+      // defaulted to 0.0 in online mode, landing in the "no signs" band — the
+      // app would have reassured a patient the server had just flagged.
+      infectionProbability: _infectionProbability(a),
       ischaemia: a['ischaemia'] as String? ?? 'N/A',
       riskBadge: a['risk_badge'] as String? ?? 'Normal',
       healingProgress: d('healing_progress'),

@@ -44,6 +44,9 @@ class WoundsRepository {
           'pusLevel': result.pusLevel,
           'inflammation': result.inflammation,
           'infection': result.infection,
+          // The score behind the verdict, so a stored scan can be re-triaged
+          // and the dashboard can show how close to threshold it sat.
+          'infectionProbability': result.infectionProbability,
           'ischaemia': result.ischaemia,
           'healingProgress': result.healingProgress,
           'createdAt': now.millisecondsSinceEpoch,
@@ -176,6 +179,8 @@ class WoundsRepository {
         pusLevel: map['pusLevel'] as String? ?? 'Unknown',
         inflammation: map['inflammation'] as String? ?? 'None',
         infection: map['infection'] as String? ?? 'N/A',
+        infectionProbability:
+            (map['infectionProbability'] as num?)?.toDouble() ?? 0.0,
         ischaemia: map['ischaemia'] as String? ?? 'N/A',
         healingProgress: (map['healingProgress'] as num?)?.toDouble() ?? 0.0,
       );

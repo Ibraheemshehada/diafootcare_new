@@ -8,7 +8,7 @@ class DatabaseHelper {
   ///
   /// Exposed so tests assert against the same source of truth as the migration
   /// itself, instead of a literal that silently goes stale on the next bump.
-  static const int schemaVersion = 19;
+  static const int schemaVersion = 21;
 
   static final DatabaseHelper _instance = DatabaseHelper._();
   static Database? _db;
@@ -249,6 +249,31 @@ class DatabaseHelper {
             await db.execute('ALTER TABLE wounds ADD COLUMN tissueFindings TEXT');
           } catch (e) {
             debugPrint('Note: wounds.tissueFindings not added: $e');
+          }
+        }
+        if (oldVersion < 21) {
+          // The raw P(infection). Only the yes/no was ever kept, so a stored
+          // record could not be re-triaged: the banded outcome (no-signs /
+          // uncertain / seek-review) needs the score, not the verdict, and the
+          // server's own infection_prob column sat empty for the same reason.
+          try {
+            await db.execute(
+                'ALTER TABLE wounds ADD COLUMN infectionProbability REAL');
+          } catch (e) {
+            debugPrint('Note: wounds.infectionProbability not added: $e');
+          }
+        }
+        if (oldVersion < 20) {
+          // Wound photographs upload separately from the scan record: the
+          // record is small JSON in a batch, the photograph is megabytes of
+          // multipart that must be resumable on its own. This column is that
+          // queue. 0 = still to send, 1 = on the server, 2 = the local file is
+          // gone so there is nothing left to send (never retried).
+          try {
+            await db.execute(
+                'ALTER TABLE wounds ADD COLUMN image_synced INTEGER DEFAULT 0');
+          } catch (e) {
+            debugPrint('Note: wounds.image_synced not added: $e');
           }
         }
         if (oldVersion < 19) {

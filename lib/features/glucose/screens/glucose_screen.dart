@@ -9,6 +9,8 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/widgets/app_dialogs.dart';
 import '../../../data/models/glucose_reading.dart';
 import '../viewmodel/glucose_viewmodel.dart';
+import '../glucose_unit.dart';
+import '../../../core/utils/arabic_numerals.dart';
 
 const _kTags = ['fasting', 'post_meal', 'random'];
 
@@ -50,10 +52,41 @@ class GlucoseScreen extends StatelessWidget {
     final vm = context.watch<GlucoseViewModel>();
     final locale = context.locale.toLanguageTag();
 
-    return Scaffold(
+    // Rebuild every reading on the screen the instant the unit changes: a
+    // number still rendered in mg/dL beside a "mmol/L" label reads as an
+    // eighteen-fold error.
+    return ValueListenableBuilder<GlucoseUnit>(
+      valueListenable: GlucoseUnitPref.unit,
+      builder: (context, _, __) => Scaffold(
       appBar: AppBar(
         title: Text('glucose_title'.tr(), style: TextStyle(fontSize: 18.sp)),
         backgroundColor: t.scaffoldBackgroundColor,
+        actions: [
+          // Patients read whichever unit their own meter shows; forcing one
+          // invites transcription errors. Storage stays mg/dL either way.
+          PopupMenuButton<GlucoseUnit>(
+            tooltip: 'glucose_unit'.tr(),
+            icon: const Icon(Icons.swap_horiz),
+            onSelected: GlucoseUnitPref.set,
+            itemBuilder: (_) => GlucoseUnit.values
+                .map((u) => PopupMenuItem<GlucoseUnit>(
+                      value: u,
+                      child: Row(
+                        children: [
+                          Icon(
+                            u == GlucoseUnitPref.unit.value
+                                ? Icons.radio_button_checked
+                                : Icons.radio_button_unchecked,
+                            size: 18.sp,
+                          ),
+                          SizedBox(width: 8.w),
+                          Text(u.label),
+                        ],
+                      ),
+                    ))
+                .toList(),
+          ),
+        ],
       ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => _addReading(context),
@@ -88,6 +121,7 @@ class GlucoseScreen extends StatelessWidget {
                       )),
               ],
             ),
+      ),
     );
   }
 
@@ -135,7 +169,7 @@ class _GlucoseSummaryCard extends StatelessWidget {
                       style: TextStyle(
                           fontSize: 28.sp, fontWeight: FontWeight.w700))
                 else
-                  Text('${latest.value.toStringAsFixed(0)}  mg/dL',
+                  Text(GlucoseUnitPref.unit.value.formatWithUnit(latest.value),
                       style: TextStyle(
                           fontSize: 26.sp, fontWeight: FontWeight.w800)),
                 if (latest != null) ...[
@@ -237,7 +271,7 @@ class GlucoseTile extends StatelessWidget {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('${r.value.toStringAsFixed(0)} mg/dL',
+                  Text(GlucoseUnitPref.unit.value.formatWithUnit(r.value),
                       style: TextStyle(
                           fontSize: 15.sp, fontWeight: FontWeight.w700)),
                   SizedBox(height: 2.h),
@@ -285,11 +319,18 @@ class _AddGlucoseDialogState extends State<_AddGlucoseDialog> {
   }
 
   void _submit() {
-    final v = double.tryParse(_ctrl.text.trim());
-    if (v == null || v <= 0) {
+    final u = GlucoseUnitPref.unit.value;
+    final typed = ArabicNumerals.tryParseDouble(_ctrl.text);
+    // Validate in the unit the patient typed, then convert. Checking the
+    // converted value against mg/dL bounds would reject an ordinary 6.2 mmol/L.
+    if (typed == null ||
+        typed <= 0 ||
+        typed < u.minInput ||
+        typed > u.maxInput) {
       showAppError(context, 'glucose_invalid'.tr());
       return;
     }
+    final v = u.toMgdl(typed); // stored canonically in mg/dL
     // Drop focus before the route pops so the TextField's focus node isn't
     // torn down mid-transition (avoids an InheritedElement lifecycle assert).
     FocusScope.of(context).unfocus();
@@ -309,12 +350,14 @@ class _AddGlucoseDialogState extends State<_AddGlucoseDialog> {
             keyboardType:
                 const TextInputType.numberWithOptions(decimal: true),
             inputFormatters: [
-              FilteringTextInputFormatter.allow(RegExp(r'[0-9.]')),
+              // Arabic keyboards emit ٠-٩, which this filter used to swallow as the
+              // patient typed. See ArabicNumerals.
+              ArabicNumerals.inputFormatter,
             ],
             decoration: InputDecoration(
               border: const OutlineInputBorder(),
               labelText: 'glucose_value_label'.tr(),
-              suffixText: 'mg/dL',
+              suffixText: GlucoseUnitPref.unit.value.label,
             ),
           ),
           SizedBox(height: 16.h),

@@ -3,6 +3,7 @@
 // import 'package:flutter_screenutil/flutter_screenutil.dart';
 // import 'package:image_picker/image_picker.dart';
 // import 'package:loading_animation_widget/loading_animation_widget.dart';
+import '../services/infection_triage.dart';
 // import '../viewmodel/analysis_result.dart';
 // import 'ai_result_screen.dart';
 //
@@ -138,11 +139,18 @@ class AnalysisLoadingScreen extends StatefulWidget {
   final String imagePath; // photo taken
   final double? pixelsPerCm; // from reference-object calibration (null = skipped)
   final double? manualDepthCm; // clinician's probe depth (null = not measured)
+
+  /// Patient-reported IWGDF/IDSA signs, or null when the checklist was skipped.
+  /// Null is passed through as "no answers", never as "all no" — an unanswered
+  /// checklist is missing information, not a clean bill of health.
+  final InfectionSigns? signs;
+
   const AnalysisLoadingScreen({
     super.key,
     required this.imagePath,
     this.pixelsPerCm,
     this.manualDepthCm,
+    this.signs,
   });
 
   @override
@@ -194,6 +202,7 @@ class _AnalysisLoadingScreenState extends State<AnalysisLoadingScreen> {
           builder: (_) => AiResultScreen(
             result: result,
             imagePath: widget.imagePath,
+            signs: widget.signs,
           ),
         ),
       );

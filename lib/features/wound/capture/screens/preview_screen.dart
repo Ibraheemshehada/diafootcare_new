@@ -9,6 +9,8 @@ import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as path;
 
 import '../../analysis/screens/analysis_loading_screen.dart';
+import '../../analysis/screens/infection_checklist_screen.dart';
+import '../../analysis/services/infection_triage.dart';
 
 class PreviewScreen extends StatefulWidget {
   final XFile file;
@@ -116,18 +118,29 @@ class _PreviewScreenState extends State<PreviewScreen> {
                         Navigator.pop(context); // Close loading dialog
 
                         if (!mounted) return;
-                        // Straight from the photo to the analysis. The scale
-                        // calibration and manual-depth steps were both removed:
-                        // they sat between the photo and the result, and the
-                        // measurements run uncalibrated (a relative-size trend,
-                        // flagged as approximate on the result) rather than
-                        // asking the user to place a reference card first.
+                        // The photo answers only part of the question. A camera
+                        // can see redness but cannot feel warmth or tenderness,
+                        // and IWGDF/IDSA needs those signs — so the checklist
+                        // sits between the photo and the analysis, collecting
+                        // what the lens cannot. Skipping it is allowed; the
+                        // triage then simply has fewer signs to count.
+                        // (Scale calibration and manual depth were removed
+                        // earlier; measurements run uncalibrated and are
+                        // flagged as approximate on the result.)
+                        final signs = await Navigator.push<InfectionSigns>(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const InfectionChecklistScreen(),
+                          ),
+                        );
+                        if (!context.mounted) return;
                         Navigator.pushReplacement(
                           context,
                           MaterialPageRoute(
                             builder:
                                 (_) => AnalysisLoadingScreen(
                                   imagePath: imagePath,
+                                  signs: signs,
                                 ),
                           ),
                         );

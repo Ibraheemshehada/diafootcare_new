@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:image/image.dart' as img;
 import 'package:shared_preferences/shared_preferences.dart';
+import '../../../../core/utils/arabic_numerals.dart';
 
 /// Reference-object calibration.
 ///
@@ -94,7 +95,7 @@ class _ScaleCalibrationScreenState extends State<ScaleCalibrationScreen> {
   double? get _referenceCm {
     final opt = _options[_selected];
     if (opt.cm != null) return opt.cm;
-    return double.tryParse(_customCtrl.text.trim());
+    return ArabicNumerals.tryParseDouble(_customCtrl.text);
   }
 
   /// Geometry of the BoxFit.contain image inside [_box].
@@ -241,7 +242,9 @@ class _ScaleCalibrationScreenState extends State<ScaleCalibrationScreen> {
                   decimal: true,
                 ),
                 inputFormatters: [
-                  FilteringTextInputFormatter.allow(RegExp(r'[0-9.]')),
+                  // Arabic keyboards emit ٠-٩, which this filter used to swallow as the
+              // patient typed. See ArabicNumerals.
+              ArabicNumerals.inputFormatter,
                 ],
                 decoration: InputDecoration(
                   isDense: true,

@@ -11,6 +11,7 @@ import 'core/services/sync_service.dart';
 import 'core/services/web_notification_service.dart';
 
 import 'package:easy_localization/easy_localization.dart';
+import 'features/glucose/glucose_unit.dart';
 
 import 'package:sqflite/sqflite.dart';
 import 'package:sqflite_common_ffi_web/sqflite_ffi_web.dart';
@@ -92,6 +93,9 @@ void main() async {
   await Future.wait([
     NotificationService.I.init(),
     EasyLocalization.ensureInitialized(),
+    // Read before the first frame: a reading rendered in mg/dL and then
+    // relabelled mmol/L a moment later is a misread waiting to happen.
+    GlucoseUnitPref.load(),
   ]);
 
   // Log this launch for the study's engagement metrics (local-only, non-blocking).

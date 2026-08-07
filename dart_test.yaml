@@ -1,0 +1,19 @@
+# Test-runner configuration.
+#
+# concurrency: 1 — run suites one at a time.
+#
+# `flutter test` defaults to running suites in parallel isolates. Several of
+# these suites open their own in-memory SQLite database (sqflite_common_ffi),
+# and once enough of them ran side by side the Dart VM aborted with
+# "../../runtime/vm/zone.cc: 96: error: Out of memory." mid-run — reported as
+# failing tests, which it was not: every suite passes on its own, and the whole
+# suite passes serially (101/101).
+#
+# Serial execution costs about 20 seconds here. That is a good trade for a
+# result that is the same every time, on every machine, instead of one that
+# depends on how much RAM happened to be free.
+concurrency: 1
+
+# 2 minutes: the DB migration suites build and migrate real schemas, which is
+# slower than a plain unit test but nowhere near the 30s default * 4.
+timeout: 2x

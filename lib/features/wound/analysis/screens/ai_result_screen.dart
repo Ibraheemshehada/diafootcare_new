@@ -8,16 +8,22 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../core/widgets/app_dialogs.dart';
 import '../chart_bounds.dart';
 import '../viewmodel/analysis_result.dart';
+import '../services/infection_triage.dart';
 import '../../../../data/repositories/wounds_repository.dart';
 import '../../../../data/models/wound_entry.dart';
 
 class AiResultScreen extends StatefulWidget {
   final AnalysisResult result;
   final String imagePath; // Image path to save
+
+  /// Patient-reported signs from the checklist; null when it was skipped.
+  final InfectionSigns? signs;
+
   const AiResultScreen({
     super.key,
     required this.result,
     required this.imagePath,
+    this.signs,
   });
 
   @override
@@ -87,10 +93,25 @@ class _AiResultScreenState extends State<AiResultScreen> {
               SizedBox(height: 12.h),
             ],
 
-            // The "not calibrated" banner was removed with scale calibration:
-            // it told the user to "set a scale with a reference object", a step
-            // that no longer exists in the flow, so the advice was unreachable.
-            // Measurements are always relative-size now.
+            // Restored 2026-08-05. It was removed when scale calibration left
+            // the flow, because it pointed at a step the user could no longer
+            // reach. But without a scale reference the cm figures come from an
+            // assumed 12 cm frame width, so they scale with however far the
+            // camera happened to be held — a real patient wound of 1.4 cm was
+            // reported as 0.9 cm. Presenting that to two decimal places with no
+            // qualification overstates what the app knows. The wording now
+            // states the limitation and points at the signal that IS reliable
+            // (the trend) rather than an action that does not exist yet; it will
+            // point at the calibration sticker once that ships.
+            // See docs/ACCURACY_IMPROVEMENT_PLAN.md §2.
+            if (!result.isCalibrated) ...[
+              _Banner(
+                icon: Icons.straighten_rounded,
+                color: AppColors.of(context).warning,
+                message: 'ai_not_calibrated_banner'.tr(),
+              ),
+              SizedBox(height: 12.h),
+            ],
 
             _StatCard(
               icon: Icons.straighten,
@@ -121,7 +142,21 @@ class _AiResultScreenState extends State<AiResultScreen> {
             // the manual-entry step that used to supply it is gone from the
             // capture flow. Length and width are what the model produces.
             SizedBox(height: 20.h),
-            _RiskBadge(badge: result.riskBadge),
+            // Derived from the SAME triage the card below shows, not from
+            // Model 3's raw 0.41 cut-off. Those were two independent judges and
+            // they contradicted each other on screen — the badge said
+            // "Infection detected" while the card said "no signs", for one
+            // wound, in one analysis. See docs/CONTRADICTORY_VERDICT_INVESTIGATION.md.
+            // result.riskBadge is still stored and synced: the dashboard needs
+            // what Model 3 alone reported. It just no longer speaks to the
+            // patient without the checklist beside it.
+            _RiskBadge(
+              outcome: triage(
+                infectionProbability: result.infectionProbability,
+                signs: widget.signs ?? const InfectionSigns(),
+              ).outcome,
+              ischaemia: result.ischaemia == 'Impaired',
+            ),
             SizedBox(height: 16.h),
             _SectionTitle('wound_details'.tr()),
             SizedBox(height: 12.h),
@@ -131,7 +166,7 @@ class _AiResultScreenState extends State<AiResultScreen> {
               // Every tissue present, most serious first, rather than one
               // headline — a wound bed usually holds more than one, and the
               // rest of the answer used to be discarded.
-              title: result.tissueSummary,
+              title: result.localizedTissueSummary,
               subtitle: 'tissue_type'.tr(),
               color: primary,
             ),
@@ -140,12 +175,18 @@ class _AiResultScreenState extends State<AiResultScreen> {
               _TissueBreakdown(findings: result.tissueFindings),
             ],
             SizedBox(height: 10.h),
-            // Model 3 — replaces the old "Pus Level" row with two rows.
-            _DetailCard(
-              icon: Icons.coronavirus_outlined,
-              title: _localizedStatus(result.infection),
-              subtitle: 'infection'.tr(),
-              color: result.infection == 'Present' ? warn : primary,
+            // Model 3. The bare 'Present'/'Not Present' row is replaced by the
+            // IWGDF/IDSA triage: the image score is banded (low / uncertain /
+            // high) and combined with the patient's reported signs, because a
+            // single cut-off on a 0.74-specificity signal produced alarms that
+            // were wrong more often than right at clinic prevalence.
+            // See docs/IMPLEMENTATION_TRACKER.md §C4.
+            _TriageCard(
+              result: triage(
+                infectionProbability: result.infectionProbability,
+                signs: widget.signs ?? const InfectionSigns(),
+              ),
+              answered: widget.signs != null,
             ),
             SizedBox(height: 10.h),
             _DetailCard(
@@ -449,64 +490,91 @@ String _localizedStatus(String value) {
 /// Top-of-results risk banner derived from the SAME Model-3 prediction.
 /// none->Normal (green), infection/ischaemia only->amber, both->High Risk (red).
 class _RiskBadge extends StatelessWidget {
-  final String badge; // English key from AnalysisResult.riskBadge
-  const _RiskBadge({required this.badge});
+  /// The triage outcome — the single source of truth for what the patient is
+  /// told. Never Model 3's raw binary.
+  final TriageOutcome outcome;
+
+  /// Impaired blood flow is a separate finding from infection and is not part
+  /// of the infection triage, so it is carried alongside rather than folded in.
+  final bool ischaemia;
+
+  const _RiskBadge({required this.outcome, required this.ischaemia});
 
   @override
   Widget build(BuildContext context) {
     final t = Theme.of(context);
+    final c = AppColors.of(context);
+
     late final Color color;
     late final IconData icon;
     late final String label;
-    switch (badge) {
-      case 'High Risk':
-        color = const Color(0xFFD64545); // red
-        icon = Icons.warning_amber_rounded;
-        label = 'badge_high_risk'.tr();
-        break;
-      case 'Infection Detected':
-        color = const Color(0xFFE8A317); // amber
+    String? action;
+
+    switch (outcome) {
+      case TriageOutcome.urgent:
+        color = c.danger;
+        icon = Icons.emergency_outlined;
+        label = 'badge_urgent'.tr();
+        action = 'badge_action_urgent'.tr();
+      case TriageOutcome.seeClinician:
+        color = c.warning;
+        // The clinician asked for the evidence to be named, not just the
+        // verdict: "Infection detected (signs of inflammation present)".
         icon = Icons.coronavirus_outlined;
-        label = 'badge_infection'.tr();
-        break;
-      case 'Impaired Blood Flow':
-        color = const Color(0xFFE8A317); // amber
-        icon = Icons.bloodtype_outlined;
-        label = 'badge_ischaemia'.tr();
-        break;
-      default: // Normal
-        color = const Color(0xFF2E9E6B); // green
-        icon = Icons.check_circle_outline;
-        label = 'badge_normal'.tr();
+        label = 'badge_infection_signs'.tr();
+        action = 'badge_action_clinic'.tr();
+      case TriageOutcome.recheckPhoto:
+        color = c.caution;
+        icon = Icons.photo_camera_outlined;
+        label = 'badge_recheck'.tr();
+        action = 'badge_action_recheck'.tr();
+      case TriageOutcome.monitor:
+        color = c.caution;
+        icon = Icons.visibility_outlined;
+        label = 'badge_monitor'.tr();
+        action = 'badge_action_monitor'.tr();
+      case TriageOutcome.noSigns:
+        // Ischaemia is judged separately, so a wound with no infection signs
+        // but impaired flow must not be shown as simply "normal".
+        color = ischaemia ? c.warning : c.success;
+        icon = ischaemia ? Icons.bloodtype_outlined : Icons.check_circle_outline;
+        label = ischaemia ? 'badge_ischaemia'.tr() : 'badge_normal'.tr();
+        action = ischaemia ? 'badge_action_clinic'.tr() : null;
     }
+
     return Container(
+      width: double.infinity,
       padding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 12.h),
       decoration: BoxDecoration(
-        color: color.withOpacity(.10),
+        color: color.withValues(alpha: 0.10),
+        border: Border.all(color: color.withValues(alpha: 0.45)),
         borderRadius: BorderRadius.circular(12.r),
-        border: Border.all(color: color.withOpacity(.45)),
       ),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(icon, color: color, size: 24.sp),
-          SizedBox(width: 10.w),
-          Expanded(
-            child: Text(
-              label,
-              style: t.textTheme.titleMedium?.copyWith(
-                color: color,
-                fontWeight: FontWeight.w700,
-                fontSize: 16.sp,
+          Row(
+            children: [
+              Icon(icon, color: color, size: 22.sp),
+              SizedBox(width: 10.w),
+              Expanded(
+                child: Text(
+                  label,
+                  style: t.textTheme.titleSmall
+                      ?.copyWith(color: color, fontWeight: FontWeight.w700),
+                ),
               ),
-            ),
+            ],
           ),
+          if (action != null) ...[
+            SizedBox(height: 6.h),
+            Text(action, style: t.textTheme.bodySmall),
+          ],
         ],
       ),
     );
   }
 }
-
-/// Progress summary card showing comparison with previous entries
 class _ProgressSummaryCard extends StatelessWidget {
   final AnalysisResult currentResult;
   final List<WoundEntry> historyEntries;
@@ -975,7 +1043,7 @@ class _TissueBreakdown extends StatelessWidget {
                 SizedBox(width: 8.w),
                 Expanded(
                   child: Text(
-                    f.displayName,
+                    f.localizedName,
                     style: theme.textTheme.bodyMedium?.copyWith(
                       fontWeight:
                           f.isPresent ? FontWeight.w600 : FontWeight.w400,
@@ -1019,6 +1087,115 @@ class _TissueBreakdown extends StatelessWidget {
           Text('tissue_threshold_note'.tr(),
               style: theme.textTheme.bodySmall
                   ?.copyWith(color: theme.colorScheme.onSurfaceVariant)),
+        ],
+      ),
+    );
+  }
+}
+
+/// Renders the IWGDF/IDSA triage outcome.
+///
+/// Deliberately not a bare yes/no: the middle band says "uncertain" out loud
+/// rather than guessing, and the deep-infection caveat rides along with every
+/// non-urgent outcome because neither a photograph nor this checklist can see
+/// osteomyelitis — "no signs" must never read as an all-clear.
+class _TriageCard extends StatelessWidget {
+  final TriageResult result;
+
+  /// False when the checklist was skipped, so the card can say the answer is
+  /// based on the photograph alone rather than implying a full assessment.
+  final bool answered;
+
+  const _TriageCard({required this.result, required this.answered});
+
+  @override
+  Widget build(BuildContext context) {
+    final c = AppColors.of(context);
+    final t = Theme.of(context);
+
+    late final Color colour;
+    late final IconData icon;
+    late final String titleKey;
+    late final String bodyKey;
+    switch (result.outcome) {
+      case TriageOutcome.urgent:
+        colour = c.danger;
+        icon = Icons.emergency_outlined;
+        titleKey = 'infection_out_urgent';
+        bodyKey = 'infection_out_urgent_body';
+      case TriageOutcome.seeClinician:
+        colour = c.warning;
+        icon = Icons.medical_services_outlined;
+        titleKey = 'infection_out_clinician';
+        bodyKey = 'infection_out_clinician_body';
+      case TriageOutcome.recheckPhoto:
+        colour = c.caution;
+        icon = Icons.photo_camera_outlined;
+        titleKey = 'infection_out_recheck';
+        bodyKey = 'infection_out_recheck_body';
+      case TriageOutcome.monitor:
+        colour = c.caution;
+        icon = Icons.visibility_outlined;
+        titleKey = 'infection_out_monitor';
+        bodyKey = 'infection_out_monitor_body';
+      case TriageOutcome.noSigns:
+        colour = c.success;
+        icon = Icons.check_circle_outline;
+        titleKey = 'infection_out_none';
+        bodyKey = 'infection_out_none_body';
+    }
+
+    return Container(
+      width: double.infinity,
+      padding: EdgeInsets.all(14.w),
+      decoration: BoxDecoration(
+        color: colour.withValues(alpha: 0.10),
+        border: Border.all(color: colour.withValues(alpha: 0.45)),
+        borderRadius: BorderRadius.circular(12.r),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(icon, color: colour, size: 24.sp),
+              SizedBox(width: 10.w),
+              Expanded(
+                child: Text(
+                  titleKey.tr(),
+                  style: t.textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w700,
+                    color: colour,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          SizedBox(height: 8.h),
+          Text(bodyKey.tr(), style: t.textTheme.bodyMedium),
+          if (!answered) ...[
+            SizedBox(height: 8.h),
+            Text(
+              'infection_check_skipped'.tr(),
+              style: t.textTheme.bodySmall?.copyWith(fontStyle: FontStyle.italic),
+            ),
+          ],
+          if (result.needsDeepInfectionCaveat) ...[
+            SizedBox(height: 10.h),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Icon(Icons.info_outline, size: 16.sp, color: t.hintColor),
+                SizedBox(width: 6.w),
+                Expanded(
+                  child: Text(
+                    deepInfectionCaveatKey.tr(),
+                    style: t.textTheme.bodySmall?.copyWith(color: t.hintColor),
+                  ),
+                ),
+              ],
+            ),
+          ],
         ],
       ),
     );

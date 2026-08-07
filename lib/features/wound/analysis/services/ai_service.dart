@@ -65,6 +65,28 @@ class AiService {
   /// reliable healing signal in that case is the relative AREA trend, not cm.
   static const double _assumedFrameCm = 12.0;
 
+  /// Crop Model 3's input to the wound Model 1 located.
+  ///
+  /// Model 3 was trained **exclusively on tight wound patches** — DFUC2021 at
+  /// 224×224 and Part B at 256×256 — and has never seen a whole foot. The app
+  /// was handing it a centre crop of a whole-foot photograph, which is perhaps
+  /// 5% wound and 95% skin, floor and background: a train/serve mismatch, and
+  /// the most likely cause of a false "Infection Detected" on a healthy wound.
+  /// Cropping restores the framing the head was actually trained on.
+  ///
+  /// **Model 2 is deliberately NOT cropped**: its corpora (Source-A, DFUC2020)
+  /// are whole photographs, so cropping it would *create* the same mismatch in
+  /// the opposite direction. It stays on the whole frame until its head is
+  /// retrained on crops.
+  ///
+  /// Set false to restore the previous single-pass behaviour.
+  /// See docs/ACCURACY_IMPROVEMENT_PLAN.md §3 (W2a).
+  static const bool _cropForModel3 = true;
+
+  /// Padding added on each side of the wound box, as a fraction of its larger
+  /// side, so a little peri-wound skin stays in frame as in the training patches.
+  static const double _model3CropPadding = 0.15;
+
   // ---- Model 2 config ----
   static const String _clipPath = 'assets/models/clip_backbone_fp16.tflite';
   static const String _headPath = 'assets/models/tissue_head.tflite';
@@ -271,12 +293,14 @@ class AiService {
       // --- Model 1: segmentation -> measurements ---
       // Depth comes ONLY from the clinician's probe entry (see doc above).
       double length = 0, width = 0, areaCm2 = 0;
+      _BoxPx? woundBox; // where Model 1 found the wound; feeds Model 3's crop
       final double depth = manualDepthCm ?? 0.0;
       if (_model1Loaded) {
         final m = _runSegmentation(image, pixelsPerCm);
         length = m.lengthCm;
         width = m.widthCm;
         areaCm2 = m.areaCm2;
+        woundBox = m.woundBox;
         debugPrint('✅ Model 1: L=${length.toStringAsFixed(2)}cm '
             'W=${width.toStringAsFixed(2)}cm area=${areaCm2.toStringAsFixed(2)}cm² '
             'D=${manualDepthCm == null ? "not measured" : depth.toStringAsFixed(2)}');
@@ -285,18 +309,35 @@ class AiService {
       // --- Model 2 + Model 3: ONE CLIP backbone pass feeds both heads ---
       List<TissueFinding> tissueFindings = const [];
       String infectionStatus = 'N/A', ischaemiaStatus = 'N/A', riskBadge = 'Normal';
+      double infectionProb = 0.0; // raw P(infection), for the triage bands
       if (_clipBackbone != null && (_model2Loaded || _model3Loaded)) {
-        final emb = _clipEmbedding(image); // backbone runs ONCE per image
+        // The two heads were trained on different framings, so each is given the
+        // framing it learned from: Model 2 the whole photograph, Model 3 the
+        // wound crop (see [_cropForModel3]). The whole-image embedding is
+        // computed lazily and shared, so the backbone still runs only once
+        // whenever Model 3 is not cropped.
+        List? embWhole;
+        List wholeEmbedding() => embWhole ??= _clipEmbedding(image);
+
         if (_model2Loaded) {
-          final probs = _runTissue(emb);
+          final probs = _runTissue(wholeEmbedding());
           tissueFindings = _buildTissueFindings(probs);
           debugPrint('✅ Model 2: $probs -> ${tissueFindings.summary}');
         }
         if (_model3Loaded) {
+          final crop = (_cropForModel3 && woundBox != null)
+              ? _woundCrop(image, woundBox)
+              : null;
+          if (crop != null) {
+            debugPrint('🔍 Model 3 input cropped to wound: '
+                '${crop.width}×${crop.height} (from ${image.width}×${image.height})');
+          }
+          final emb = crop == null ? wholeEmbedding() : _clipEmbedding(crop);
           final r = _runInfection(emb);
           infectionStatus = r.infection;
           ischaemiaStatus = r.ischaemia;
           riskBadge = r.badge;
+          infectionProb = r.pInfection;
           debugPrint('✅ Model 3: badge=$riskBadge '
               'infection=$infectionStatus ischaemia=$ischaemiaStatus');
         }
@@ -313,6 +354,7 @@ class AiService {
         infection: infectionStatus,
         ischaemia: ischaemiaStatus,
         riskBadge: riskBadge,
+        infectionProbability: infectionProb,
         healingProgress: _calculateHealingProgress(areaCm2),
         isFromModel: true,
         isCalibrated: pixelsPerCm != null,
@@ -397,7 +439,39 @@ class AiService {
       ext.majorPx / ppc,
       ext.minorPx / ppc,
       areaPx / (ppc * ppc),
+      // Mask-space box -> original-image pixels, rounded outwards so the crop
+      // never clips wound edge pixels.
+      woundBox: _BoxPx(
+        (comp.minX * sx).floor(),
+        (comp.minY * sy).floor(),
+        (comp.maxX * sx).ceil(),
+        (comp.maxY * sy).ceil(),
+      ),
     );
+  }
+
+  /// Square crop centred on the wound, padded by [_model3CropPadding].
+  ///
+  /// Square on purpose: [_clipPreprocess] resizes the shorter side to 224 and
+  /// then centre-crops 224×224. Handing it a non-square crop would let that
+  /// centre-crop cut the wound edges off again — the very failure this fixes.
+  img.Image _woundCrop(img.Image src, _BoxPx box) {
+    final shortest = min(src.width, src.height);
+    if (shortest < 16) return src; // degenerate image; nothing sensible to crop
+
+    final bw = (box.maxX - box.minX).toDouble();
+    final bh = (box.maxY - box.minY).toDouble();
+    final cx = (box.minX + box.maxX) / 2.0;
+    final cy = (box.minY + box.maxY) / 2.0;
+
+    final side = (max(bw, bh) * (1 + 2 * _model3CropPadding))
+        .clamp(16.0, shortest.toDouble());
+    final sideI = side.round();
+
+    final x0 = (cx - side / 2).round().clamp(0, src.width - sideI).toInt();
+    final y0 = (cy - side / 2).round().clamp(0, src.height - sideI).toInt();
+
+    return img.copyCrop(src, x: x0, y: y0, width: sideI, height: sideI);
   }
 
   /// One forward pass -> H×W probability map. When [flip] is true the input is
@@ -590,6 +664,9 @@ class AiService {
       infection: hasInfection ? 'Present' : 'Not Present',
       ischaemia: hasIschaemia ? 'Impaired' : 'Adequate',
       badge: badge,
+      // Kept alongside the binary string: the triage bands this number rather
+      // than applying one cut-off, and the string cannot express "unsure".
+      pInfection: pInfection,
     );
   }
 
@@ -701,10 +778,15 @@ class _InfectionResult {
   final String infection; // 'Present' / 'Not Present'
   final String ischaemia; // 'Impaired' / 'Adequate'
   final String badge; // Normal / Infection Detected / Impaired Blood Flow / High Risk
+
+  /// Raw P(infection) = p[infection] + p[both], before any threshold.
+  final double pInfection;
+
   const _InfectionResult({
     required this.infection,
     required this.ischaemia,
     required this.badge,
+    this.pInfection = 0.0,
   });
 }
 
@@ -712,7 +794,20 @@ class _Measurements {
   final double lengthCm;
   final double widthCm;
   final double areaCm2;
-  const _Measurements(this.lengthCm, this.widthCm, this.areaCm2);
+
+  /// Wound bounding box in ORIGINAL-image pixels; null when no wound was found.
+  /// Model 3 crops to this so its input matches the tight wound patches it was
+  /// trained on — see [AiService._woundCrop].
+  final _BoxPx? woundBox;
+
+  const _Measurements(this.lengthCm, this.widthCm, this.areaCm2,
+      {this.woundBox});
+}
+
+/// Axis-aligned box in original-image pixel space.
+class _BoxPx {
+  final int minX, minY, maxX, maxY;
+  const _BoxPx(this.minX, this.minY, this.maxX, this.maxY);
 }
 
 /// Extents along the wound's principal axes, in original-image pixels.

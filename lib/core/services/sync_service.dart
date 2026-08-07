@@ -1,3 +1,5 @@
+import 'dart:io';
+import 'package:dio/dio.dart' show FormData, MultipartFile;
 import 'dart:convert';
 import 'dart:async';
 
@@ -57,6 +59,10 @@ class SyncService {
   static final SyncService I = SyncService._();
 
   static const _batchSize = 50;
+
+  /// Photographs per pass. Small on purpose: each is megabytes, and a patient
+  /// on mobile data should not have a sync pass consume their allowance.
+  static const _imageBatch = 3;
   static const _uuid = Uuid();
 
   final _helper = DatabaseHelper();
@@ -108,6 +114,11 @@ class SyncService {
             // now, so the dashboard can show what the model actually found.
             'tissue_json': _tissueJson(r),
             'infection_present': _yesNo(r['infection']),
+            // The raw score, not just the yes/no. The server column has always
+            // existed and never received a value, so the dashboard could not
+            // show how close to its threshold a scan sat, and the banded triage
+            // could not be reproduced from a stored record.
+            'infection_prob': (r['infectionProbability'] as num?)?.toDouble(),
             'ischaemia_present': _yesNo(r['ischaemia']),
             'risk_badge': _risk(r['infection'], r['ischaemia']),
             // Was hardcoded 'offline', so every server-analysed scan was filed
@@ -290,6 +301,12 @@ class SyncService {
         failed += result.failed;
       }
 
+      // After the records: the server stores each photograph against its scan
+      // row, so that row has to exist first.
+      final images = await _syncWoundImages(db);
+      uploaded += images.uploaded;
+      failed += images.failed;
+
       if (_rateLimited) {
         // Jump most of the way up the backoff ladder rather than starting at 1s.
         _backoffStep = _backoff.length - 2;
@@ -310,6 +327,84 @@ class SyncService {
     }
 
     return SyncResult(uploaded: uploaded, failed: failed);
+  }
+
+  /// Uploads wound photographs, one multipart request each.
+  ///
+  /// Deliberately separate from [_syncTable]: that batches small JSON rows,
+  /// while a photograph is megabytes and must succeed or fail on its own —
+  /// putting one inside a 50-row batch would make a single large upload fail
+  /// forty-nine unrelated records.
+  ///
+  /// Runs only for scans whose *record* has already synced, because the server
+  /// stores the image against the scan row and that row must exist first. The
+  /// image is keyed by `local_uuid`, the same identifier the record sync uses.
+  ///
+  /// The consent shown at enrolment (v2) covers this explicitly: "your wound
+  /// scans and measurements ... sent to the DiaFootCare server ... stored under
+  /// your account". Deletion on request is handled by the study team.
+  Future<SyncResult> _syncWoundImages(Database db) async {
+    var uploaded = 0, failed = 0;
+    final rows = await db.query(
+      'wounds',
+      columns: ['local_uuid', 'imagePath'],
+      where: 'pending_sync = 0 AND image_synced = 0 AND local_uuid IS NOT NULL',
+      limit: _imageBatch,
+    );
+    if (rows.isEmpty) return const SyncResult();
+
+    for (final r in rows) {
+      final uuid = r['local_uuid'] as String?;
+      final path = r['imagePath'] as String?;
+      if (uuid == null) continue;
+
+      // A record whose file has been deleted — cleared cache, restored backup,
+      // manual tidy-up — can never be uploaded. Mark it 2 rather than leaving it
+      // at 0, or every future sync pass retries a file that will never exist.
+      if (path == null || path.isEmpty || !await File(path).exists()) {
+        await db.update('wounds', {'image_synced': 2},
+            where: 'local_uuid = ?', whereArgs: [uuid]);
+        debugPrint('🔄 wound image missing on disk, not retrying: $uuid');
+        continue;
+      }
+
+      try {
+        final form = FormData.fromMap({
+          // Extension taken by hand rather than importing package:path — that
+          // package is only a transitive dependency here, so relying on it
+          // would break the moment a parent package dropped it.
+          'image': await MultipartFile.fromFile(path,
+              filename: '$uuid${_extensionOf(path)}'),
+        });
+        final res = await ApiClient.I.dio.post(
+          '/wound-scans/$uuid/image',
+          data: form,
+        );
+        if (res.statusCode != null &&
+            res.statusCode! >= 200 &&
+            res.statusCode! < 300) {
+          await db.update('wounds', {'image_synced': 1},
+              where: 'local_uuid = ?', whereArgs: [uuid]);
+          uploaded++;
+        } else {
+          // 404 means the scan row is not on the server after all; leave the
+          // flag at 0 so it retries once the record sync catches up.
+          debugPrint('🔄 image upload $uuid -> HTTP ${res.statusCode}');
+          failed++;
+        }
+      } catch (e) {
+        debugPrint('🔄 image upload $uuid threw: $e');
+        failed++;
+      }
+    }
+    return SyncResult(uploaded: uploaded, failed: failed);
+  }
+
+  /// File extension including the dot, or '.jpg' when the path has none.
+  static String _extensionOf(String path) {
+    final slash = path.lastIndexOf(RegExp(r'[/\]'));
+    final dot = path.lastIndexOf('.');
+    return (dot > slash && dot != -1) ? path.substring(dot) : '.jpg';
   }
 
   Future<SyncResult> _syncTable(Database db, _SyncSpec spec, String deviceUuid) async {

@@ -1,3 +1,5 @@
+import 'package:easy_localization/easy_localization.dart';
+
 /// One tissue class the model considered, and what it concluded.
 ///
 /// The tissue head is multi-label: a wound bed genuinely contains several
@@ -45,8 +47,25 @@ class TissueFinding {
     'necrosis', 'slough', 'granulation', 'callus', 'epithelial',
   ];
 
+  /// Canonical English name. **This is what gets stored and synced** — it must
+  /// stay language-independent, otherwise the same wound would be recorded as
+  /// "Necrosis" or "نسيج متنخّر" depending on which language the app happened to
+  /// be in when it was saved, and the server could not compare records at all.
   String get displayName =>
       type.isEmpty ? 'Unknown' : type[0].toUpperCase() + type.substring(1);
+
+  /// The patient-facing name, in the app's current language.
+  ///
+  /// Separate from [displayName] on purpose: this one is for screens only. The
+  /// clinical terms are Latin-derived and mean nothing to most patients, so each
+  /// translation carries a short plain gloss — "نسيج متنخّر (نسيج ميت أسود)".
+  /// Falls back to the English name if a class has no translation yet.
+  String get localizedName {
+    if (type.isEmpty) return 'tissue_unknown'.tr();
+    final key = 'tissue_${type.toLowerCase()}';
+    final t = key.tr();
+    return t == key ? displayName : t;
+  }
 
   Map<String, dynamic> toJson() => {
         'type': type,
@@ -102,6 +121,27 @@ extension TissueFindings on List<TissueFinding> {
   }
 
   /// Every present class, most serious first — "Necrosis, Slough, Callus".
+  /// [summary] in the app's current language, for display only.
+  String get localizedSummary {
+    final p = _bySeverity();
+    if (p.isEmpty) return 'tissue_unknown'.tr();
+    return p.map((f) => f.localizedName).join('، ');
+  }
+
+  /// The single most serious present class, localized — display only.
+  String get localizedPrimary {
+    final p = _bySeverity();
+    return p.isEmpty ? 'tissue_unknown'.tr() : p.first.localizedName;
+  }
+
+  List<TissueFinding> _bySeverity() => present.toList()
+    ..sort((a, b) {
+      final ia = TissueFinding.severityOrder.indexOf(a.type);
+      final ib = TissueFinding.severityOrder.indexOf(b.type);
+      if (ia != ib) return (ia < 0 ? 99 : ia).compareTo(ib < 0 ? 99 : ib);
+      return b.probability.compareTo(a.probability);
+    });
+
   String get summary {
     final p = present.toList()
       ..sort((a, b) {

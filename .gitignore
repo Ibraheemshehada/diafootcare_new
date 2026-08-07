@@ -58,3 +58,13 @@ app.*.map.json
 /DaiFootCare_Full_Documentation.pdf
 /DaiFootCare_Models_Documentation.pdf
 /DaiFootCare_System_Documentation.pdf
+
+# Local pre-edit backups (see docs/IMPLEMENTATION_TRACKER.md)
+/_backups/
+
+# Release signing. NEVER commit these — anyone holding the keystore can publish
+# an update that phones will accept as genuinely ours. Keystore lives outside
+# the repo entirely (~/.diafootcare-keys/); this only guards the pointer file.
+android/key.properties
+*.jks
+*.keystore

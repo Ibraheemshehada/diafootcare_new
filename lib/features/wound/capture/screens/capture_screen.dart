@@ -108,10 +108,33 @@ class _CaptureScreenState extends State<CaptureScreen> with WidgetsBindingObserv
               children: [
                 SizedBox(height: 8.h),
                 Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 16.w),
-                  child: Text(
-                    'take_wound_photo'.tr(),
-                    style: t.textTheme.titleLarge?.copyWith(fontSize: 20.sp),
+                  padding: EdgeInsets.symmetric(horizontal: 8.w),
+                  child: Row(
+                    children: [
+                      // Only when there is somewhere to go back to. This screen
+                      // is both a bottom-tab (nothing to pop — a back arrow
+                      // there would be a dead control) and a pushed route from
+                      // the home shortcuts, where a patient who opened the
+                      // camera by mistake was previously trapped with no way
+                      // out but the system gesture.
+                      if (Navigator.of(context).canPop())
+                        // BackButton, not a hand-rolled IconButton: it already
+                        // mirrors its arrow for RTL and carries the localized
+                        // "Back" semantics label, so Arabic and TalkBack are
+                        // handled without maintaining either here.
+                        BackButton(
+                          onPressed: () => Navigator.of(context).maybePop(),
+                        )
+                      else
+                        SizedBox(width: 8.w),
+                      Expanded(
+                        child: Text(
+                          'take_wound_photo'.tr(),
+                          style:
+                              t.textTheme.titleLarge?.copyWith(fontSize: 20.sp),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
                 SizedBox(height: 12.h),

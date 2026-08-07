@@ -1,3 +1,4 @@
+import 'package:easy_localization/easy_localization.dart';
 import 'tissue_finding.dart';
 
 export 'tissue_finding.dart';
@@ -28,6 +29,16 @@ class AnalysisResult {
   final String infection; // 'Present' / 'Not Present'
   final String ischaemia; // 'Impaired' / 'Adequate'
   final String riskBadge; // 'Normal' / 'Infection Detected' / 'Impaired Blood Flow' / 'High Risk'
+
+  /// Raw P(infection) from the Model 3 head — `p[infection] + p[both]`.
+  ///
+  /// The binary [infection] string throws this away, but the triage in
+  /// `infection_triage.dart` needs the number: it bands the score into
+  /// low/uncertain/high rather than forcing one cut-off, and a single
+  /// threshold cannot express "we are not sure". Defaults to 0 for records
+  /// written before this existed and for results that came from the server
+  /// without it.
+  final double infectionProbability;
   final double healingProgress;
   final String graphImagePath; // optional placeholder for now
   final bool isFromModel; // Indicates if measurements are from Model 1 or simulated
@@ -55,6 +66,7 @@ class AnalysisResult {
     this.infection = 'N/A',
     this.ischaemia = 'N/A',
     this.riskBadge = 'Normal',
+    this.infectionProbability = 0.0,
     required this.healingProgress,
     this.graphImagePath = 'assets/images/progress_graph.png',
     this.isFromModel = false,
@@ -78,4 +90,14 @@ class AnalysisResult {
   /// Every present class, most serious first — "Necrosis, Slough, Callus".
   String get tissueSummary =>
       tissueFindings.isNotEmpty ? tissueFindings.summary : primaryTissueType;
+
+  /// [tissueSummary] in the app's current language — for screens only, never
+  /// for storage or sync (see [TissueFinding.displayName]).
+  String get localizedTissueSummary {
+    if (tissueFindings.isNotEmpty) return tissueFindings.localizedSummary;
+    final legacy = primaryTissueType;
+    final key = 'tissue_${legacy.toLowerCase()}';
+    final t = key.tr();
+    return t == key ? legacy : t;
+  }
 }
