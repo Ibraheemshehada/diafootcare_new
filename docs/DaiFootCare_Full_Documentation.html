@@ -94,7 +94,7 @@
     <div class="l1">6&nbsp;&nbsp;System integration, app and dashboard <span class="pg">16</span></div>
     <div class="l1">7&nbsp;&nbsp;Deployment, publication and data collection <span class="pg">17</span></div>
     <div class="l1">8&nbsp;&nbsp;Discussion, limitations and future work <span class="pg">18</span></div>
-    <div class="l1">Appendix A — file map · References <span class="pg">19</span></div>
+    <div class="l1">Appendix A — file map · References <span class="pg">22</span></div>
   </div>
   <div class="callout note" style="margin-top:1.6em">
     <span class="k">Release status — not yet released to users</span>
@@ -532,6 +532,31 @@
       (infection 0.41, ischaemia 0.61); the reproduction matched the recorded metrics (infection AUC 0.894 vs 0.890;
       ischaemia AUC 0.985 vs 0.987), confirming the figures are trustworthy.</p>
   </div>
+
+  <h3>5.5&nbsp;&nbsp;Deployed operating point and prevalence (revision v1.1.0+3)</h3>
+  <p>The metrics above are threshold-independent or reported at the F1-optimal point, which is the
+    convention for model comparison. Deployment raises a separate question that those figures do not
+    answer: <strong>AUC is prevalence-independent, whereas positive predictive value is not.</strong>
+    Model 3's training corpus is 54% positive; a screening population is far lower. Reproducing the
+    cross-validation from the cached embeddings (reproduced AUC 0.8883 against the recorded 0.890,
+    confirming the pipeline is faithful) gives:</p>
+  <table>
+    <thead><tr><th>Prevalence</th><th class="n">Sensitivity</th><th class="n">Specificity</th><th class="n">PPV</th></tr></thead>
+    <tbody>
+      <tr><td>54% &mdash; training corpus</td><td class="n">0.855</td><td class="n">0.741</td><td class="n">0.796</td></tr>
+      <tr style="font-weight:700"><td>20% &mdash; plausible clinic</td><td class="n">0.855</td><td class="n">0.741</td><td class="n">0.452</td></tr>
+      <tr><td>10%</td><td class="n">0.855</td><td class="n">0.741</td><td class="n">0.268</td></tr>
+    </tbody>
+  </table>
+  <div class="cap"><b>Table 8c.</b> The deployed infection threshold (0.41) evaluated at three
+    prevalences. At a realistic clinic prevalence a positive result is <strong>more often wrong than
+    right</strong>. The AUC of 0.890 is accurate and says nothing about this, which is precisely why
+    it must not be quoted alone as evidence of deployed behaviour.</div>
+
+  <p>Because every threshold lies on a single ROC curve, no choice of threshold resolves this:
+    sensitivity is only ever purchased with specificity. Improving both requires additional
+    information, which motivated the multimodal triage described in §8.2.</p>
+
 </section>
 
 <!-- ===================== 6. SYSTEM ===================== -->
@@ -600,6 +625,159 @@
     is the <strong>relative area trend</strong> over time, which is robust and needs no calibration; absolute
     centimetre sizes depend on an in-frame reference (for example a scale marker) and so are treated as indicative
     rather than exact, and depth is intentionally not inferred from a flat image.</p>
+
+  <h4>Field evaluation &mdash; first clinical use (v1.1.0+3)</h4>
+  <p>The figures in §5 are measured on held-out data. First use on a <strong>real patient</strong>
+    posed a different question, and produced three discrepancies. Each was traced to a cause in the
+    code or the corpora rather than inferred.</p>
+  <table>
+    <thead><tr><th>Observation</th><th>Cause established</th></tr></thead>
+    <tbody>
+      <tr><td>Wound of <strong>1.4 cm</strong> reported as <strong>0.9 cm</strong> (&minus;36%)</td>
+        <td>With the calibration step retired (§7), no scale reference remains and the
+          pixel&rarr;centimetre conversion falls back to an assumed 12 cm frame width. The reported
+          size therefore scales with camera distance. <strong>The segmentation network is not
+          implicated</strong>: Dice 0.873 concerns the mask, not the conversion applied after it.</td></tr>
+      <tr><td><strong>Infection flagged</strong> on a wound meeting no IWGDF criteria</td>
+        <td>Two independent causes. (i) A <em>train/serve mismatch</em>: measuring the corpora on
+          disk established that Model 3 was trained exclusively on tight wound patches &mdash;
+          DFUC 2021 at 224&times;224, Part B at 256&times;256 &mdash; and had never encountered a
+          whole-foot photograph, yet the application supplied a centre crop of one, in which the
+          wound occupies roughly 5% of the pixels. (ii) The <em>prevalence effect</em> of §5.5.</td></tr>
+      <tr><td>Tissue classification inconsistent between captures</td>
+        <td>Model 2 receives the whole photograph, of which the wound is a small fraction, and its
+          class priors are skewed (callus present in 77% of the training set). Not yet corrected.</td></tr>
+    </tbody>
+  </table>
+  <div class="cap"><b>Table 13.</b> Discrepancies observed on first clinical use, and the causes
+    established for each.</div>
+
+  <h4>Corrective work in this revision</h4>
+  <p><strong>Input alignment for Model 3.</strong> Model 1 already localises the wound; its bounding
+    box (padded 15%, and square so it survives the subsequent centre-crop of the CLIP preprocessing)
+    now defines Model 3's input, restoring the patch distribution the head was trained on. No
+    retraining is required. <strong>Model 2 is deliberately left unchanged</strong> &mdash; its
+    corpora <em>are</em> whole photographs, so cropping it would introduce the same mismatch in the
+    opposite direction.</p>
+
+  <p><strong>Multimodal triage.</strong> The IWGDF/IDSA criteria define a local diabetic-foot
+    infection as purulent discharge, or <strong>&ge;2 of</strong> erythema, warmth,
+    swelling/induration and tenderness. A photograph shows erythema and sometimes discharge; it
+    cannot detect warmth, tenderness, odour or fever. <strong>Roughly two of six criteria are visible
+    to a camera</strong>, so an AUC near 0.89 on photographs plausibly approaches an information
+    ceiling that retraining would not lift. The five non-visual signs are therefore now collected
+    from the patient after capture and combined with a three-band image score
+    (&lt;0.30 / 0.30&ndash;0.80 / &gt;0.80). Because that channel is <em>independent</em> of the
+    image, it moves the operating curve rather than sliding along it.</p>
+  <table>
+    <thead><tr><th>At 20% prevalence</th><th class="n">Single threshold 0.41</th><th class="n">Banded + IWGDF signs</th></tr></thead>
+    <tbody>
+      <tr><td>Patients receiving an infection alarm</td><td class="n">37.8%</td><td class="n">14.1%</td></tr>
+      <tr style="font-weight:700"><td>False alarms among uninfected patients</td><td class="n">25.9%</td><td class="n">4.3%</td></tr>
+      <tr><td>PPV of an alarm</td><td class="n">0.452</td><td class="n">0.754</td></tr>
+      <tr><td>Infections reassured in error</td><td class="n">2.9%</td><td class="n">1.8%</td></tr>
+    </tbody>
+  </table>
+  <div class="cap"><b>Table 14.</b> Effect of the banded, multimodal triage on the reproduced
+    out-of-fold predictions. <strong>Both error types fall together</strong>, which a threshold change
+    cannot achieve: the middle band declines to assert a verdict where the evidence does not support
+    one, so ambiguous cases are named as uncertain rather than forced into a wrong category.</div>
+
+  <p><strong>Measurement is diagnosed but not corrected.</strong> Without a scale reference the error
+    cannot be removed in software. The interface now states that centimetre values are estimates and
+    directs attention to the relative area trend, which the assumption does not affect. The
+    substantive fix requires the calibration target below.</p>
+
+
+  <h4>The checklist: provenance and item selection</h4>
+  <p><strong>Source.</strong> The items are not devised for this project. They are the criteria of
+    the <strong>IWGDF/IDSA infection classification</strong> (the infection dimension of PEDIS),
+    which is the internationally used standard for classifying diabetic-foot infection and is
+    associated with hospitalisation and amputation risk. Its definition of a local infection is
+    <strong>purulent discharge, or at least two of</strong>: erythema, warmth, swelling or
+    induration, and tenderness or pain. Systemic features (fever, malaise) escalate the grade to a
+    severe infection, which is an emergency rather than a routine review.</p>
+
+  <p><strong>Which items were asked, and which were not.</strong> The selection rule was the
+    modality: the patient is asked only for what the camera cannot obtain.</p>
+  <table>
+    <thead><tr><th>IWGDF/IDSA criterion</th><th>Visible to a camera?</th><th>Source used here</th></tr></thead>
+    <tbody>
+      <tr><td>Erythema (redness)</td><td>Yes</td><td><strong>Model 3</strong> &mdash; judged more
+        consistently than an untrained observer estimating "redness wider than 0.5 cm"</td></tr>
+      <tr><td>Purulent discharge</td><td>Partly</td><td>Patient (odour is not visible at all)</td></tr>
+      <tr><td>Warmth</td><td><strong>No</strong></td><td>Patient</td></tr>
+      <tr><td>Swelling / induration</td><td>Partly</td><td>Patient (induration is palpable, not visible)</td></tr>
+      <tr><td>Tenderness / pain</td><td><strong>No</strong></td><td>Patient</td></tr>
+      <tr><td>Systemic features</td><td><strong>No</strong></td><td>Patient</td></tr>
+    </tbody>
+  </table>
+  <div class="cap"><b>Table 15.</b> Criterion coverage by modality. Asking the patient to grade
+    redness would duplicate what the model already measures and add observer noise; asking about
+    warmth and tenderness adds information no photograph contains.</div>
+
+  <p><strong>Wording.</strong> Items are phrased for an untrained reader and, where a judgement is
+    otherwise absolute, converted into a comparison. Warmth is asked as <em>"is the skin around the
+    wound warmer than the same spot on your other foot?"</em> &mdash; a patient has no absolute
+    reference for skin temperature but does have a contralateral foot.</p>
+
+  <p><strong>Decision rule.</strong> The image score is banded rather than thresholded, and the bands
+    are combined with the sign count under the IWGDF logic:</p>
+  <table>
+    <thead><tr><th>Condition</th><th>Outcome</th></tr></thead>
+    <tbody>
+      <tr><td>Systemic features reported</td><td><strong>Urgent</strong> &mdash; possible severe
+        (grade 4) infection; seek care now</td></tr>
+      <tr><td>Purulent discharge reported</td><td><strong>Clinician review</strong> &mdash; a
+        standalone criterion in IWGDF</td></tr>
+      <tr><td>Image high (&gt;0.80) with &ge;1 reported sign</td><td>Clinician review</td></tr>
+      <tr><td>Image uncertain (0.30&ndash;0.80) with &ge;2 reported signs</td><td>Clinician review</td></tr>
+      <tr><td>Image low (&lt;0.30) with &ge;2 reported signs</td><td>Clinician review &mdash;
+        <em>the reported signs override a reassuring image</em></td></tr>
+      <tr><td>Image high with no reported signs</td><td>Retake the photograph &mdash; lighting or
+        angle can produce this; if it persists, review</td></tr>
+      <tr><td>Otherwise, with one sign or an uncertain image</td><td>Monitor and re-photograph in 1&ndash;2 days</td></tr>
+      <tr><td>Image low and no reported signs</td><td>No signs found</td></tr>
+    </tbody>
+  </table>
+  <div class="cap"><b>Table 16.</b> The combination rule. Two properties are deliberate: reported
+    signs can override a reassuring image, and the model alone never escalates without corroboration.</div>
+
+  <p><strong>Two safeguards.</strong> A <em>negative</em> answer to tenderness is given no weight,
+    because diabetic neuropathy commonly abolishes pain sensation and its absence is therefore not
+    evidence against infection. And an <em>unanswered</em> checklist is treated as missing
+    information, never as "all absent"; the result states that it was answered from the photograph
+    alone. Every non-urgent outcome also carries the caveat that neither a photograph nor this
+    checklist can detect infection deep in tissue or bone, which requires probe-to-bone or imaging.</p>
+
+  <p><strong>Known limitation.</strong> Inter-observer agreement on these criteria is only moderate
+    <em>among clinicians</em>; collected from untrained patients it will be noisier still. The
+    checklist is therefore used as a triage aid that decides whether to seek review, never as a
+    diagnosis, and the model is one sign among several rather than the arbiter.</p>
+
+  <h4>Calibration target</h4>
+  <p>A printed adhesive label placed on intact skin beside the wound supplies the missing scale. Its
+    principle is a ratio &mdash; <em>pixels per cm = measured diameter (px) &divide; known diameter
+    (cm)</em> &mdash; so it needs no camera intrinsics, no depth sensor and no augmented-reality
+    support, and therefore works on any device with a camera. The target is a <strong>cyan annulus of
+    outer diameter 20.00 mm</strong>: a ring rather than a disc, because two edges constrain the fit
+    better than one and a specular highlight in the centre cannot destroy it. Camera obliquity is
+    recovered from the same feature, a circle projecting to an ellipse as
+    <em>cos&nbsp;&theta;&nbsp;=&nbsp;minor&nbsp;/&nbsp;major</em>. Colour patches on the same label
+    give a white-balance reference, which matters because tissue classification is largely a colour
+    judgement and the illuminant varies between devices. Propagating the individual tolerances
+    (obliquity &le;15&deg;, target within 1 cm of the wound plane, print scale verified against a
+    100 mm bar, sub-pixel edge fitting) predicts a measurement error near <strong>&plusmn;5%</strong>,
+    against the &minus;36% observed with no reference at all.</p>
+
+  <div class="callout warn"><span class="k">Status of these claims</span>
+    <p>The causes above are established from the corpora and the reproduced cross-validation, and
+      Table 14 is computed. The corrective work is implemented and verified only in so far as the
+      code executes correctly &mdash; <strong>it has not been demonstrated on clinical photographs</strong>.
+      No claim of improved clinical accuracy is made here, and none should be made until the
+      validation study below is complete.</p>
+  </div>
+
   <h4>Limitations</h4>
   <ul>
     <li>Infection reflects broad clinical criteria and neuropathic patients may under-present, so the output is a
@@ -609,6 +787,21 @@
   </ul>
   <h4>Future work</h4>
   <ul>
+    <li><strong>A clinical validation set &mdash; the immediate next step, and a precondition for
+      every accuracy claim above.</strong> <strong>30 wounds photographed at 3 camera distances
+      (90 images)</strong>, each frame containing both the calibration target and a ruler so that the
+      application's conversion and an independent manual measurement can be read from the same image.
+      The reference standard is the clinician's tape measurement and their IWGDF/IDSA assessment.
+      The <em>primary endpoint is distance invariance</em>: one wound photographed at three distances
+      must yield one measurement, which tests the fault directly and requires no external reference,
+      only internal consistency. Secondary endpoints are absolute agreement with the tape
+      (Bland&ndash;Altman) and agreement between the triage output and the clinician. The set is
+      deliberately varied in wound size, site and skin tone, since a homogeneous sample would not
+      expose the conditions under which the models fail. It then becomes the regression standard
+      against which every subsequent change is judged;</li>
+    <li>retraining Model 2's head on wound crops once the crop geometry is fixed, and evaluating
+      colour calibration from the target's patches beforehand, since part of its weakness may be
+      illuminant variance rather than model capacity;</li>
     <li>a supervised pilot with recruited patients, to gather prospective, longitudinally-linked wound series;</li>
     <li>enlarging the precise segmentation set and retraining Model 1 as more doctor-annotated wounds are collected;</li>
     <li>feeding the Model 1 wound crop into Models 2 and 3 to close the remaining infection-detection headroom;</li>
