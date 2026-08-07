@@ -33,6 +33,7 @@ and the web / server tier — a Laravel API + Vue 3 dashboard + Python inference
 | **1.0.0+1** | R1 | 2025-10-31 → 2025-11-01 | Initial prototype: Model 1 wound analysis, history, export, reminders |
 | **1.1.0+2** | R2–R5 | 2026-07-02 → 2026-07-30 | 3-model on-device pipeline, offline/online modes, sync, clinical suite, iOS-ready |
 | *(docs)* | R6 | 2026-07 → 2026-08 | Research documentation + full model-metric verification (no app-code change) |
+| **1.1.0+3** | R7 | 2026-08-05 → 2026-08-06 | Accuracy investigation: Model 3 wound-crop + IWGDF triage, image upload, Arabic input |
 
 Build numbers follow `major.minor.patch+build`. The local database schema advanced
 independently from **v1 → v19** across these rounds (see §4).
@@ -115,6 +116,60 @@ No application-code change; the models and app were documented and their metrics
 - Built and filled the **performance-metric table** (Dice, accuracy, sensitivity, specificity) for all three models; sensitivity/specificity **computed and validated** by reproducing each model's evaluation (Model 1 per-pixel on FUSeg; Model 2 CLIP-SVM out-of-fold; Model 3 grouped CV).
 - **Verified dataset counts** against the actual artefacts: Model 2 gold set **366 + 810 = 1,176**; Model 3 **5,955 + 1,447 = 7,402**.
 - Added this **design-modification log** and reorganised the repository README as the project hub.
+
+### Round 7 — Accuracy investigation and clinical triage · 2026-08-05 → 2026-08-06 · `v1.1.0+3`
+Triggered by three failures observed on a **real patient**, not by a backlog: a 1.4 cm wound
+measured as **0.9 cm**, a false **"Infection Detected"** on a healthy patient, and unreliable
+tissue results. Every cause was traced to source before anything was changed
+([ACCURACY_IMPROVEMENT_PLAN](ACCURACY_IMPROVEMENT_PLAN.md) · [IMPLEMENTATION_TRACKER](IMPLEMENTATION_TRACKER.md)).
+
+**Model 3 — infection: the input was wrong, and the question was wrong**
+- **Train/serve mismatch found.** Model 3 was trained *exclusively* on tight wound patches
+  (DFUC2021 224×224, Part B 256×256) and had **never seen a whole foot**, yet the app fed it a
+  centre crop of a whole-foot photograph — ~5% wound, 95% background. It now receives the crop
+  Model 1 locates. **No retraining needed.**
+- **The threshold was never the answer.** Every threshold sits on one ROC curve, so sensitivity
+  is only bought with specificity; at clinic prevalence the deployed 0.41 cut-off has **PPV
+  0.45** — wrong more often than right. Getting both needs *more information*.
+- **Five IWGDF/IDSA questions added** — only the signs a camera cannot capture (warmth,
+  tenderness, smell, swelling, systemic upset). Combined with a three-band image score
+  (<0.30 / 0.30–0.80 / >0.80). Measured on the reproduced CV: **false alarms among healthy
+  patients 25.9% → 4.3%**.
+- **Two contradictory verdicts fixed** — the badge said "Infection detected" while the card
+  below said "no signs", for one wound ([investigation](CONTRADICTORY_VERDICT_INVESTIGATION.md)).
+
+**Model 2 — tissue: unchanged, and deliberately so.** It was trained on *whole* photographs,
+so cropping it would create the same mismatch in the opposite direction. It stays on the whole
+frame until its head is retrained on crops.
+
+**Model 1 — measurement: diagnosed, not yet fixed.** Without a scale reference the centimetres
+come from a hard-coded `_assumedFrameCm = 12.0` and scale with camera distance — the whole of
+the 1.4 → 0.9 error. The warning saying so is restored; **the real fix needs the printed
+calibration sticker** (Ø20 mm cyan annulus + colour patches + ArUco/QR), which is designed and
+awaiting printing. Deferred by decision until the labels exist.
+
+**App — other changes**
+- Wound photographs now **upload to the server** (schema **v19 → v20**, resumable, 3 per pass)
+- **Arabic numerals** (٠-٩ and ۰-۹) accepted in numeric fields — an Arabic keyboard's digits
+  were previously filtered away as the patient typed
+- Tissue names shown **in Arabic** (display only; storage stays English so records stay comparable)
+- Validated **Arabic A-SUS** wording replaces the previous translation
+- Camera screen can be **backed out of**; months fixed (12 international names, was a 7-item slice)
+- **Release signing key created** — existing installs must reinstall once
+- `dart_test.yaml` pins test concurrency to 1: parallel in-memory SQLite suites were aborting
+  the Dart VM with "Out of memory"
+
+**Web tier — deployed**
+- `POST/GET /wound-scans/{uuid}/image` — photographs stored on the **private** disk, streamed
+  through an authorising endpoint, 404 (not 403) for the unauthorised
+- Photographs in the **scan feed** and, newly, in the **patient record** with a scan viewer
+- **iOS TestFlight link** on the landing page
+- All VPS identifiers purged from the repo and its history
+
+**Known and carried forward:** nothing above is verified on a device beyond the launch path;
+sync is **upload-only** (a reinstalled patient opens an empty app); unauthenticated API requests
+return 500 instead of 401. **The iOS voice-assistant fix is *not* in this build** — it is
+scheduled for the next one.
 
 ---
 
