@@ -644,6 +644,66 @@ in the same change — otherwise the app contradicts itself and the patient arbi
 
 ---
 
+### C17 · First real-patient data — the calibration works ✅ VERIFIED
+The clinician collected **21 photographs from 3 patients** (7 of each wound, camera distance
+varying), each with the printed calibration label in frame. Archived permanently at
+**`D:\DF\clinical_validationatch_2026-08-08_3patients\`** with the analysis scripts, so any
+future batch re-runs the same way.
+
+| | |
+|---|---|
+| Ring detected | 19 / 21 |
+| Wound measured | 15 / 21 |
+| **Repeatability across 7 photographs of one wound** | **±2–5%** |
+| Mean absolute error vs the clinician | **14%** |
+| Uncalibrated baseline (the original field failure) | 36% |
+
+**The measurement fix is demonstrated.** Camera distance varied up to 1.5× within a patient and
+the measurement barely moved — that is precisely the fault this workstream exists to correct.
+
+**🔴 Do not quote 86% accuracy.** The honest unit of analysis is the *patient*, not the
+photograph: seven images of one wound are one measurement repeated, not seven measurements. At
+n=3 the bias is **+1.2% ± 11.2%**, a 95% interval of roughly **−47% to +49%**. The repeatability
+figure is solid; the accuracy figure is not, and needs the planned 30 patients.
+
+#### Two findings that changed how the data must be read
+
+**C17a — the reference sheet had two patients' rows swapped.** The first run showed the model
+wrong by **+260%** and **−75%**. Rendering the masks over the photographs
+(`analysis/overlay_grid.jpg`) showed the segmentation was accurate and the *reference numbers*
+did not match the wounds pictured — patient 1's wound is visibly 1.4× the 2 cm ring, so it
+cannot be 0.8 cm. The clinician corrected the sheet; the **same unchanged model** went from
+10/15 gross failures to **13/15 agreements**.
+
+> The lesson is recorded deliberately: **the numbers said the model was broken and the pictures
+> said it was fine, and the pictures were right.** Acting on the table alone would have meant
+> "fixing" a model that had nothing wrong with it. `verify_table.py` now reads the sheet at run
+> time rather than holding a hard-coded copy, which is what let the stale values survive.
+
+**C17b — the clinician measures greatest length *after debridement*.** The model measures what
+the photograph shows. A photograph taken *before* cleaning still contains the hyperkeratotic rim
+that debridement removes, which is the most likely origin of the systematic **+9% to +15%** bias
+in the two patients where detection succeeded.
+
+> This is a difference in **what is being measured**, not a measurement error. An earlier note in
+> this tracker suggested absorbing the bias into a correction factor — **that would hide it.**
+> The correct fix is to standardise when the photograph is taken. Next batch: photograph
+> **before *and* after** debridement.
+
+**Also recorded:** the clinician documents **depth** as well; the app does not measure depth at
+all and cannot from a 2-D photograph. That gap belongs in the documentation explicitly.
+
+**Protocol changes for the next batch** (in the folder's README): photograph before *and* after
+cleaning · record the distance band · ruler in frame alongside the label · **no blue drape** (it
+competed with the cyan ring until an annulus test was added) · label on intact skin, level with
+the wound.
+
+**For Model 2:** `tissue_labels_TEMPLATE.xlsx` uses the **same five class names in the same
+order** as `gold_labels.npy`, so a labelled batch concatenates onto the 1,176-image gold set with
+no remapping.
+
+---
+
 ## 2. What is deliberately NOT done yet
 
 | Item | Why it is blocked |
