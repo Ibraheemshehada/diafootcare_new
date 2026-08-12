@@ -704,6 +704,60 @@ no remapping.
 
 ---
 
+### C18 · Three clinical batches — the measurement fault is diagnosed ✅ VERIFIED
+89 photographs with clinical references across **8 distinct wounds**. Full record in
+`D:\DF\clinical_validation\FINDINGS.md`; the headline conclusions:
+
+**Calibration is settled.** Camera distance varied up to 1.95× within a patient and the
+measurement barely moved — **repeatability ±1.8% to ±5%**, against 36% error with no reference.
+The cleanest case reached **+2.6% error at ±1.8%**.
+
+**Accuracy is polarised, and splits by wound type**, not by patient or batch:
+
+| Wound | Error |
+|---|---|
+| Single, clearly bounded, fully exposed | **2.7–9%** |
+| Extended, linear, mixed tissue | **23–53%** |
+
+The 26% mean describes no real wound; it averages a model that is excellent with one that is
+failing, on different anatomy.
+
+**The cause, after two wrong hypotheses.**
+1. *Fragmentation* — implemented component merging, tested on all 54 referenced measurements:
+   **changed 3 of them.** 26.2% → 26.4%. **Rejected, not shipped.**
+2. *Definitional mismatch* — the theory was that the clinician includes the hyperkeratotic rim.
+   The clinician settled it: they measure *"the wound in the middle; the rest is peri-wound
+   skin"* — the same target the model aims at.
+3. **Under-segmentation.** Patient 1 after debridement is decisive:
+   **width 1.10 cm against a clinical 1.1 (no error); length 1.64 against 3.5 (−53%)**. The
+   model resolves the sides perfectly and loses the length. The lesion is a long slit, dark red
+   at one end and **pale yellow at the other**; segmentation stops where the colour fades. The
+   training corpora are mostly round ulcers with an obvious red bed.
+
+> This is **better** than a definitional clash: model and clinician want the same thing, so it
+> is an ordinary supervised problem — annotate the full slit, retrain, measure.
+
+**Crust helps the model; debridement removes that help.** Patient 1's first three photographs,
+before any wiping, read 3.84 / 3.54 / 3.98 against a clinical 3.5. After debridement, all
+fifteen read 0.93–1.90. A step, not a drift: necrotic crust is a continuous high-contrast mass.
+**But do not conclude "photograph before cleaning"** — patient 3's crust matched the surrounding
+dark skin and before was *worse* there (−71.8% vs −44.1%). The variable is **margin contrast**.
+Photographing both states is what made this visible at all.
+
+**Detector faults found and fixed (ours):** magenta range so wide that inflamed skin produced a
+977 px "ring"; a 9×9 close that **sealed the small ring's hole**, destroying the feature the
+detector looks for; ranking candidates by area rather than roundness. Detection went to
+**13/13** on the v5 batch. Still open: two frames locked onto a blue drape or the ring's inner
+edge.
+
+**Annotation rule agreed:** *trace the open slit end to end including the pale tissue inside it;
+exclude intact and hyperkeratotic skin.*
+
+**Retraining needs 30–50 distinct wounds** (we have 8), 2–3 photographs each. Fifteen
+photographs of one wound teach a segmenter what two do — the unit is the wound.
+
+---
+
 ## 2. What is deliberately NOT done yet
 
 | Item | Why it is blocked |
