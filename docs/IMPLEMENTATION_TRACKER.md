@@ -758,6 +758,51 @@ photographs of one wound teach a segmenter what two do — the unit is the wound
 
 ---
 
+### C19 · Second hospital, and the first measured threshold ✅ VERIFIED
+18 photographs, 5 patients, iPhone HEIC, a second site. Full detail in
+`D:\DF\clinical_validation\FINDINGS.md` §7–8.
+
+**Generalisation is weaker than one site suggested:** detection **11/18** here against 13/13 at
+the first hospital — same labels, different lighting and photographic habit.
+
+**A new failure direction.** Every earlier error was the model measuring *too little*. Patient
+2's 1.2 cm ulcer sits on a toe that is necrotic and dark throughout, and the model returned
+**+114%** — it segments the discoloured toe rather than the ulcer. Three distinct causes now:
+extended graded lesion (**under**), dark necrotic surround (**over**), very large ulcer
+(**under**).
+
+**🔴 A correction I have to record.** From a low-resolution thumbnail I concluded this hospital
+was using a *different* calibration label and reported that. Zooming in showed our own v5 labels
+with the detector locked correctly on each outer edge. **The claim was wrong**, and only full
+resolution disproved it — the same lesson as the swapped reference rows.
+
+#### Camera tilt matters, and now has a number
+26 measurements with correct references across both sites:
+
+| Tilt | Mean absolute error |
+|---|---|
+| 20–30° | **18.1%** |
+| 30–40° | 39.6% |
+| **>40°** | **55.8%** |
+
+**r = +0.479.** An earlier check found r = +0.119 and I concluded tilt was irrelevant — but that
+ran against the batch whose reference rows were swapped, so it correlated against errors that
+were not errors. **That finding is superseded.**
+
+The ring's *major* axis is unforeshortened so scale survives tilt; the wound does not, being
+compressed by `cos θ` — −23% at 40°, −36% at 50°. **Part of the under-measurement previously
+attributed entirely to segmentation is this.**
+
+**Placement rule — not the intuitive one:** the label follows the plane of *the wound*; the
+camera is perpendicular to both. Tilting the label to face the camera makes it worse, because it
+then measures a different plane from the one the wound lies on. The instruction that needs no
+physics: **the ring must look like a circle, not an egg.**
+
+**Capture-gate thresholds, evidence-based at last:** allow ≤30° · warn 30–40° · **block >40°**.
+This supersedes the earlier note in this tracker that said not to gate on tilt.
+
+---
+
 ## 2. What is deliberately NOT done yet
 
 | Item | Why it is blocked |
