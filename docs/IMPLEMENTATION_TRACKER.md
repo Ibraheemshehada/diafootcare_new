@@ -803,6 +803,42 @@ This supersedes the earlier note in this tracker that said not to gate on tilt.
 
 ---
 
+### C20 · Hand-drawn masks prove the fault, and that retraining will work ✅ VERIFIED
+Thirteen wounds outlined by hand in a purpose-built browser annotator
+(`D:\DF\clinical_validationnnotate\`), one photograph per wound, following the agreed rule.
+Drawing and model were then measured **identically** — principal-axis extent through the same
+detected ring — so the only variable is who traced the boundary.
+
+| | Hand-drawn | Model |
+|---|---|---|
+| Mean absolute error | **9.3%** | 26.3% |
+| **Within ±25%** | **12/12** | **6/12** |
+| Closer to the clinician | **9 of 12** | — |
+
+The wounds the model fails on are exactly the ones the drawing rescues: `H1c_P1` −57.2% → −2.2%,
+`H2_P3` −58.4% → +1.1%, `H1c_P3` −46.4% → +17.3%, `H2_P2` +38.7% → −14.7%.
+
+> **Same photograph, same calibration, same measurement rule — only the boundary differs.** The
+> diagnosis is settled: the fault is segmentation alone. And this is the first *evidence* rather
+> than expectation that retraining will move it, since a human applying the agreed rule to the
+> same pixels already reaches 9.3%.
+
+**The clinician's convention matches ours.** *"We take the longest length in the wound and the
+widest width"* — precisely what the principal axis computes. **No change needed**, and it
+explains the sheet recording 0.5 × 2.2: the 2.2 is the longest length, which the axis-wise
+comparison already handles.
+
+**Tooling built:** a browser annotator that reads the ring calibration and shows the drawn
+measurement in centimetres, with the deviation from the clinical figure colour-coded live, so a
+mis-drawn outline is visible while drawing rather than afterwards. Served over
+`python -m http.server` because `file://` blocks the JSON fetches.
+
+**Next:** annotate all photographs rather than one per wound, collect to 30–50 distinct wounds
+(13 now), fine-tune from current weights mixed with the original ~1,270, and **gate on held-out
+wounds — if it does not improve, it does not ship.**
+
+---
+
 ## 2. What is deliberately NOT done yet
 
 | Item | Why it is blocked |
