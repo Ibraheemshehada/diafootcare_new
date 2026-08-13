@@ -953,6 +953,55 @@ pipeline could not find (see C3 on prevalence).
 
 ---
 
+### C25 · The label guard now runs **in the app** — no ring detection needed 🟡 BUILDS
+C21 concluded this guard had to wait for ring calibration, because refusing the label meant
+knowing where the ring is. **That was the wrong question.** The guard does not need to know where
+the label is, only whether the blob it is about to measure is *made of printed ink*.
+
+**Colour alone fails**, and the data says so: vivid granulation occupies the same magenta hue band
+as the small label's ring. On 222 mask regions, an ink-colour test at its best threshold still
+rejected real wounds (patient 2 of `v5_beforeafter` scored 0.37–0.60 ink) while missing labels.
+
+**What separates them is the collar.** Printed ink sits on a white card; tissue sits in skin.
+
+| Region, measured on the 4 px band just outside it | n | White surround |
+|---|---|---|
+| The label, where it was the region being measured | 10 | **0.59 – 0.87** |
+| A real wound, where it was the region being measured | 126 | **0.00 – 0.25** |
+
+A threshold of 0.40 sits in a **gap of 0.34 containing nothing**. Re-checked with nearest-neighbour
+sampling, which is how `img.copyResize` samples in Dart: **10/10 labels refused, 0/126 wounds**.
+
+**It costs nothing.** The test reads the same resized buffer the segmenter was already handed —
+no ring detection, no calibration, no second inference, no new model.
+
+| | Path |
+|---|---|
+| **Modified** | `lib/features/wound/analysis/services/ai_service.dart` |
+| **New** | `test/printed_label_test.dart` — 9 tests |
+
+Label regions are **erased from the mask** before the largest region is chosen, so the label can
+neither be measured nor merged into a wound beside it, while a wound the sticker is touching keeps
+its visible part. Flags: `_refusePrintedLabel`, `_labelWhiteSurround = 0.40`.
+
+The rule is a top-level `isPrintedLabelRegion` taking an `isPaper(x, y)` callback rather than an
+image, so it is tested directly: collar-only inspection, neighbouring regions not inherited,
+frame-filling regions kept (an unanswerable question must not delete a close-up wound), and both
+field values — 0.25 kept, 0.59 refused.
+
+**Verification**
+- ✅ `flutter analyze lib test` → **0 errors, 0 warnings**
+- ✅ `flutter test` → **119/119** (110 before, +9)
+- ✅ The rule itself measured on 153 clinic photographs (above)
+- 🔴 **Not yet run on a device.** The Dart port matches the Python rule by construction and was
+  re-checked under Dart's sampling, but no photograph has gone through the app with it.
+
+**Open, and unchanged by this:** when the label was the *only* thing found — 6 photographs — the
+app now reaches `_Measurements(0, 0, 0)` and will show **0.00 cm** rather than "no wound found".
+That path predates this change but this change makes it reachable more often. **Fix before release.**
+
+---
+
 ## 2. What is deliberately NOT done yet
 
 | Item | Why it is blocked |

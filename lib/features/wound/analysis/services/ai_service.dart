@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 import 'dart:math';
 import 'package:easy_localization/easy_localization.dart';
@@ -10,6 +11,56 @@ import '../../../../core/services/analysis_exception.dart';
 import '../../../../core/services/app_mode_service.dart';
 import '../../../../core/services/model_repository.dart';
 import '../../../../core/services/remote_analysis_service.dart';
+
+/// Is this masked region printed ink on a white card rather than tissue?
+///
+/// Judged on the collar just outside the region — a band 4 px wide, matching
+/// the two 5×5 dilations the rule was validated with on 153 clinic photographs.
+/// Printed ink sits on a white card, tissue sits in skin, so what surrounds a
+/// blob separates the two where colour cannot: vivid granulation occupies the
+/// same magenta hue band as the small label's ring.
+///
+/// Free of the `image` package and of any model, so it can be tested directly:
+/// [isPaper] answers whether the pixel at (x, y) is white card.
+///
+/// [ids] is a region-id grid (0 = background), [box] is
+/// `[minX, minY, maxX, maxY, ...]` for the region being judged.
+bool isPrintedLabelRegion({
+  required List<List<int>> ids,
+  required int id,
+  required List<int> box,
+  required bool Function(int x, int y) isPaper,
+  double whiteSurround = 0.40,
+  int radius = 4,
+}) {
+  final h = ids.length;
+  if (h == 0) return false;
+  final w = ids[0].length;
+  final x0 = max(0, box[0] - radius), y0 = max(0, box[1] - radius);
+  final x1 = min(w - 1, box[2] + radius), y1 = min(h - 1, box[3] + radius);
+
+  int collar = 0, paper = 0;
+  for (int y = y0; y <= y1; y++) {
+    for (int x = x0; x <= x1; x++) {
+      if (ids[y][x] == id) continue; // inside the region, not its collar
+      var touches = false;
+      for (int dy = -radius; dy <= radius && !touches; dy++) {
+        for (int dx = -radius; dx <= radius && !touches; dx++) {
+          final ny = y + dy, nx = x + dx;
+          if (ny < 0 || ny >= h || nx < 0 || nx >= w) continue;
+          if (ids[ny][nx] == id) touches = true;
+        }
+      }
+      if (!touches) continue;
+      collar++;
+      if (isPaper(x, y)) paper++;
+    }
+  }
+  // No collar at all means the region fills the frame; refusing it would delete
+  // a wound photographed very close up, so an unanswerable question is a "no".
+  if (collar == 0) return false;
+  return paper / collar >= whiteSurround;
+}
 
 /// AI Service for wound analysis.
 ///
@@ -65,6 +116,35 @@ class AiService {
   /// reliable healing signal in that case is the relative AREA trend, not cm.
   static const double _assumedFrameCm = 12.0;
 
+  /// Refuse to measure the printed calibration label.
+  ///
+  /// The segmenter reads the small magenta ring as granulation tissue. Across
+  /// 153 clinic photographs it measured the **label instead of the wound** in
+  /// 40% of small-label shots (10 of 25; never on the 102 standard cyan ones),
+  /// and since the ring is 15 mm it returned 1.5 cm — which matched one
+  /// patient's clinical figure exactly, by pure coincidence. A wrong number
+  /// that agrees with the clinician is the most dangerous kind, because nothing
+  /// flags it.
+  ///
+  /// The test is deliberately **not** "is this blob magenta": vivid granulation
+  /// occupies the same hue band, and a colour rule threw away real wounds. It
+  /// asks what SURROUNDS the blob instead — printed ink sits on a white card,
+  /// tissue sits in skin. On those 153 photographs the ten labels that were
+  /// actually measured scored 0.59–0.87 white surround, and the 126 real wounds
+  /// scored at most 0.25, so this threshold sits in a gap of 0.34 with nothing
+  /// in it.
+  ///
+  /// Needs no ring detection, no calibration and no extra inference: it reads
+  /// the same resized buffer the segmenter was already given.
+  /// See docs/IMPLEMENTATION_TRACKER.md C21/C25 and FINDINGS.md §10.
+  static const bool _refusePrintedLabel = true;
+  static const double _labelWhiteSurround = 0.40;
+
+  /// White-card pixel: pale and unsaturated. Skin under flash is brighter than
+  /// it is grey, so saturation is what carries this test.
+  static const double _paperMaxSat = 50 / 255;
+  static const double _paperMinVal = 170 / 255;
+
   /// Crop Model 3's input to the wound Model 1 located.
   ///
   /// Model 3 was trained **exclusively on tight wound patches** — DFUC2021 at
@@ -118,14 +198,49 @@ class AiService {
   static const double _ischaemiaThreshold = 0.61;
 
   /// Initialize the AI service and load both models.
+  /// Loads the interpreters, yielding to the event loop between each.
+  ///
+  /// `Interpreter.fromFile` is synchronous native work: building the ~168 MB
+  /// CLIP backbone blocks whichever isolate calls it, and the interpreters hold
+  /// native pointers so they cannot be built in a background isolate and used
+  /// from this one. Loading all four back to back therefore froze the UI long
+  /// enough for Android to raise "DiaFootCare isn't responding" as soon as the
+  /// camera screen opened.
+  ///
+  /// The models still load on this isolate — that part is unavoidable without
+  /// moving inference wholesale into an isolate of its own — but a frame is
+  /// pumped between each one, so the UI stays responsive and the ANR watchdog
+  /// (5 s of an unhandled input event) is never reached.
   Future<void> init() async {
     if (_initialized) return;
+    // Never two loads at once: the camera screen calls this on every open, and
+    // a second pass while the first is still running doubles the stall.
+    if (_initialising != null) return _initialising;
+    final done = Completer<void>();
+    _initialising = done.future;
+    try {
+      await _initInner();
+    } finally {
+      _initialising = null;
+      done.complete();
+    }
+  }
+
+  Future<void>? _initialising;
+
+  /// Lets the platform draw a frame before the next blocking load.
+  Future<void> _breathe() =>
+      Future<void>.delayed(const Duration(milliseconds: 16));
+
+  Future<void> _initInner() async {
 
     if (kIsWeb) {
       debugPrint('ℹ️  Web platform: using simulation data (TFLite unavailable).');
       _initialized = true;
       return;
     }
+
+    await _breathe();
 
     // Model 1
     try {
@@ -139,10 +254,13 @@ class AiService {
       _model1Loaded = false;
     }
 
+    await _breathe();
+
     // Model 2 (backbone is large ~168 MB)
     try {
       debugPrint('📦 Loading Model 2 (tissue): backbone + head');
       _clipBackbone = await _open(_clipPath);
+      await _breathe(); // the backbone is the long one; let a frame through
       _tissueHead = await _open(_headPath);
       debugPrint('✅ Model 2 loaded. backbone out='
           '${_clipBackbone!.getOutputTensor(0).shape} head out='
@@ -152,6 +270,8 @@ class AiService {
       debugPrint('⚠️  Failed to load Model 2: $e');
       _model2Loaded = false;
     }
+
+    await _breathe();
 
     // Model 3 (infection & ischaemia head — shares Model 2's backbone)
     try {
@@ -423,11 +543,20 @@ class AiService {
     mask = _morph5(_morph5(mask, dilate: false), dilate: true); // open
     mask = _morph5(_morph5(mask, dilate: true), dilate: false); // close
 
-    // 3) Measure the largest connected region only (= largest contour).
+    // 3) Erase any region that is the printed calibration label, so it can
+    //    neither be measured nor merged into a wound beside it.
+    if (_refusePrintedLabel) {
+      final removed = _erasePrintedLabels(mask, resized);
+      if (removed > 0) {
+        debugPrint('🏷️  Refused $removed blob(s) sitting on the calibration label');
+      }
+    }
+
+    // 4) Measure the largest connected region only (= largest contour).
     final comp = _largestComponent(mask);
     if (comp == null) return const _Measurements(0, 0, 0); // no wound found
 
-    // 4) TRUE length/width via the wound's principal (PCA) axes — equivalent to
+    // 5) TRUE length/width via the wound's principal (PCA) axes — equivalent to
     //    cv2.minAreaRect in the notebook. The old axis-aligned bounding box
     //    over-measures any wound that lies diagonally in the frame.
     //    Uses anisotropic px sizes so non-square photos measure correctly.
@@ -580,6 +709,81 @@ class AiService {
     }
     return out;
   }
+
+  /// Clear every region of [mask] that is the printed calibration label, and
+  /// return how many were cleared.
+  ///
+  /// Erasing the pixels rather than skipping the region is deliberate: it keeps
+  /// the visible part of a wound the sticker happens to be touching, instead of
+  /// discarding wound and label together. (In 153 clinic photographs the two
+  /// never actually fused into one region, so the two rules scored identically
+  /// there — this is the one that degrades better when they do.)
+  ///
+  /// [resized] is the model-input image, so mask coordinates index it directly.
+  int _erasePrintedLabels(List<List<bool>> mask, img.Image resized) {
+    final h = mask.length, w = mask[0].length;
+    final ids = List.generate(h, (_) => List.filled(w, 0));
+    final boxes = <List<int>>[]; // [minX, minY, maxX, maxY, area] per region
+
+    for (int y0 = 0; y0 < h; y0++) {
+      for (int x0 = 0; x0 < w; x0++) {
+        if (!mask[y0][x0] || ids[y0][x0] != 0) continue;
+        final id = boxes.length + 1;
+        int area = 0, minX = x0, maxX = x0, minY = y0, maxY = y0;
+        final stack = <int>[y0 * w + x0];
+        ids[y0][x0] = id;
+        while (stack.isNotEmpty) {
+          final p = stack.removeLast();
+          final y = p ~/ w, x = p % w;
+          area++;
+          if (x < minX) minX = x;
+          if (x > maxX) maxX = x;
+          if (y < minY) minY = y;
+          if (y > maxY) maxY = y;
+          for (int dy = -1; dy <= 1; dy++) {
+            for (int dx = -1; dx <= 1; dx++) {
+              final ny = y + dy, nx = x + dx;
+              if (ny < 0 || ny >= h || nx < 0 || nx >= w) continue;
+              if (mask[ny][nx] && ids[ny][nx] == 0) {
+                ids[ny][nx] = id;
+                stack.add(ny * w + nx);
+              }
+            }
+          }
+        }
+        boxes.add([minX, minY, maxX, maxY, area]);
+      }
+    }
+
+    var cleared = 0;
+    for (int i = 0; i < boxes.length; i++) {
+      if (!_isPrintedLabel(resized, ids, i + 1, boxes[i])) continue;
+      final b = boxes[i];
+      for (int y = b[1]; y <= b[3]; y++) {
+        for (int x = b[0]; x <= b[2]; x++) {
+          if (ids[y][x] == i + 1) mask[y][x] = false;
+        }
+      }
+      cleared++;
+    }
+    return cleared;
+  }
+
+  bool _isPrintedLabel(
+          img.Image src, List<List<int>> ids, int id, List<int> box) =>
+      isPrintedLabelRegion(
+        ids: ids,
+        id: id,
+        box: box,
+        isPaper: (x, y) {
+          final p = src.getPixel(x, y);
+          final rr = p.rNormalized, gg = p.gNormalized, bb = p.bNormalized;
+          final v = max(rr, max(gg, bb));
+          final s = v <= 0 ? 0.0 : (v - min(rr, min(gg, bb))) / v;
+          return s < _paperMaxSat && v > _paperMinVal;
+        },
+        whiteSurround: _labelWhiteSurround,
+      );
 
   /// Largest 8-connected region of the mask (area + bounding box).
   _Component? _largestComponent(List<List<bool>> m) {
