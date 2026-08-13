@@ -993,6 +993,13 @@ field values — 0.25 kept, 0.59 refused.
 - ✅ `flutter analyze lib test` → **0 errors, 0 warnings**
 - ✅ `flutter test` → **119/119** (110 before, +9)
 - ✅ The rule itself measured on 153 clinic photographs (above)
+- ✅ **Re-measured on the case it was most likely to fail.** Every photograph behind the 0.40
+  threshold had the label *away* from the wound — in 153 photographs the two never touched. A
+  patient arrived the same day with the label placed **on** the wound, and those four photographs
+  score 0.061 / **0.247** / 0.057 / 0.053: the highest a real wound has reached in 157
+  photographs, and it only ties the previous maximum. The threshold still sits above every wound
+  and below every label (≥0.59). **The guard survived its worst case on data collected after it
+  was written.**
 - 🔴 **Not yet run on a device.** The Dart port matches the Python rule by construction and was
   re-checked under Dart's sampling, but no photograph has gone through the app with it.
 
