@@ -893,6 +893,66 @@ unevidenced; re-measure after retraining, when that pale tissue may simply be se
 
 ---
 
+### C23 · The label guard, chosen by measurement and wired into the pipeline ✅ VERIFIED
+Decision taken: **the label stays as printed** (no `v6`), the pipeline refuses to measure inside
+the ring, and retraining carries the rest — the hand-drawn masks exclude the printed ring, so the
+model is taught directly that it is not tissue.
+
+Four rules, same 104 scored photographs. A withdrawn measurement is scored as withdrawn, never
+folded into the mean, or a rule could look accurate by refusing every hard case.
+
+| Rule | Measured | Mean abs. error | Improved | Worsened | Withdrawn | Label measured |
+|---|---|---|---|---|---|---|
+| As it ships today | 99 | 27.4% | — | — | 5 | **10** |
+| Drop the component | 93 | 27.8% | 2 | 2 | 11 | 0 |
+| Erase the pixels | 93 | 27.8% | 2 | 2 | 11 | 0 |
+| **Erase + merge — chosen** | 93 | **26.9%** | **7** | 3 | 11 | **0** |
+
+Dropping and erasing came out **identical**: in 153 photographs the wound never fused with the
+label into one component. They differ only there, and erasing keeps the visible part of a wound
+the sticker touches — so erase ships on the reasoning, not on a difference the data has yet shown.
+
+**No guard ever discarded a real wound** — all six withdrawn measurements were photographs where
+the label was the only thing found. That was the check that mattered.
+
+| | Path |
+|---|---|
+| **New** | `D:\DF\clinical_validation\scripts\wound_mask.py` — the single measuring rule |
+| **New** | `scripts/guard_eval.py`, `scripts/unlabelled_report.py` |
+| **Modified** | `scripts/run_batch.py`, `scripts/merge_test.py` — now import the shared rule |
+
+Merging rides along with the guard and is what moves the mean: the large plantar ulcer went from
+23.2% to **15.3%** mean error. It was rejected in August because, unguarded, one of its two
+regressions was merging *the label* into the wound.
+
+**Not in the app.** The app performs no ring detection at all, so it cannot run this guard yet;
+it arrives with ring calibration. Until then the app remains exposed to the same confusion.
+
+---
+
+### C24 · A wound the clinicians could not measure — and neither can we, honestly 🔴 REPORTED
+Ten photographs of a heel arrived with **no clinical figures**: the hospital could not measure it
+and asked for our number. Rows carry an empty reference so no scoring script can mistake a
+missing figure for a 0.0 cm wound.
+
+Median after cleaning: **0.36 × 0.27 cm**, spread **±27%** across seven photographs.
+
+> ⚠️ **That number should not be sent.** The overlays show a mask a few millimetres across inside
+> a lesion covering most of the heel — pink macerated tissue, yellow slough streaks, several open
+> points, perhaps 3–4 cm end to end. The model is measuring one open point.
+
+This is §3's failure mode at its most extreme, and probably **why the clinicians could not measure
+it either**: where the boundary is a judgement rather than a visible edge, a tape has the same
+problem a segmenter does. The spread says it independently — ±27% here against ±1.8–5% on wounds
+the model resolves. **When the model is unsure, its own repeatability reports it.**
+
+Tissue, as the app computes it: granulation 0.79 and callus 0.86 both **present** and both correct;
+**slough 0.26 → "absent" while yellow-white streaks are plainly visible**. Infection reads 0.50
+against the 0.41 threshold — not to be reported to the hospital, on a wound whose extent this same
+pipeline could not find (see C3 on prevalence).
+
+---
+
 ## 2. What is deliberately NOT done yet
 
 | Item | Why it is blocked |
