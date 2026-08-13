@@ -839,6 +839,60 @@ wounds — if it does not improve, it does not ship.**
 
 ---
 
+### C21 · The segmenter measures the calibration label — cause isolated ✅ VERIFIED
+Two batches arrived on 2026-08-13 (36 photographs, 3 wounds, both sites). The hospital-2 wound
+looked like our best result yet at −9.3%. **The overlays showed the mask sitting on the printed
+ring rather than the ulcer.** The scale is derived from that same ring, so measuring the ring
+returns its own diameter — 1.5 cm — and this patient's wound happened to be 1.5 cm.
+
+| Label | Photographs | Ring measured as the wound |
+|---|---|---|
+| Standard, **cyan**, 20 mm | 102 | **0** |
+| Small, **magenta**, 15 mm | 25 | **10 (40%)** |
+
+**Cause isolated by changing one variable.** The magenta annulus was recoloured in place — same
+size, position, gloss, card and photograph — and the model re-run:
+
+| Ring colour | Mean P(wound) inside the label | Measured as the wound |
+|---|---|---|
+| Magenta *(as printed)* | **0.35** | **10 / 10** |
+| Cyan | 0.00 | 0 / 10 |
+| Green | 0.00 | 0 / 10 |
+
+> Magenta on white reads as granulation tissue. Cyan and green are colours no wound can be —
+> which is why 102 standard-label photographs never produced this failure.
+
+**The guard, measured over all 143 photographs:** excluding components inside the detected ring
+improves 7 measurements, worsens 3, and **withdraws 6** where the label was the only thing found.
+Mean error barely moves (27.4% → 26.9%) — the point is not accuracy but **not being confidently
+wrong**: a wrong number that agrees with the clinician is the most dangerous kind. With the label
+excluded, today's wound is genuinely found in 5 of 12 frames and measures **−5.2%** there.
+
+**Where each fix lands**
+1. `v6` small label in **green** — root cause; the detector distinguishes 15 mm from 20 mm *by
+   that hue*, so `ring_detect` changes with it. **Not mid-batch**, it breaks comparability.
+2. **Never measure inside the ring** — in the analysis pipeline today; reaches the app when ring
+   calibration does. **The app performs no ring detection at all yet** (`pixelsPerCm` is null).
+3. **Place the label beside the wound** — in `#7` the sticker covers part of the ulcer.
+
+Scripts: `sticker_confusion.py`, `label_colour_test.py` · evidence: `label_colour_test.jpg`
+
+---
+
+### C22 · Contrast, not timing — third confirmation, and merging earns partial evidence ✅ VERIFIED
+Both same-day wounds moved in **opposite directions** after debridement: the dark-skinned heel
+ulcer went −60% → −12% (cleaning revealed a margin), the large plantar ulcer −10% → −36%
+(cleaning split it into a red bed and a pale slough island, and only the red half was measured).
+Same day, same site, same protocol. **The variable is contrast at the wound margin.**
+
+Component merging, rejected in August on three batches, is the fix for exactly that split:
+`19` 5.24 → **7.46**, `20` 5.47 → **7.34**, `22` 5.53 → **7.18** against 7.9. Across all six
+batches merging alone improves 6 and worsens 2; **behind the label guard, 7 improve and 3 worsen**
+— one former regression was merging the *label* into the wound. Still not shipped, but no longer
+unevidenced; re-measure after retraining, when that pale tissue may simply be segmented.
+
+---
+
 ## 2. What is deliberately NOT done yet
 
 | Item | Why it is blocked |
