@@ -1058,6 +1058,24 @@ tracking healing.
 
 ---
 
+### C28 · A reference is no longer assumed to be a measurement ✅ VERIFIED
+Patient 3 of the 2026-08-16 batch was **never measured** — the clinician gave an impression by
+eye, which explains the duplicate 1.3 × 1.2 flagged at import. Its **+32.1%** was therefore never
+an error against a measurement.
+
+Every batch sheet now carries `ref_quality`: **152 `measured`**, **8 `by_eye`**, **39 `none`**.
+The last two are excluded from every accuracy statistic and kept for training. `eval_masks.py`
+refuses to score against them, and the annotator shows such a figure in amber **with no deviation
+percentage** — colouring a deviation against an opinion would pull the outline towards it.
+
+**Annotation set extended to 71 photographs across all 25 wounds** (`build_annotation_set.py`),
+up to 3 per wound: an existing drawing first, then a frame that can be scored, then a detected
+ring, then lowest tilt, spread across before/after cleaning. **All 13 existing outlines survive on
+their original filenames**, and the annotator now seeds itself from `masks.json` so earlier work
+reappears in a fresh browser rather than looking undrawn. **58 left to draw.**
+
+---
+
 ## 2. What is deliberately NOT done yet
 
 | Item | Why it is blocked |
