@@ -1009,6 +1009,55 @@ That path predates this change but this change makes it reachable more often. **
 
 ---
 
+### C26 · The label guard, tested in the field on data it never saw ✅ VERIFIED
+A batch of 42 photographs across seven wounds arrived from 2026-08-16 — **collected before the
+guard was written and never used to tune it**.
+
+> One photograph would have measured the printed label: **+67.4% error, white surround 0.93**.
+> The guard refused it and the measurement became **+18.9%**. The highest any real wound scored
+> in the batch is **0.218**, below every previous maximum. **No wound lost, the one sticker
+> refused.** Batch mean absolute error 16.8% → **15.3%**.
+
+That is now three independent confirmations: the original 153 photographs, the first
+label-on-wound case (C25), and 42 photographs from a later clinic day.
+
+**Best batch so far:** mean absolute error **17.4%** against 26–27% before it, and one wound at
+**+5.4% with ±2.7% repeatability** over seven photographs — the best the project has measured.
+
+**The bias flipped positive** — five of seven wounds now read too large, where every earlier batch
+under-measured. Before calling that a trend: in centimetres the disagreements are 0.05–1.02 cm,
+and on a 1 cm wound 0.2 cm is 20% — about what a hand ruler resolves, and the clinical figures
+arrive rounded (1.0, 1.3, 0.9). **Percentage error exaggerates disagreement on small wounds.**
+
+---
+
+### C27 · First tissue ground truth — and it questions Model 2's framing 🔴 OPEN
+One patient arrived described as *slough, minimal granulation, epithelial at the edges* — the
+first time Model 2 has been scored against a clinician on a real wound.
+
+| Tissue | Clinician | Whole photo *(the app's framing)* | Wound crop |
+|---|---|---|---|
+| Slough | **dominant** | 0.54 → **absent** ❌ | **0.88 → present** ✅ |
+| Granulation | minimal | 0.80 → present ✅ | 0.78 → present ✅ |
+| Epithelial | at the edges | 0.03 → absent ❌ | 0.08 → absent ❌ |
+| Necrosis | not described | 0.91 → present ⚠️ | 0.81 → present ⚠️ |
+
+> **The app uses the framing that gets it wrong.** It would tell this clinician "no slough" on a
+> slough-dominant wound; the crop gets it right.
+
+This contradicts C1, where Model 2 was deliberately left on the whole photograph because its
+corpora are whole photographs. **One wound is not enough to reverse that** — so nothing changes
+yet. **Action: ask for a tissue description with every batch.** Five or six settle it, and it
+costs the clinician one line.
+
+Independent support for C1's other half: ischaemia reads **0.96 on the whole photo** (a confident
+false alarm) and **0.03 on the crop**, and Model 3 already uses the crop.
+
+Also open: **epithelial is missed in both framings**, and it is the class that matters most for
+tracking healing.
+
+---
+
 ## 2. What is deliberately NOT done yet
 
 | Item | Why it is blocked |
