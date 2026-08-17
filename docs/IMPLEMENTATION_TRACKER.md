@@ -1087,6 +1087,39 @@ reappears in a fresh browser rather than looking undrawn. **58 left to draw.**
 
 ---
 
+### C29 · Annotation complete — the retraining target is now measured ✅ VERIFIED
+All 71 photographs outlined by hand. **61 carry a ruler measurement** and are scored; the rest are
+the by-eye and unmeasured wounds, kept for training and excluded from every accuracy claim.
+
+| | Hand-drawn | Model *(as shipped today, guard included)* |
+|---|---|---|
+| Mean absolute error | **10.1%** | 27.2% |
+| Median | **7.7%** | 18.7% |
+| Within ±10% | **37 / 61** | 18 / 61 |
+| Within ±25% | **56 / 61** | 37 / 61 |
+| **Better on the wound** | **16 / 21** | 5 / 21 |
+| Spread within one wound | **±5.8%** | ±15.0% |
+
+> **The model's 27.2% is flattered**: it produced no measurement at all in five photographs, and a
+> mean is only taken over the ones it answered. The drawings answered every time.
+
+C20's 13-image result (9.3% vs 26.3%) now reproduces at nearly five times the size, on wounds and
+a site it never saw. **10.1% is the target — measured, not assumed.**
+
+The five wounds where the model still wins are ones it already handles well (round, bounded, one
+clear margin) and the drawing loses by a point or two. **They are the held-out check that the
+fine-tune has not traded good cases for bad ones.**
+
+Consistency is the quieter result: **±5.8% between photographs of one wound against ±15.0%**. A
+boundary drawn to a fixed rule is not only more accurate but more repeatable — which is what a
+training target has to be.
+
+**Next:** fine-tune Model 1 from current weights on these outlines mixed with the original ~1,270,
+and gate on held-out wounds. **If it does not beat 27.2% without losing the five good ones, it
+does not ship.**
+
+---
+
 ## 2. What is deliberately NOT done yet
 
 | Item | Why it is blocked |
