@@ -1122,6 +1122,43 @@ does not ship.**
 
 ## 2. What is deliberately NOT done yet
 
+### 🔜 Next session — retraining Model 1
+
+Everything this needs now exists. In order:
+
+| # | Step | State |
+|---|---|---|
+| 1 | **Add the new batch** — import, analyse, extend the annotation set, outline it | script per batch; `build_annotation_set.py` is re-runnable and never orphans a drawing |
+| 2 | Draw the one frame still open: **`H1e_P6_35`** | opened when photograph 30 moved to its right patient |
+| 3 | **Build the training set**: 61+ outlines → masks at the segmenter's input size | not started |
+| 4 | **Fine-tune from the current weights**, mixed with the original ~1,270 so FUSeg performance is not lost | not started |
+| 5 | **Gate on held-out wounds** | the rule is fixed in advance, below |
+
+> **The gate, agreed before any training runs.** Beat **27.2%** mean absolute error, reach toward
+> the **10.1%** the outlines reach, **and keep the five wounds the model already measures well**
+> (`v5_pending_P1` 0.6%, `2026-08-12_h_P4` 4.7%, `2026-08-16_h_P6` 3.0%, `2026-08-08_3_P3` 10.5%,
+> `2026-08-16_h_P4` 18.9%). **If it does not clear both halves, it does not ship.** Trading good
+> cases for bad ones while the average improves is the failure this gate exists to catch.
+
+### 🔴 Owed on the app before release
+
+| Item | Why it matters |
+|---|---|
+| **`0.00 cm` instead of "no wound found"** | When the guard leaves nothing — the label was all the model found, 6 photographs in 157 — the app reaches `_Measurements(0,0,0)` and shows **0.00 cm**. The path predates C25 but C25 makes it reachable. **Fix before release** |
+| **Device walk of the label guard** | C25 is 🟡: measured on 199 photographs in Python and unit-tested in Dart, but **no photograph has gone through the app with it** |
+| **Capture gate on tilt** | Evidence is in (§8, §14): allow ≤30°, warn 30–40°, **block >40°**. Patient 3 of 2026-08-16 rests entirely on 41–42° frames; patient 6 reaches 58° |
+| Device walk: capture → checklist → triage | Banners, Arabic tissue names, glucose units, back button — still never walked end to end |
+
+### 🔴 Owed to the clinics
+
+| Item | Why |
+|---|---|
+| **"Place the label beside the wound, not on it"** | In `H2b_P2` the card physically covers part of the lesion; no software recovers what it hides |
+| **Ask for a tissue description with every batch** | One description (C27) already suggests the app's tissue framing is wrong. Five or six settle it, and it costs one line |
+| **Ring detection misses** | 7 of 42 in the 2026-08-16 batch, five of them one wound. Worth one look at what those photographs have in common |
+
+### Longer-standing
+
 | Item | Why it is blocked |
 |---|---|
 | ~~Upload 1.1.0+3~~ | ✅ Published and verified live |
@@ -1130,16 +1167,16 @@ does not ship.**
 | ~~Checklist UI + wiring~~ | ✅ **Done — C6/C7.** Path runs photo → checklist → analysis → triage card |
 | ~~Device run — launch path~~ | ✅ **Done — C9.** App runs clean on an emulator. **Still to walk:** capture → checklist → triage, the banners, Arabic tissue names, glucose units, back button |
 | **Server endpoint** | 🔴 `POST /wound-scans/{uuid}/image` must be built in `daifootcare-web` (storage, per-patient gallery, TestFlight link on the site). App side is ready and waiting |
-| **Model 1 verification** | ⏸️ **Deferred by the user until the calibration labels are printed** — measurement cannot be validated without them |
-| **Test suite regression** | 🔴 `flutter test` ends `-7` with a Dart VM **"Out of memory"**. Each suite **passes when run alone** (`uuid_trigger` 5/5, `consent_migration` 6/6, `infection_triage` 18/18), so this looks like several in-memory-SQLite suites in one process rather than a logic fault — **but it is unresolved and must not be assumed harmless** |
+| ~~**Model 1 verification**~~ | ✅ **Done, and then some.** 199 photographs, 25 wounds, two sites, labels printed and in clinical use. See `D:\DF\clinical_validation\FINDINGS.md` |
+| ~~**Test suite regression**~~ | ✅ **Resolved.** Several in-memory-SQLite suites in one VM, as suspected — `dart_test.yaml` `concurrency: 1`. Now **119/119** |
 | **Deploy** | ⏸️ **Held until Saturday, at the user's instruction.** Code is ready; nothing has been pushed to the VPS |
 | **~~Device run~~** | ~~Nothing here has executed on a real phone.~~ This is the cheapest remaining verification and needs no clinical data: walk one photo through the flow and confirm the crop fires, the checklist appears, and the triage card renders |
 | **Per-patient trend** | Layer 3 of the strategy: compare a score against the patient's *own* baseline instead of an absolute cut-off. The history is already in SQLite (`wounds` table) and unused for this. Between-patient spread is sd 0.236, so removing it should cut false alarms further — **no retraining, no new data** |
 | Change the single infection threshold | **Superseded by C4.** Rather than pick one number, the app moves to three zones plus the checklist. The single threshold stays only for the legacy `infection` string until the UI lands |
-| Sticker detector + green-light gate | Awaiting **P2/P3** — the detector is tuned to a spec that must be fixed and printed first |
+| Sticker detector **in the app** | The detector works in the pipeline (`ring_detect.py`); the app has no ring detection, so it still has no true scale. The label *guard* no longer waits on this (C25), but calibration does |
 | Colour calibration (W6) | Needs the printed colour patches |
 | Retrain Model 2 on crops (W2b) | Do **after** W6 — colour variance may be a large part of the tissue problem, and that costs nothing to test |
-| Any claim of improvement | Awaiting **P1**, the validation set |
+| Multi-shot median-of-3 | User's decision: keep in mind, not now. Helps 35.2% → 30.3% only, because the error is systematic |
 
 ---
 
