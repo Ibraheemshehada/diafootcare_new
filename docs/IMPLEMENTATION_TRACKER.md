@@ -1068,6 +1068,17 @@ The last two are excluded from every accuracy statistic and kept for training. `
 refuses to score against them, and the annotator shows such a figure in amber **with no deviation
 percentage** — colouring a deviation against an opinion would pull the outline towards it.
 
+**Grouping error found while annotating.** Photograph 30 of 2026-08-16 was filed under patient 6
+and belongs to patient 5, after cleaning. The measurements said so independently: 6.65 cm sits
+with patient 5's 6.31 and 6.44, not with patient 6's reference of 8.1. Corrected — patient 5 is
+now **+17.6% at ±2.2% over three photographs**, one of them a close-up at a very different
+distance, which is itself a further confirmation the reassignment is right.
+
+**The rename is deferred on purpose.** A filename is the key the browser stores a drawing under,
+so renaming mid-session would orphan work in progress. The metadata was corrected in place, the
+rename queued in `annotate/pending_renames.json`, and `apply_pending_renames.py` moves file and
+drawing together once `masks.json` is exported.
+
 **Annotation set extended to 71 photographs across all 25 wounds** (`build_annotation_set.py`),
 up to 3 per wound: an existing drawing first, then a frame that can be scored, then a detected
 ring, then lowest tilt, spread across before/after cleaning. **All 13 existing outlines survive on
