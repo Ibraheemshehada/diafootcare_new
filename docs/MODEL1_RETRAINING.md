@@ -154,8 +154,23 @@ baseline has to be regenerated anyway. So rather than two notebooks, the clinica
 fine-tune is inserted **into the original training notebook** as one cell, placed
 after self-training and before the TFLite export.
 
-`training/clinical_finetune_cell.py` is that cell, kept here under version control.
-It is already inserted in `model-1-inhan.ipynb`.
+It is **four cells**, not one, kept under version control in
+`training/clinical_cells/` and already inserted in `model-1-inhan.ipynb` after the
+self-training cell:
+
+| Cell | | Runs alone? |
+|---|---|---|
+| `cell1_load.py` | finds the dataset, loads the pairs, **names anything still missing** | yes |
+| `cell2_measure.py` | the app's measurement, in centimetres, and the BEFORE pass | needs the model |
+| `cell3_finetune.py` | two stages, mixed with `Xp_os` | needs the notebook |
+| `cell4_gate.py` | AFTER, the gate, save only on pass | needs the above |
+
+Four rather than one because a 200-line cell is hard to re-run in part: when the gate
+fails you want to change the learning rate and re-run cell 3, not the whole thing.
+
+Cell 1 falls back to 384 if `IMG_HEIGHT` is not in memory and prints exactly which
+notebook names are missing, so running it out of order says what to do instead of
+raising `NameError`.
 
 One run therefore produces everything:
 
