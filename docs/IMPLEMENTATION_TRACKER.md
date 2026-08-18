@@ -1448,23 +1448,54 @@ number** — and the whole judgement rests on 12 validation wounds.
 
 ## 2. What is deliberately NOT done yet
 
-### 🔜 Next session — retraining Model 1
+### 🔜 Tomorrow — decide whether the fine-tuned model ships
 
-Everything this needs now exists. In order:
+The retraining itself is done (C33–C37). What remains is a decision, and it rests on two
+measurements that have to be run on the **same** file.
 
-| # | Step | State |
-|---|---|---|
-| 1 | **Add the new batch** — import, analyse, extend the annotation set, outline it | script per batch; `build_annotation_set.py` is re-runnable and never orphans a drawing |
-| 2 | Draw the one frame still open: **`H1e_P6_35`** | opened when photograph 30 moved to its right patient |
-| 3 | **Build the training set**: 61+ outlines → masks at the segmenter's input size | not started |
-| 4 | **Fine-tune from the current weights**, mixed with the original ~1,270 so FUSeg performance is not lost | not started |
-| 5 | **Gate on held-out wounds** | the rule is fixed in advance, below |
+**1 · Get the current model out of Kaggle.** The label result in C37 was measured on the
+*previous* fine-tune; this session's model — corrected outlines, clinical Dice 0.869 — has not
+been exported. Export `unet_clin_c2.keras` **explicitly**, not through the gate cell: the gate
+fails (see the bug below), so it reloads the baseline and the export cell would ship the wrong
+weights. Name it `model1_wound_fp16_clinical.tflite` so nothing is overwritten.
 
-> **The gate, agreed before any training runs.** Beat **27.2%** mean absolute error, reach toward
-> the **10.1%** the outlines reach, **and keep the five wounds the model already measures well**
-> (`v5_pending_P1` 0.6%, `2026-08-12_h_P4` 4.7%, `2026-08-16_h_P6` 3.0%, `2026-08-08_3_P3` 10.5%,
-> `2026-08-16_h_P4` 18.9%). **If it does not clear both halves, it does not ship.** Trading good
-> cases for bad ones while the average improves is the failure this gate exists to catch.
+**2 · Run both comparisons against the deployed file.** Neither answers the question alone.
+
+```bash
+python scripts\compare_tflite.py          <shipped> <new>   # centimetres
+python scripts\compare_label_confusion.py <shipped> <new>   # the printed ring
+```
+
+Expected, from what is already measured: **flat on centimetres, 38% → ~2% on label confusion.**
+
+**3 · The decision.** Ship if the label result holds, even with flat cm error — the fine-tune
+removes a failure that produced *confidently wrong* numbers, one of which agreed with a clinician
+exactly by coincidence. With it, the model **and** the app's guard would both have to fail before
+a sticker is measured.
+
+Against shipping, and it must be weighed rather than waved past: the cm error does not improve;
+one wound went from unmeasurable to 66.2%, and **in a clinical app silence may be safer than a
+confident wrong number**; and the whole judgement rests on **12 validation wounds**.
+
+If it ships: copy the file into `assets/models/`, `flutter analyze && flutter test`, publish it
+wherever `ModelRepository` fetches from and bump the version there — installed devices keep the
+old weights otherwise, and no local test will show it.
+
+**4 · Fix the gate bug first (30 minutes).** It compares means over **different wound sets**: a
+wound that becomes measurable for the first time is silently added and can turn a real improvement
+into an apparent regression — which is exactly what produced the "13.3% → 17.1%" that is really
+13.3% → 12.7%. Means must be computed over the **intersection**, with newly-measurable and
+newly-unmeasurable wounds reported as their own line.
+
+**5 · Then the app**, in this order — both are owed before any release and neither depends on the
+model decision:
+- **`0.00 cm` instead of "no wound found"** when the guard leaves nothing (C25).
+- **The tilt gate**: allow ≤30°, warn 30–40°, **block >40°**. The evidence is in — 26 of 56 frames
+  in the 2026-08-18 batch exceed 40°, where measured error triples.
+
+**Not tomorrow, but the honest next lever:** with 19 training wounds the outlines repair a weak
+model and do not push a good one further. The plan always said **30–50 distinct wounds**; there
+are 31 in total. More wounds, not more hyperparameters.
 
 ### 🔴 Owed on the app before release
 
