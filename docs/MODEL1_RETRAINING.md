@@ -147,7 +147,27 @@ at 384** from the polygon, so the boundary is resampled once.
 
 ---
 
-## 5. Run it — one notebook, one run
+## 5. Run it
+
+Two notebooks, and which one you need depends on what already exists.
+
+### 5a. `training/model1_clinical_finetune.ipynb` — the short path
+
+Use this when a previous run's outputs were saved. It **skips rebuilding the
+baseline entirely**: loads the saved `.keras`, fine-tunes on the outlines, gates,
+exports. Five cells, roughly twenty minutes of GPU.
+
+Attach `diafootcare-model1` (the saved checkpoint), `diafootcare-wound-outlines`,
+`fuseg-wound`, `dfutissue`.
+
+It carries two things the long path gets for free from the notebook around it: it
+rebuilds the FUSeg **validation** set so the forgetting check still runs, and it
+rebuilds a **float32 copy** of the model before exporting — the model trains under
+`mixed_float16`, which leaves float16 ops TFLite cannot legalize
+(`ERROR_NEEDS_FLEX_OPS`). It then verifies the copy against the trained model and
+the exported file against the copy, so a silent conversion fault cannot ship.
+
+### 5b. `training/model1_retrain_kaggle.ipynb` — the long path
 
 **`training/model1_retrain_kaggle.ipynb`** is the whole thing: the original training
 notebook with four clinical cells added after self-training and before the TFLite
