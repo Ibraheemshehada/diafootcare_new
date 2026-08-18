@@ -8,12 +8,12 @@ WHAT THIS IS FOR
 The deployed segmenter measures wounds ~27% away from the clinician, and the error
 is polarised by wound type: excellent on round bounded ulcers, failing on extended
 lesions with graded tissue. Outlining the same photographs by hand and measuring
-both the same way reaches 10.1%. So the fault is segmentation, and this fine-tune
+both the same way reaches 11.8%. So the fault is segmentation, and this fine-tune
 is the correction.
 
 HOW IT AVOIDS THE THREE OBVIOUS WAYS OF GETTING THIS WRONG
 
-1. **Catastrophic forgetting.** 71 clinical photographs against the ~1,270 the
+1. **Catastrophic forgetting.** 89 clinical photographs against the ~1,270 the
    model was trained on. Training on ours alone would overwrite everything the
    model knows and score beautifully on our validation split while collapsing in
    general. Each epoch therefore mixes our photographs with the original precise
@@ -26,7 +26,7 @@ HOW IT AVOIDS THE THREE OBVIOUS WAYS OF GETTING THIS WRONG
    the app applies** — including the label guard.
 
 3. **Trading good cases for bad.** An average can improve while the wounds the
-   model already handles are ruined. Five such wounds are held out and checked
+   model already handles are ruined. Six such wounds are held out and checked
    separately; the fine-tune fails if it breaks them, no matter what the mean does.
 """
 import json, os, pathlib
@@ -38,10 +38,71 @@ from tensorflow.keras import backend as K
 # ---------------------------------------------------------------------------
 # Configuration
 # ---------------------------------------------------------------------------
-DATA = os.environ.get("DFC_DATA", "/kaggle/input/diafootcare-wound-outlines")
-BASE_WEIGHTS = os.environ.get("DFC_BASE", "/kaggle/input/diafootcare-model1/unet_phase2.keras")
-DFUTISSUE = os.environ.get("DFC_DFUTISSUE", "")   # optional; empty = skip the anti-forgetting mix
-OUT = os.environ.get("DFC_OUT", "/kaggle/working")
+def first_existing(*candidates, find=None, roots=("/kaggle/input", ".")):
+    """Resolve a path that Kaggle may have mounted under any of several slugs.
+
+    Kaggle rewrites dataset paths depending on how a dataset was added
+    (`/kaggle/input/<slug>` vs `/kaggle/input/datasets/<owner>/<slug>`), and a
+    slug can be renamed between runs. The original training notebook resolved
+    paths this way for exactly that reason, and hard-coding one spelling here
+    would reintroduce the failure it was written to avoid.
+
+    Tries each candidate, then falls back to searching for `find` as a path tail.
+    """
+    for c in candidates:
+        if c and os.path.exists(c):
+            return c
+    if find:
+        for root in roots:
+            if not os.path.isdir(root):
+                continue
+            for dirpath, dirnames, filenames in os.walk(root):
+                if dirpath.replace("\\", "/").endswith(find):
+                    return dirpath
+                tail = dirpath.replace("\\", "/")
+                if os.path.basename(find) in filenames and tail.endswith(os.path.dirname(find)):
+                    return dirpath
+    return None
+
+
+OWNER = os.environ.get("DFC_OWNER", "ibrahimshehada")
+
+# The outlined set: whichever spelling Kaggle mounted it under, it is the folder
+# that contains index.json.
+DATA = os.environ.get("DFC_DATA") or first_existing(
+    f"/kaggle/input/datasets/{OWNER}/diafootcare-wound-outlines",
+    "/kaggle/input/diafootcare-wound-outlines",
+    "./training_set",
+    find="index.json")
+
+# The base weights: the folder holding unet_phase2.keras.
+_base_dir = first_existing(
+    f"/kaggle/input/datasets/{OWNER}/diafootcare-model1",
+    "/kaggle/input/diafootcare-model1",
+    ".",
+    find="unet_phase2.keras")
+BASE_WEIGHTS = os.environ.get("DFC_BASE") or (
+    os.path.join(_base_dir, "unet_phase2.keras") if _base_dir else "")
+
+# The original precise pool. The layout inside every mirror of this dataset is
+# DFUTissue/Labeled/Original/{Images,Annotations}/TrainVal, so the tail is what
+# is searched for rather than the dataset name.
+_dfu_img = os.environ.get("DFC_DFUTISSUE_IMAGES") or first_existing(
+    f"/kaggle/input/datasets/{OWNER}/dfutissue/DFUTissue/Labeled/Original/Images/TrainVal",
+    f"/kaggle/input/datasets/{OWNER}/dfutissuesegnet-main/DFUTissueSegNet-main/DFUTissue/Labeled/Original/Images/TrainVal",
+    f"/kaggle/input/datasets/{OWNER}/dfutissuesegnet/DFUTissue/Labeled/Original/Images/TrainVal",
+    find="DFUTissue/Labeled/Original/Images/TrainVal")
+DFUTISSUE = os.path.dirname(os.path.dirname(_dfu_img)) if _dfu_img else ""
+
+OUT = os.environ.get("DFC_OUT", "/kaggle/working" if os.path.isdir("/kaggle/working") else ".")
+
+print(f"data      : {DATA}")
+print(f"base      : {BASE_WEIGHTS}")
+print(f"dfutissue : {DFUTISSUE or 'NOT FOUND — the anti-forgetting mix will be skipped'}")
+
+# DFUC2020's bbox pseudo-masks are deliberately NOT mixed in. They were useful for
+# teaching the model where wounds are; they are rectangles, and this fine-tune is
+# about the boundary. Training on them here would blunt the thing being sharpened.
 
 IMG_SIZE = 384          # must match the deployed model; changing it changes the app
 BATCH_SIZE = 8
@@ -306,9 +367,15 @@ def main():
 
     broke = []
     print("\n  wounds the model already measured well:")
-    for w, base in gate_wounds.items():
-        now = after.get(w)
-        if now is None:
+    for w in gate_wounds:
+        # `gate.json` chooses WHICH wounds are the check. The baseline comes from
+        # this run's own "before" pass, never from that file: the two are measured
+        # by different scripts, whose image resampling differs enough to move one
+        # wound by 8 percentage points. A paired comparison on identical inputs is
+        # sound; comparing across measurement contexts is not, and would either
+        # excuse a real regression or invent a false one.
+        base, now = before.get(w), after.get(w)
+        if base is None or now is None:
             print(f"    {w:<40} not scored this run"); continue
         # A tolerance, not a demand for perfection: a good wound may move a little.
         limit = max(base * 1.5, base + 5.0)

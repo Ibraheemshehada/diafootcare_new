@@ -145,7 +145,13 @@ extent that actually gets measured.
 
 1. **Mean absolute error across validation wounds improves** on the same model's own
    "before" figure, measured in the same run.
-2. **No held-out good wound regresses** beyond `max(1.5 × baseline, baseline + 5pp)`:
+2. **No held-out good wound regresses** beyond `max(1.5 × baseline, baseline + 5pp)`,
+   where the baseline is also **from this run's own "before" pass**.
+
+`gate.json` chooses *which* wounds are checked; it never supplies the number they are
+checked against. The two are measured by different scripts, and their image resampling
+differs enough to move one wound by 8 percentage points — enough to excuse a real
+regression or invent a false one. Paired comparison on identical inputs, always:
 
 | Wound | Current error |
 |---|---|

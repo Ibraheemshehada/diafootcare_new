@@ -1189,6 +1189,37 @@ centimetres. `training_set.zip` is the same thing in one file for the upload.
 
 ---
 
+### C32 · The fine-tune script, verified against the deployed model ✅ VERIFIED
+Kaggle mounts a dataset under `/kaggle/input/<slug>` or `/kaggle/input/datasets/<owner>/<slug>`
+depending on how it was added, and slugs get renamed. Paths are now **resolved at run time** the
+way the original training notebook resolved them — candidates first, then a search for the path
+tail — so nothing in the file needs editing between runs.
+
+**Smoke-tested against the deployed model rather than assumed correct.** The script's own
+measurement was run over the validation split with the shipped TFLite standing in for the network:
+
+| Wound | `eval_masks.py` | the script |
+|---|---|---|
+| `batch_v5_pending\|1` | 0.6% | 0.6% |
+| `batch_2026-08-16_hospital1\|6` | 3.0% | 3.3% |
+| `batch_2026-08-08_3patients\|3` | 10.5% | 10.7% |
+| `batch_2026-08-12_hospital2\|4` | **4.7%** | **13.1%** |
+
+**The fourth row found a real flaw in the gate.** The two scripts resample images differently —
+one reads the full-resolution photograph, the other the 384 PNG — and on that wound the difference
+is 8 percentage points. The gate had been comparing the script's "after" against baselines from
+`eval_masks.py`, i.e. **across measurement contexts**, which could excuse a real regression or
+invent a false one.
+
+Fixed: `gate.json` now chooses **which** wounds are checked, and the baseline always comes from
+**this run's own "before" pass**. Paired comparison on identical inputs.
+
+Verified end to end with a **no-op fine-tune** — the deployed model as both "before" and "after":
+mean 13.4% → 13.4%, no regressions. A gate that cannot sit still on an unchanged model cannot be
+trusted on a changed one.
+
+---
+
 ## 2. What is deliberately NOT done yet
 
 ### 🔜 Next session — retraining Model 1
