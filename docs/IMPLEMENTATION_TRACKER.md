@@ -1220,6 +1220,47 @@ trusted on a changed one.
 
 ---
 
+### C33 · First fine-tune run — the gate caught a regression ✅ VERIFIED (gate: FAIL)
+The fine-tune ran on Kaggle from a regenerated baseline. **The thesis held and the gate failed**,
+which is exactly the pair of outcomes the gate exists to separate.
+
+| | Before | After |
+|---|---|---|
+| Clinical error (cm, 11 wounds) | 24.0% | **17.0%** |
+| Clinical Dice | 0.709 | **0.827** |
+| **FUSeg val Dice** | 0.861 | **0.874** |
+
+**Three of the four worst wounds collapsed** — 50.7% → 11.2%, 49.2% → 19.1%, 44.3% → 6.3%. These
+are the extended lesions with graded tissue diagnosed in FINDINGS §3 and §11. The outlines fixed
+precisely what the analysis predicted they would fix, on wounds never trained on.
+
+**No forgetting whatsoever.** FUSeg Dice rose. Mixing 1,103 precise images against 57×4 clinical
+ones did its job, and the clinical gain cost nothing on the original domain.
+
+> 🔴 **But `batch_2026-08-12_hospital2|4` went 19.4% → 61.4%** — a held-out wound the model already
+> measured well, over the tolerance of `max(1.5×base, base+5)` = 29.1%. The mean improved by seven
+> points **while a good case was traded for a bad one**, which is the failure the second half of
+> the gate was written to catch. `unmeasurable` also rose 1 → 2.
+
+`unet_model.keras` was left untouched and the pre-fine-tune model reloaded, so nothing shipped.
+
+**Likely cause: stage 2.** Deep fine-tuning 57 photographs overfitted visibly — clinical val Dice
+peaked at **0.888** after stage 1 and fell to **0.821** during stage 2, with `ReduceLROnPlateau`
+firing twice. The measured model is stage 2's best, not stage 1's.
+
+**Two flaws in the cell, both fixed:**
+1. Both stages checkpointed to **one filename**, and a fresh `ModelCheckpoint` starts with no
+   "best" — so stage 2's first epoch overwrote stage 1's peak even when worse. Each stage now
+   writes its own file and the better of the two is kept by clinical validation Dice.
+2. The first version built a **float32 copy** of the precise pool on top of everything cell 3
+   already held, and ran the session out of memory. It now frees the finished phase-1 pool and
+   stores the mix as **uint8**, converting per batch.
+
+**Next:** re-run stage 1 alone (12 epochs, ~3 min) and re-gate. If the regression is stage 2's
+overfitting, the three big gains should survive and `hospital2|4` should return to ~19%.
+
+---
+
 ## 2. What is deliberately NOT done yet
 
 ### 🔜 Next session — retraining Model 1
