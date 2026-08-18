@@ -147,33 +147,51 @@ at 384** from the polygon, so the boundary is resampled once.
 
 ---
 
-## 5. Run the fine-tune
+## 5. Run the fine-tune — one notebook, one run
 
-Copy `training/model1_finetune.py` into a cell, or attach it and run:
+Because the deployed model's Keras weights were never saved as a Kaggle version, the
+baseline has to be regenerated anyway. So rather than two notebooks, the clinical
+fine-tune is inserted **into the original training notebook** as one cell, placed
+after self-training and before the TFLite export.
+
+`training/clinical_finetune_cell.py` is that cell, kept here under version control.
+It is already inserted in `model-1-inhan.ipynb`.
+
+One run therefore produces everything:
+
+| | |
+|---|---|
+| `unet_phase1.keras`, `unet_phase2.keras` | the baseline, finally saved as notebook output |
+| `unet_clinical.keras` | the fine-tuned checkpoint |
+| `gate_report.json` | the evidence |
+| `model1_wound_fp16.tflite` | exported from whatever passed |
+
+**It reuses the notebook's own machinery** rather than duplicating it — `seg_loss`,
+`make_ds` with its augmentation, `make_opt` with the mixed-precision loss scaling,
+`make_callbacks`, the same `FINE_TUNE_FROM` deep-unfreeze, and above all `Xp_os`,
+the precise FUSeg + DFUTissue pool the notebook has already built and oversampled.
+Duplicating any of that would let the fine-tune drift from the recipe that produced
+the model it is fine-tuning.
+
+| Stage | | Why |
+|---|---|---|
+| Mix | clinical ×4 + `Xp_os` | 89 photographs against ~1,270. Ours alone would score well on our own split and collapse everywhere else |
+| 1 | decoder only, LR 3e-4 | a general encoder should not be moved by 89 photographs while the decoder is still adjusting to a new boundary convention |
+| 2 | same deep unfreeze as phase 2 above, LR 2e-5 | adjust the boundary, do not overwrite the model |
+
+**The safety property that matters:** the cell writes `unet_model.keras` **only if the
+gate passes**. If it fails it reloads the pre-fine-tune model, so the export cell below
+ships the old weights and nothing downstream changes. A failed experiment leaves no
+trace in what gets shipped.
+
+### The old §5 (standalone script)
+
+`training/model1_finetune.py` still works if you would rather run the fine-tune
+separately against saved weights. It resolves its own paths and applies the same gate.
 
 ```python
 !python model1_finetune.py
 ```
-
-Paths come from the environment, so nothing in the file needs editing:
-
-```python
-import os
-# nothing needs setting — paths are resolved at run time and printed at startup
-```
-
-If a slug is unusual, override just that one, e.g.
-`os.environ["DFC_FUSEG_IMAGES"] = "/kaggle/input/.../FUSeg/train/images"`.
-
-**What it does, and why each part is there**
-
-| Stage | | Why |
-|---|---|---|
-| Mix | clinical ×4 + **FUSeg train** + DFUTissue | 89 photographs against the ~1,270 the model learned from. Training on ours alone would score well on our own validation split while collapsing in general. FUSeg is weighted by being large: it is the whole-foot domain the app actually sees |
-| 1 | decoder only, encoder frozen, LR 3e-4 | a general image encoder should not be moved by 89 photographs while the decoder is still adjusting |
-| 2 | everything, LR 2e-5 | low enough to adjust the boundary rather than overwrite the model |
-| Loss | BCE + Focal-Tversky (β>α) | the wound is a median **0.9%** of the frame, and every diagnosed failure was the model measuring **too little** — so missed wound pixels are punished harder |
-| Augmentation | flips, 90° rotations, mild colour | no elastic warping: here the boundary **is** the label |
 
 ---
 
