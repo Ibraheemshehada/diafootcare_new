@@ -1306,6 +1306,59 @@ after that to the next clinic batch through `run_batch.py`.
 
 ---
 
+### C35 · The gate passed, the deployed model still wins — and one outline is why 🔴 NOT SHIPPED
+`compare_tflite.py` ran the fine-tuned model against the **file the patients are using**, on the
+same photographs with the app's own post-processing.
+
+| | Deployed | Fine-tuned |
+|---|---|---|
+| Mean absolute error | **13.4%** | 15.7% |
+| Unmeasurable | 1 | 2 |
+
+**Do not ship.** But the comparison set is biased and saying so matters: **6 of its 11 wounds are
+the gate wounds, chosen because the deployed model measures them well.** On the five neutral
+wounds — neither trained on nor selected for anyone's competence:
+
+| Wound | Deployed | Fine-tuned |
+|---|---|---|
+| `08-12_v5_beforeafter\|3` | 32.3% | **44.6%** 🔴 |
+| `08-13_hospital1\|2` | 28.0% | 25.4% ✅ |
+| `08-18_hospital1\|3` | 16.4% | 14.5% ✅ |
+| `08-16_hospital1\|5` | 16.1% | 15.1% ✅ |
+| `08-18_hospital1\|2` | 15.6% | **10.5%** ✅ |
+| Mean | 21.7% | 22.0% |
+| **Mean without the stuck wound** | 19.0% | **16.4%** |
+
+**Four of five improve. One wound swallows the entire gain — and the fault is ours, not the
+model's.** Its three outlines are **+17.3%, +33.8%, +26.8%** against the clinician, a mean of
+**+25.9%** where the average across all wounds is +4.0%. We taught the model to over-measure it
+and it obeyed. That is why it sat at ~45% through three training runs while the learning rate took
+the blame: it was not resisting training, it was following it.
+
+**A methodological failure of mine, now fixed.** `mask_eval.xlsx` could have flagged this before a
+single epoch ran — the evaluation that judges the model has to judge its data first. Screening
+every wound's outlines against the clinical figure flags **5 of 31** (13 photographs):
+
+| Wound | Outline error | |
+|---|---|---|
+| `08-18_hospital1\|5` | +37.4% | draw tighter |
+| `08-16_hospital1\|4` | +30.6% | draw tighter |
+| `08-12_v5_beforeafter\|3` | +25.9% | draw tighter |
+| `08-18_hospital1\|6` | −21.9% | draw wider |
+| `08-12_hospital2\|1` | −21.7% | draw wider |
+
+The other **24 wounds average 9.0%** — the set is sound apart from these.
+
+`export_training_set.py` now holds them out of **both** train and val: an outline we do not trust
+cannot teach a model and cannot judge one either. `build_redraw_set.py` builds a separate
+workspace (`redraw/`) carrying the **existing outlines** so the work is correcting a boundary
+rather than starting from an empty canvas, with the direction of the correction shown on screen.
+
+**Next:** redraw the 13, re-export, re-run. Expected: the stuck wound falls below 30% and the tie
+on neutral wounds becomes a clear win.
+
+---
+
 ## 2. What is deliberately NOT done yet
 
 ### 🔜 Next session — retraining Model 1
