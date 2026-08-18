@@ -1396,6 +1396,56 @@ from fixing data that was already there and would have kept teaching the wrong l
 
 ---
 
+### C37 · The fine-tune's real gain is the label, not the centimetre ✅ VERIFIED
+Two findings, and the second one reframes the first.
+
+**1. Against a sound baseline, the fine-tune is a wash.** The earlier "24.0% → 15.4%" was measured
+against a broken baseline — a model from a run whose kernel died mid-phase-2. Re-running the
+notebook's own training produced a baseline at **13.3%**, which matches the deployed model's
+**13.4%** on the same wounds. Fine-tuning that gives:
+
+| | Before | After |
+|---|---|---|
+| Announced (11 vs 12 wounds) | 13.3% | 17.1% |
+| **On the 11 wounds both measure** | **13.3%** | **12.7%** |
+| Neutral wounds (5) | 15.7% | 15.5% |
+| Clinical Dice | 0.803 | **0.869** |
+| FUSeg Dice | 0.854 | **0.861** |
+
+Seven wounds improved, four worsened. **0.6 points over eleven wounds is noise**, and the neutral
+wounds are flat. The announced 17.1% is an artefact of my own gate: one wound became *measurable*
+for the first time (66.2%) and was silently added to the mean. **Means must be compared over the
+intersection, and a newly-measurable wound reported separately** — a bug, not a result.
+
+Note what did move: **Dice rose 0.066 while the centimetre error did not.** The mask overlaps
+better and the measured extent does not. That is the exact reason the gate scores centimetres.
+
+**2. But the fine-tune was never only about centimetres** — the fourth fix for the label confusion
+(C21) was to teach the model directly that the printed ring is not tissue, since every outline
+excludes it. That was never measured. It is now, on 239 photographs, with the guard **off** so it
+cannot hide the effect:
+
+| | Deployed | Fine-tuned |
+|---|---|---|
+| Label measured as the wound, **small magenta** | **16 / 42 (38%)** | **1 / 42 (2%)** |
+| Label measured as the wound, standard cyan | 0 / 197 | 0 / 197 |
+| P(wound) inside the label, 90th percentile | **0.170** | **0.0005** |
+| Photographs fixed / broken | — | **15 fixed, 0 broken** |
+
+> **The confusion is effectively gone**, and the probability mass inside the label fell by a factor
+> of ~340. The model no longer sees a printed ring as granulation.
+
+**This changes what the fine-tune is for.** Its value is not a better measurement — it is the
+removal of a failure that produced *confidently wrong* numbers, once agreeing with a clinician
+exactly by coincidence. On that basis it is worth shipping even at flat cm error, because the guard
+in the app and the model would then both have to fail before a sticker is measured.
+
+**Still to decide before shipping:** the cm error is flat, one wound (`16_h1|4`) went from
+unmeasurable to 66.2% — and in a clinical app **silence may be safer than a confident wrong
+number** — and the whole judgement rests on 12 validation wounds.
+
+---
+
 ## 2. What is deliberately NOT done yet
 
 ### 🔜 Next session — retraining Model 1
