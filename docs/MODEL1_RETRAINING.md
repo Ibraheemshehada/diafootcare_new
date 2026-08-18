@@ -16,16 +16,22 @@ it is polarised by wound type — excellent on round bounded ulcers, failing on
 extended lesions with graded tissue.
 
 Outlining the same photographs by hand, and measuring outline and model **the same
-way through the same ring**, reaches **10.1%**:
+way through the same ring**, reaches **11.8%**:
 
 | | Hand-drawn | Model |
 |---|---|---|
-| Mean absolute error | **10.1%** | 27.2% |
-| Within ±10% | 37 / 61 | 18 / 61 |
-| Better on the wound | **16 / 21** | 5 / 21 |
+| Mean absolute error | **11.8%** | 25.8% |
+| Median | **8.8%** | 18.0% |
+| Within ±10% | **45 / 79** | 21 / 79 |
+| Within ±25% | **68 / 79** | 47 / 79 |
+| Closer to the clinician | **50 / 79** | — |
 | Spread across photographs of one wound | **±5.8%** | ±15.0% |
 
-Only the boundary differs. So 10.1% is a **measured ceiling**, not a hope, and this
+*(89 outlines over 31 wounds; 79 carry a ruler measurement and are scored. The model's figure is
+flattered: it produced no measurement at all in 7 photographs and a mean is taken only over the
+ones it answered.)*
+
+Only the boundary differs. So ~12% is a **measured ceiling**, not a hope, and this
 fine-tune is the attempt to reach it.
 
 ---
@@ -74,10 +80,13 @@ Produces, in `training_set/`:
 | `index.json` | per-photograph metadata, including `ppc_x`/`ppc_y` so the gate can be scored **in centimetres** without the ring detector |
 | `dataset_card.md` | what it is and what it must not be used for |
 
-Three choices that are easy to get wrong and are already handled: the split is **by
-wound** (three shots of one ulcer are nearly the same picture); the five wounds the
+Currently **89 photographs over 31 wounds** — 57 train / 32 validation, across 19 / 12
+wounds. Three choices that are easy to get wrong and are already handled: the split is
+**by wound** (three shots of one ulcer are nearly the same picture); the wounds the
 model already handles are **forced into validation**; masks are rasterised **straight
 at 384** from the polygon, so the boundary is resampled once.
+
+`training_set.zip` beside the folder is the same thing in one file, for the upload.
 
 ---
 
@@ -116,8 +125,8 @@ os.environ["DFC_DFUTISSUE"] = "/kaggle/input/dfutissue/DFUTissue/Labeled/Origina
 
 | Stage | | Why |
 |---|---|---|
-| Mix | clinical ×4 + DFUTissue precise pool | 71 photographs against the ~1,270 the model learned from. Training on ours alone would score well on our own validation split while collapsing in general |
-| 1 | decoder only, encoder frozen, LR 3e-4 | a general image encoder should not be moved by 71 photographs while the decoder is still adjusting |
+| Mix | clinical ×4 + DFUTissue precise pool | 89 photographs against the ~1,270 the model learned from. Training on ours alone would score well on our own validation split while collapsing in general |
+| 1 | decoder only, encoder frozen, LR 3e-4 | a general image encoder should not be moved by 89 photographs while the decoder is still adjusting |
 | 2 | everything, LR 2e-5 | low enough to adjust the boundary rather than overwrite the model |
 | Loss | BCE + Focal-Tversky (β>α) | the wound is a median **0.9%** of the frame, and every diagnosed failure was the model measuring **too little** — so missed wound pixels are punished harder |
 | Augmentation | flips, 90° rotations, mild colour | no elastic warping: here the boundary **is** the label |
@@ -142,9 +151,14 @@ extent that actually gets measured.
 |---|---|
 | `batch_v5_pending\|1` | 0.6% |
 | `batch_2026-08-16_hospital1\|6` | 3.0% |
+| `batch_2026-08-12_v5_beforeafter\|2` | 3.3% |
 | `batch_2026-08-12_hospital2\|4` | 4.7% |
+| `batch_2026-08-16_hospital1\|1` | 7.2% |
 | `batch_2026-08-08_3patients\|3` | 10.5% |
-| `batch_2026-08-16_hospital1\|4` | 18.9% |
+
+That list is **read from `mask_eval.xlsx`, not typed** — the six most accurate wounds, capped at
+six on purpose. Holding out every wound under 20% error took 14 of 31 and left 13 to train on; the
+gate exists to *detect* a regression, and the wounds with the most to lose detect it.
 
 If it fails, **the script stops before exporting**. A model that fails the gate must
 not reach a patient, and the easiest way for that to happen is an exported file

@@ -1163,6 +1163,32 @@ re-run phases 1–2 and re-measure the "before" column rather than copying it.
 
 ---
 
+### C31 · All 31 wounds outlined — the package is built ✅ VERIFIED
+89 outlines over **31 wounds**, two hospitals. 79 carry a ruler measurement and are scored.
+
+| | Hand-drawn | Model *(as shipped, guard included)* |
+|---|---|---|
+| Mean absolute error | **11.8%** | 25.8% |
+| Median | **8.8%** | 18.0% |
+| Within ±10% | **45 / 79** | 21 / 79 |
+| Within ±25% | **68 / 79** | 47 / 79 |
+| Closer to the clinician | **50 / 79** | — |
+
+Holds at 31 wounds what C29 measured at 21 and C20 at 13 — and the model's figure is still
+flattered, since it produced no measurement in 7 photographs and the mean covers only the ones it
+answered.
+
+**The gate is now read from the evaluation, not typed.** A hard-coded list goes stale the moment a
+batch lands, and a stale gate is worse than none — it would hold out wounds that are no longer the
+ones at risk. It takes the **six most accurate wounds**, capped deliberately: holding out every
+wound under 20% error took 14 of 31 and left 13 to train on.
+
+**Package:** `training_set/` — 89 image/mask pairs at 384, **57 train / 32 validation** across
+19 / 12 wounds, no wound in both. 84 of 89 carry `ppc_x`/`ppc_y`, so the gate is scored in
+centimetres. `training_set.zip` is the same thing in one file for the upload.
+
+---
+
 ## 2. What is deliberately NOT done yet
 
 ### 🔜 Next session — retraining Model 1
