@@ -84,21 +84,39 @@ _base_dir = first_existing(
 BASE_WEIGHTS = os.environ.get("DFC_BASE") or (
     os.path.join(_base_dir, "unet_phase2.keras") if _base_dir else "")
 
-# The original precise pool. The layout inside every mirror of this dataset is
-# DFUTissue/Labeled/Original/{Images,Annotations}/TrainVal, so the tail is what
-# is searched for rather than the dataset name.
+# The original precise pools, resolved by path tail rather than dataset name.
+#
+# FUSeg matters more than DFUTissue here and is listed first for that reason: it is
+# ~1,010 whole-FOOT photographs with precise masks and roughly 1% wound area, which
+# is the same domain as our clinical photographs (median 0.9%). DFUTissue is tight
+# CROPS at ~18% wound area — valuable, but a different framing, and the original
+# notebook oversampled it precisely because it is scarce rather than because it is
+# representative.
+_fuseg_img = os.environ.get("DFC_FUSEG_IMAGES") or first_existing(
+    f"/kaggle/input/datasets/{OWNER}/fuseg-wound/FUSeg/train/images",
+    find="FUSeg/train/images")
+_fuseg_lbl = os.environ.get("DFC_FUSEG_LABELS") or first_existing(
+    f"/kaggle/input/datasets/{OWNER}/fuseg-wound/FUSeg/train/labels",
+    find="FUSeg/train/labels")
+
 _dfu_img = os.environ.get("DFC_DFUTISSUE_IMAGES") or first_existing(
     f"/kaggle/input/datasets/{OWNER}/dfutissue/DFUTissue/Labeled/Original/Images/TrainVal",
     f"/kaggle/input/datasets/{OWNER}/dfutissuesegnet-main/DFUTissueSegNet-main/DFUTissue/Labeled/Original/Images/TrainVal",
-    f"/kaggle/input/datasets/{OWNER}/dfutissuesegnet/DFUTissue/Labeled/Original/Images/TrainVal",
     find="DFUTissue/Labeled/Original/Images/TrainVal")
-DFUTISSUE = os.path.dirname(os.path.dirname(_dfu_img)) if _dfu_img else ""
+_dfu_lbl = _dfu_img.replace("Images", "Annotations") if _dfu_img else None
+
+MAX_FUSEG = int(os.environ.get("DFC_MAX_FUSEG", "0")) or None   # cap if RAM is tight
 
 OUT = os.environ.get("DFC_OUT", "/kaggle/working" if os.path.isdir("/kaggle/working") else ".")
 
 print(f"data      : {DATA}")
 print(f"base      : {BASE_WEIGHTS}")
-print(f"dfutissue : {DFUTISSUE or 'NOT FOUND — the anti-forgetting mix will be skipped'}")
+print(f"fuseg     : {_fuseg_img or 'NOT FOUND'}")
+print(f"dfutissue : {_dfu_img or 'NOT FOUND'}")
+if not _fuseg_img and not _dfu_img:
+    print("WARNING: neither original pool found. The fine-tune would train on 89 "
+          "photographs alone and may forget what the model already knows. "
+          "The gate will tell you, so do not skip it.")
 
 # DFUC2020's bbox pseudo-masks are deliberately NOT mixed in. They were useful for
 # teaching the model where wounds are; they are rectangles, and this fine-tune is
@@ -171,28 +189,45 @@ def read_pair(item):
     return img.astype(np.float32) / 255.0, (msk > 127).astype(np.float32)[..., None]
 
 
-def load_dfutissue():
-    """The original precise pool, to stop the fine-tune forgetting what it knows."""
-    if not DFUTISSUE or not os.path.isdir(DFUTISSUE):
-        return np.empty((0, IMG_SIZE, IMG_SIZE, 3), np.float32), \
-               np.empty((0, IMG_SIZE, IMG_SIZE, 1), np.float32)
-    img_dir = os.path.join(DFUTISSUE, "Images", "TrainVal")
-    msk_dir = os.path.join(DFUTISSUE, "Annotations", "TrainVal")
+def load_seg_dir(img_dir, lbl_dir, limit=None):
+    """Load an image/mask directory pair at IMG_SIZE. Masks may be 0/1, 0/255 or a
+    label map — anything above zero is wound, which is what every source here means."""
+    if not img_dir or not lbl_dir or not os.path.isdir(img_dir) or not os.path.isdir(lbl_dir):
+        return (np.empty((0, IMG_SIZE, IMG_SIZE, 3), np.float32),
+                np.empty((0, IMG_SIZE, IMG_SIZE, 1), np.float32))
     X, Y = [], []
     for name in sorted(os.listdir(img_dir)):
-        ip, mp = os.path.join(img_dir, name), os.path.join(msk_dir, name)
+        ip = os.path.join(img_dir, name)
+        mp = os.path.join(lbl_dir, name)
         if not os.path.exists(mp):
-            mp = os.path.splitext(mp)[0] + ".png"
-            if not os.path.exists(mp):
+            for ext in (".png", ".jpg", ".jpeg"):
+                alt = os.path.splitext(mp)[0] + ext
+                if os.path.exists(alt):
+                    mp = alt
+                    break
+            else:
                 continue
-        im = cv2.cvtColor(cv2.imread(ip), cv2.COLOR_BGR2RGB)
-        mk = cv2.imread(mp, cv2.IMREAD_GRAYSCALE)
+        im, mk = cv2.imread(ip), cv2.imread(mp, cv2.IMREAD_GRAYSCALE)
         if im is None or mk is None:
             continue
-        X.append(cv2.resize(im, (IMG_SIZE, IMG_SIZE)).astype(np.float32) / 255.0)
+        X.append(cv2.resize(cv2.cvtColor(im, cv2.COLOR_BGR2RGB),
+                            (IMG_SIZE, IMG_SIZE)).astype(np.float32) / 255.0)
         Y.append((cv2.resize(mk, (IMG_SIZE, IMG_SIZE),
-                             interpolation=cv2.INTER_NEAREST) > 127).astype(np.float32)[..., None])
+                             interpolation=cv2.INTER_NEAREST) > 0).astype(np.float32)[..., None])
+        if limit and len(X) >= limit:
+            break
     return np.asarray(X, np.float32), np.asarray(Y, np.float32)
+
+
+def load_original_pool():
+    """FUSeg train + DFUTissue TrainVal — what the model already knows, so it keeps knowing it."""
+    Xf, Yf = load_seg_dir(_fuseg_img, _fuseg_lbl, MAX_FUSEG)
+    Xd, Yd = load_seg_dir(_dfu_img, _dfu_lbl)
+    print(f"original pool: FUSeg {len(Xf)}  +  DFUTissue {len(Xd)}")
+    if not len(Xf) and not len(Xd):
+        return Xf, Yf
+    return (np.concatenate([a for a in (Xf, Xd) if len(a)]),
+            np.concatenate([a for a in (Yf, Yd) if len(a)]))
 
 
 def augment(x, y):
@@ -311,16 +346,16 @@ def main():
     Xv = np.stack([read_pair(it)[0] for it in va_items])
     Yv = np.stack([read_pair(it)[1] for it in va_items])
 
-    Xo, Yo = load_dfutissue()
+    Xo, Yo = load_original_pool()
     if len(Xo):
         Xt = np.concatenate([np.repeat(Xc, CLINICAL_OVERSAMPLE, 0), Xo])
         Yt = np.concatenate([np.repeat(Yc, CLINICAL_OVERSAMPLE, 0), Yo])
-        print(f"mixed training pool: {len(Xc)}x{CLINICAL_OVERSAMPLE} clinical + {len(Xo)} DFUTissue")
+        print(f"mixed training pool: {len(Xc)}x{CLINICAL_OVERSAMPLE} clinical + {len(Xo)} original")
     else:
         Xt, Yt = Xc, Yc
-        print("⚠️  DFUTissue not provided — training on clinical photographs ALONE.\n"
-              "    The model may forget what it already knows; the gate below is the\n"
-              "    only thing that will tell you, so do not skip it.")
+        print("WARNING: no original pool - training on clinical photographs ALONE.")
+        print("         The model may forget what it already knows; the gate below")
+        print("         is the only thing that will tell you, so do not skip it.")
 
     model = tf.keras.models.load_model(BASE_WEIGHTS, compile=False)
     assert model.input_shape[1:3] == (IMG_SIZE, IMG_SIZE), \

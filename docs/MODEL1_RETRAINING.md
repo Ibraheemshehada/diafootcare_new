@@ -139,8 +139,10 @@ at 384** from the polygon, so the boundary is resampled once.
    photographs — this is not optional.
 4. Create a second private dataset, `diafootcare-model1`, holding `unet_phase2.keras`
    from §2.
-5. If you use the anti-forgetting mix (§5), add the existing **DFUTissue** dataset as
-   a third input.
+5. Add **`fuseg-wound`** and **`dfutissue`** as further inputs — the anti-forgetting mix
+   (§5). FUSeg is the important one: ~1,010 **whole-foot** photographs with precise
+   masks at roughly 1% wound area, which is the same framing as our clinical
+   photographs (median 0.9%). DFUTissue is tight crops at ~18%.
 6. **New Notebook → Add Input →** all three. Accelerator **GPU T4 ×2**.
 
 ---
@@ -157,16 +159,17 @@ Paths come from the environment, so nothing in the file needs editing:
 
 ```python
 import os
-os.environ["DFC_DATA"]      = "/kaggle/input/diafootcare-wound-outlines"
-os.environ["DFC_BASE"]      = "/kaggle/input/diafootcare-model1/unet_phase2.keras"
-os.environ["DFC_DFUTISSUE"] = "/kaggle/input/dfutissue/DFUTissue/Labeled/Original"
+# nothing needs setting — paths are resolved at run time and printed at startup
 ```
+
+If a slug is unusual, override just that one, e.g.
+`os.environ["DFC_FUSEG_IMAGES"] = "/kaggle/input/.../FUSeg/train/images"`.
 
 **What it does, and why each part is there**
 
 | Stage | | Why |
 |---|---|---|
-| Mix | clinical ×4 + DFUTissue precise pool | 89 photographs against the ~1,270 the model learned from. Training on ours alone would score well on our own validation split while collapsing in general |
+| Mix | clinical ×4 + **FUSeg train** + DFUTissue | 89 photographs against the ~1,270 the model learned from. Training on ours alone would score well on our own validation split while collapsing in general. FUSeg is weighted by being large: it is the whole-foot domain the app actually sees |
 | 1 | decoder only, encoder frozen, LR 3e-4 | a general image encoder should not be moved by 89 photographs while the decoder is still adjusting |
 | 2 | everything, LR 2e-5 | low enough to adjust the boundary rather than overwrite the model |
 | Loss | BCE + Focal-Tversky (β>α) | the wound is a median **0.9%** of the frame, and every diagnosed failure was the model measuring **too little** — so missed wound pixels are punished harder |
