@@ -1359,6 +1359,43 @@ on neutral wounds becomes a clear win.
 
 ---
 
+### C36 · Outlines corrected — the set is clean and the training pool grew a quarter ✅ VERIFIED
+The five flagged wounds were redrawn against their previous outlines, with the direction of the
+correction on screen. Two rounds, because one wound needed a second pass.
+
+| | Before | After |
+|---|---|---|
+| Outlines vs clinician, all 79 | 11.8% | **9.6%** |
+| Within ±25% | 68 / 79 | **76 / 79** |
+| Closer to the clinician than the model | 50 / 79 | **54 / 79** |
+| **Wounds excluded by screening** | 5 | **0** |
+| **Training wounds** | 15 | **19** (57 photographs) |
+
+Per wound, first flagged → corrected:
+
+| Wound | Was | Now |
+|---|---|---|
+| `08-18_hospital1\|5` | +37.4% | **+6.4%** |
+| `08-16_hospital1\|4` | +30.6% | **−9.0%** |
+| `08-12_v5_beforeafter\|3` | +25.9% | **+14.8%** |
+| `08-18_hospital1\|6` | −21.9% | **−12.4%** |
+| `08-12_hospital2\|1` | −21.7% | **−18.3%** |
+
+**The wound that blocked the last run now enters training for the first time.** It had been
+excluded not by choice but because its own outlines were +25.9% out; it sat at ~45% error through
+three training runs, and the fault was that it was being taught to over-measure.
+
+One thing worth carrying forward: all three of its outlines still read **positive** (+17.3, +15.3,
++11.9). Three independent attempts, all above the clinical 3.0 cm. Either we draw this wound
+generously, or **3.0 is itself an underestimate** — and FINDINGS §4 records that this wound's crust
+is the same colour as the surrounding dark skin, so its edge is ambiguous to a human eye as well
+as to a segmenter. Not resolved; noted.
+
+The training pool grew by a quarter without collecting a single new photograph — the gain came
+from fixing data that was already there and would have kept teaching the wrong lesson.
+
+---
+
 ## 2. What is deliberately NOT done yet
 
 ### 🔜 Next session — retraining Model 1
