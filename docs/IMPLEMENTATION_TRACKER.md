@@ -1120,6 +1120,49 @@ does not ship.**
 
 ---
 
+### C30 · Batch of 2026-08-18, and the training package ✅ VERIFIED / 🟡 READY
+**Six wounds, 61 photographs, three of them with a tissue description** — the last batch before
+retraining. 56 of 61 measured; the five failures were four ring misses and two frames where the
+label was all the model found.
+
+| Wound | Reference | Bias | Repeatability | n |
+|---|---|---|---|---|
+| P1 | 3.0 | −24.1% | ±29.2% | 9 |
+| P2 *(mixed tissue, no before/after)* | 13.0 | −4.1% | ±20.3% | 6 |
+| P3 | 0.7 | **+0.7%** | ±22.1% | 14 |
+| P4 | 1.0 | **+0.9%** | ±29.0% | 10 |
+| P5 | 1.2 | −12.5% | ±31.4% | 11 |
+| P6 | 1.2 *(recorded 0.3 × 1.2)* | **−1.7%** | ±24.1% | 6 |
+
+**A bug in our own scoring, not the model.** Patient 6 first reported **+293%**: `run_batch.py`
+compared the model's major axis against the sheet's "length", which here is the **shorter** side
+(0.3 × 1.2). Every other script had been axis-wise since the first such sheet; this one had not.
+Fixed — the wound is **−1.7%**, and the other affected row (`2026-08-12_hospital2` P5, 0.5 × 2.2)
+went from a nonsense figure to −20.9%.
+
+> Median tilt in this batch is **40°**, and **26 of 56 frames exceed 40°** — the threshold at which
+> measured error triples. The capture gate is now the single highest-value app change outstanding.
+
+**Training package built** — `training/model1_finetune.py` and `docs/MODEL1_RETRAINING.md`:
+
+- `export_training_set.py` writes 384×384 image/mask pairs, `splits.json` **by wound**, `gate.json`,
+  and `index.json` carrying **`ppc_x`/`ppc_y` per photograph** so the gate is scored in
+  **centimetres** on Kaggle, where the ring detector cannot run.
+- The fine-tune mixes clinical photographs ×4 with the original DFUTissue pool, trains the decoder
+  first and then everything at 2e-5, and **stops before exporting if the gate fails**.
+- Measurement inside the gate mirrors `ai_service.dart` exactly — threshold, 0.5×peak fallback,
+  5×5 open/close, **label guard**, largest component, principal axis. Dice is reported but is not
+  the gate: a mask can gain Dice while losing the extent that gets measured.
+
+**⚠️ One piece is missing and must be recovered first.** The deployed model's **Keras weights are
+not on this machine**. The local `unet_phase2.keras` files are **320×320** from an earlier run —
+checked rather than assumed: against the deployed TFLite on the same photographs they agree on
+**IoU 0.27**. The deployed 384 export (`newmodel save22`) is byte-identical to what ships, but that
+folder holds TFLite only. Recover `unet_phase2.keras` from the Kaggle run of **2026-07-04**, or
+re-run phases 1–2 and re-measure the "before" column rather than copying it.
+
+---
+
 ## 2. What is deliberately NOT done yet
 
 ### 🔜 Next session — retraining Model 1
