@@ -147,69 +147,42 @@ at 384** from the polygon, so the boundary is resampled once.
 
 ---
 
-## 5. Run the fine-tune — one notebook, one run
+## 5. Run it — one notebook, one run
 
-Because the deployed model's Keras weights were never saved as a Kaggle version, the
-baseline has to be regenerated anyway. So rather than two notebooks, the clinical
-fine-tune is inserted **into the original training notebook** as one cell, placed
-after self-training and before the TFLite export.
+**`training/model1_retrain_kaggle.ipynb`** is the whole thing: the original training
+notebook with four clinical cells added after self-training and before the TFLite
+export. Upload that one file to Kaggle and run it.
 
-It is **`training/clinical_finetune.ipynb`** — one notebook, four code cells with a
-short explanation above each:
+Why one notebook rather than two: the deployed model's Keras weights were never saved
+as a Kaggle version, so the baseline has to be regenerated anyway. One run therefore
+produces everything —
 
-| Cell | | Runs alone? |
-|---|---|---|
-| 1 · load | finds the dataset, loads the pairs, **names anything still missing** | yes |
-| 2 · measure | the app's measurement in centimetres, and the BEFORE pass | needs the model |
-| 3 · fine-tune | two stages, mixed with `Xp_os` | needs the notebook |
-| 4 · gate | AFTER, the gate, save only on a pass | needs the above |
-
-The same four cells are already inserted into `model-1-inhan.ipynb` after the
-self-training cell, so either file works: run that notebook end to end, or run its
-cells 0–8 and then open this one.
-
-Four rather than one because a 200-line cell is hard to re-run in part: when the gate
-fails you want to change the learning rate and re-run cell 3, not the whole thing.
-
-Cell 1 falls back to 384 if `IMG_HEIGHT` is not in memory and prints exactly which
-notebook names are missing, so running it out of order says what to do instead of
-raising `NameError`.
-
-One run therefore produces everything:
-
-| | |
+| Output | |
 |---|---|
-| `unet_phase1.keras`, `unet_phase2.keras` | the baseline, finally saved as notebook output |
+| `unet_phase1.keras`, `unet_phase2.keras` | the baseline, finally saved |
 | `unet_clinical.keras` | the fine-tuned checkpoint |
 | `gate_report.json` | the evidence |
-| `model1_wound_fp16.tflite` | exported from whatever passed |
+| `model1_wound_fp16.tflite` | exported from whatever passed the gate |
 
-**It reuses the notebook's own machinery** rather than duplicating it — `seg_loss`,
-`make_ds` with its augmentation, `make_opt` with the mixed-precision loss scaling,
-`make_callbacks`, the same `FINE_TUNE_FROM` deep-unfreeze, and above all `Xp_os`,
-the precise FUSeg + DFUTissue pool the notebook has already built and oversampled.
-Duplicating any of that would let the fine-tune drift from the recipe that produced
-the model it is fine-tuning.
+The four cells **reuse the notebook's own machinery** — `seg_loss`, `make_ds` with its
+augmentation, `make_opt` with the mixed-precision loss scaling, `make_callbacks`, the
+same `FINE_TUNE_FROM` deep-unfreeze, and above all `Xp_os`, the precise FUSeg +
+DFUTissue pool it has already built. Duplicating any of that would let the fine-tune
+drift from the recipe that produced the model it is fine-tuning.
+
+Each cell also stands alone if the notebook was not run: it rebuilds the pool from the
+same datasets, loads the model from any `.keras` it can find, and **says which checks
+it could not perform** rather than passing silently.
 
 | Stage | | Why |
 |---|---|---|
 | Mix | clinical ×4 + `Xp_os` | 89 photographs against ~1,270. Ours alone would score well on our own split and collapse everywhere else |
 | 1 | decoder only, LR 3e-4 | a general encoder should not be moved by 89 photographs while the decoder is still adjusting to a new boundary convention |
-| 2 | same deep unfreeze as phase 2 above, LR 2e-5 | adjust the boundary, do not overwrite the model |
+| 2 | the same deep unfreeze, LR 2e-5 | adjust the boundary, do not overwrite the model |
 
-**The safety property that matters:** the cell writes `unet_model.keras` **only if the
-gate passes**. If it fails it reloads the pre-fine-tune model, so the export cell below
-ships the old weights and nothing downstream changes. A failed experiment leaves no
-trace in what gets shipped.
-
-### The old §5 (standalone script)
-
-`training/model1_finetune.py` still works if you would rather run the fine-tune
-separately against saved weights. It resolves its own paths and applies the same gate.
-
-```python
-!python model1_finetune.py
-```
+**The safety property:** `unet_model.keras` is written **only if the gate passes**. On
+failure the previous model is reloaded, so the export cell ships the old weights and a
+failed experiment leaves no trace in what gets shipped.
 
 ---
 
