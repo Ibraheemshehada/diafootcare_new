@@ -1261,6 +1261,51 @@ overfitting, the three big gains should survive and `hospital2|4` should return 
 
 ---
 
+### C34 · The fine-tune passed the gate ✅ VERIFIED
+Three runs. The first two failed, and the way each failed is what produced the third.
+
+| | Clinical cm error | FUSeg Dice | Gate wounds |
+|---|---|---|---|
+| Baseline | 24.0% | 0.861 | — |
+| **A** — no freeze, two stages | 17.0% | 0.874 | 🔴 1 regressed (19.4% → 61.4%) |
+| **B** — encoder frozen, clinical-only validation | 16.5% | 🔴 0.814 | 🔴 2 regressed |
+| **C** — frozen, LR 1e-4, **joint validation** | **15.4%** | **0.864** | ✅ **all six ok** |
+
+**Run C: 24.0% → 15.4%, and FUSeg went up rather than down.**
+
+| Wound | Before | After |
+|---|---|---|
+| `08-18_hospital1\|2` | 50.7% | **10.6%** |
+| `08-16_hospital1\|5` | 49.2% | **15.6%** |
+| `08-13_hospital1\|2` | 44.3% | **25.4%** |
+| `08-12_v5_beforeafter\|3` | 45.1% | 44.6% *(unmoved in all three runs)* |
+| `08-16_hospital1\|1` | 16.1% | **11.5%** |
+| `08-12_v5_beforeafter\|2` | 6.1% | **5.2%** |
+| `v5_pending\|1` | 1.4% | **0.9%** |
+
+**What actually fixed it was not a learning rate.** Runs A and B selected their checkpoint on
+**clinical Dice alone**, so a model could win on our wounds by drifting off FUSeg and the selector
+would never see it — the gate caught it afterwards, twice, in opposite directions. Run C monitors
+a **blended validation set** (clinical ×6 ≈ 192 against FUSeg's 195), which moves the protection
+from *detect after* to *prevent during*. Four gate wounds then improved rather than merely
+surviving.
+
+**A silent bug found on the way, and it explains run A.** `build_unet` sets `model.backbone` as a
+plain Python attribute that does not survive saving, and MobileNetV2 is merged **flat** into the
+layer list — 149 of 188 layers, no sub-model. So `if hasattr(model, "backbone")` skipped the
+freeze without a word, and run A trained the whole network at the decoder's 3e-4. Freezing now
+goes by layer-name prefix and prints the trainable parameter count, so a freeze that does not
+happen is **visible in the output** rather than inferred later from a bad result.
+
+**Still open:** `08-12_v5_beforeafter|3` sits at ~45% in all three runs — it responds to nothing,
+which points at its outline rather than at training. `unmeasurable` also rose 1 → 2.
+
+**Not yet shipped.** The baseline this improves on is a regenerated one at Dice 0.861, while the
+deployed model is 0.873. The decision belongs to `compare_tflite.py` against the shipped file, and
+after that to the next clinic batch through `run_batch.py`.
+
+---
+
 ## 2. What is deliberately NOT done yet
 
 ### 🔜 Next session — retraining Model 1
