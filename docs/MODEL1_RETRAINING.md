@@ -45,20 +45,61 @@ fine-tune is the attempt to reach it.
 | The deployed TFLite | `assets/models/model1_wound_fp16.tflite`, byte-identical to `…\model one\newmodel save22\model1_wound_fp16.tflite` |
 | **The deployed Keras weights** | ⚠️ **not on this machine** |
 
-**The missing piece matters.** The local `unet_phase2.keras` files are **320×320**,
-from an earlier run. Checked rather than assumed: run against the deployed TFLite on
-the same photographs, they agree on only **IoU 0.27**. They are a different model.
+**The missing piece matters.** The local `unet_phase2.keras`
+(`D:\Diafoot experments\model one\`, 18 June) is **320×320** from an earlier run.
 
-Two ways forward:
+Checked properly rather than assumed. A first comparison ran it at 320 against the
+384 TFLite and gave IoU 0.27 — but that test was itself flawed: the network is fully
+convolutional, so running it at the wrong size changes its answers regardless of the
+weights. Rebuilt at 384 and compared like with like, it gives **IoU 0.203, mean
+probability difference 0.028**. Genuinely different weights.
 
-- **Preferred — recover the real weights.** On Kaggle, open the notebook version
-  that produced `model1_wound_fp16.tflite` on **2026-07-04** and download
-  `unet_phase2.keras` from its Output. Fine-tuning then starts exactly where the
-  shipped model stands.
-- **Fallback — re-run phases 1–2** of `model-1-kaggle-with res.ipynb` unchanged to
-  regenerate a 384 baseline, then fine-tune that. Slower, and the baseline will not
-  be bit-identical to what is shipped, so **the "before" column must be re-measured
-  rather than copied from this document.**
+Before uploading any candidate, verify it:
+
+```bash
+python D:\DF\clinical_validation\scriptserify_base_weights.py <path-to-unet_phase2.keras>
+```
+
+The same weights give IoU > 0.95 and a probability difference near zero. A file with
+the right name from the wrong run looks identical on disk, and the first sign of the
+mistake would be a fine-tune that "improves" a model nobody is using.
+
+### Where to find the real one
+
+On Kaggle, in the notebook that produced the shipped export:
+
+1. **kaggle.com → Your Work → Code** (or your profile → Code) — the notebook is
+   `model-1-kaggle-with res` or the version of it that ran at 384.
+2. Open it → **Versions** (top right) → find the run of **2026-07-04**, the one whose
+   output produced `model1_wound_fp16.tflite` — that export is byte-identical to what
+   ships, so it is the right version by definition.
+3. **Output** tab → download **`unet_phase2.keras`** (~117 MB).
+4. Verify it with the command above, then upload it as the private dataset
+   `diafootcare-model1`.
+
+**If the output has expired** (Kaggle keeps outputs only for saved versions), the
+fallback is §2b.
+
+### 2b. Fallback — regenerate the baseline
+
+Re-run phases 1 and 2 of `model-1-kaggle-with res.ipynb` unchanged. It is the notebook
+that produced the shipped model, so the recipe is right; only the random seed and the
+run differ.
+
+The consequence is worth being explicit about: the fine-tune then improves on a
+**re-created** baseline, not on the model patients are using. The training gate stays
+valid — it compares before and after within one run — but it no longer answers "is
+this better than what is deployed?".
+
+That question gets answered separately, after the run:
+
+```bash
+python D:\DF\clinical_validation\scripts\compare_tflite.py <shipped.tflite> <new.tflite>
+```
+
+Same wounds, same post-processing, same ring, both models. **That comparison is the
+one that decides whether to ship**, and it does not depend on where the baseline came
+from.
 
 ---
 
