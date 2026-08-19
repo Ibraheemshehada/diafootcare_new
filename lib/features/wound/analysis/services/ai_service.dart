@@ -7,6 +7,7 @@ import 'package:flutter/services.dart';
 import 'package:tflite_flutter/tflite_flutter.dart';
 import 'package:image/image.dart' as img;
 import '../viewmodel/analysis_result.dart';
+import 'ring_detector.dart';
 import '../../../../core/services/analysis_exception.dart';
 import '../../../../core/services/app_mode_service.dart';
 import '../../../../core/services/model_repository.dart';
@@ -115,6 +116,13 @@ class AiService {
   /// are plausible (and the result is flagged `isCalibrated = false`). The
   /// reliable healing signal in that case is the relative AREA trend, not cm.
   static const double _assumedFrameCm = 12.0;
+
+  /// Find the printed ring and take the scale from it.
+  ///
+  /// Set false to fall back to [_assumedFrameCm], which is what the app did
+  /// before this existed — and which made every centimetre a function of camera
+  /// distance. Kept as a flag only so the change is reversible in one edit.
+  static const bool _detectRing = true;
 
   /// Refuse to measure the printed calibration label.
   ///
@@ -410,13 +418,38 @@ class AiService {
       // Apply EXIF orientation so pixel space matches the calibration screen.
       final image = img.bakeOrientation(decoded);
 
+      // --- Scale, from the printed ring rather than an assumption ---
+      //
+      // A caller-supplied scale still wins, but nothing supplies one any more:
+      // the calibration screen was removed, which left every measurement running
+      // on `_assumedFrameCm`. That assumption is why a real 1.4 cm wound came
+      // back as 0.9 cm — the number moved with how far the phone was held.
+      //
+      // The ring makes it a pure ratio instead. Measured on 239 clinic
+      // photographs, this detector agrees with the one validated there to a
+      // median 0.4% on the ring's own diameter.
+      RingDetection? ring;
+      if (_detectRing) {
+        try {
+          ring = const RingDetector().detect(image);
+          debugPrint(ring == null
+              ? '📏 No calibration ring found — measurement will be uncalibrated'
+              : '📏 $ring');
+        } catch (e) {
+          // A detector fault must not cost the patient the whole analysis; an
+          // uncalibrated measurement, clearly flagged, is still worth having.
+          debugPrint('⚠️  Ring detection failed ($e); continuing uncalibrated');
+        }
+      }
+      final scale = pixelsPerCm ?? ring?.pixelsPerCm;
+
       // --- Model 1: segmentation -> measurements ---
       // Depth comes ONLY from the clinician's probe entry (see doc above).
       double length = 0, width = 0, areaCm2 = 0;
       _BoxPx? woundBox; // where Model 1 found the wound; feeds Model 3's crop
       final double depth = manualDepthCm ?? 0.0;
       if (_model1Loaded) {
-        final m = _runSegmentation(image, pixelsPerCm);
+        final m = _runSegmentation(image, scale);
         length = m.lengthCm;
         width = m.widthCm;
         areaCm2 = m.areaCm2;
@@ -477,7 +510,10 @@ class AiService {
         infectionProbability: infectionProb,
         healingProgress: _calculateHealingProgress(areaCm2),
         isFromModel: true,
-        isCalibrated: pixelsPerCm != null,
+        isCalibrated: scale != null,
+        pixelsPerCm: scale,
+        tiltDeg: ring?.tiltDeg,
+        usedSmallLabel: ring?.isSmall,
       );
     } catch (e, st) {
       debugPrint('❌ Inference error: $e\n$st');

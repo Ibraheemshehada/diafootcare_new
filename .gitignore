@@ -68,3 +68,7 @@ app.*.map.json
 android/key.properties
 *.jks
 *.keystore
+
+# Local model archive. The binaries are served from the VPS and are not bundled
+# in the APK, so they do not belong in git — and the LFS budget is exhausted.
+assets/models/_archive/*.tflite

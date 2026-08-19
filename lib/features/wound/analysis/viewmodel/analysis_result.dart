@@ -3,6 +3,9 @@ import 'tissue_finding.dart';
 
 export 'tissue_finding.dart';
 
+/// How square the camera was to the wound, banded by measured error.
+enum CaptureAngle { good, marginal, poor, unknown }
+
 class AnalysisResult {
   final double length;
   final double width;
@@ -44,6 +47,26 @@ class AnalysisResult {
   final bool isFromModel; // Indicates if measurements are from Model 1 or simulated
   final bool isCalibrated; // true if cm came from a real reference-object scale
 
+  /// True scale from the printed calibration ring, in ORIGINAL-image pixels per
+  /// centimetre, or null when no ring was found.
+  ///
+  /// This is what makes a centimetre mean anything. Without it the app divided
+  /// the frame's wider side by an assumed 12 cm, so the number moved with how
+  /// far the phone happened to be held — a real 1.4 cm wound was reported as
+  /// 0.9 cm for that reason alone.
+  final double? pixelsPerCm;
+
+  /// How far the label plane was turned from the camera, in degrees.
+  ///
+  /// Kept with the result because it is the single best predictor of a bad
+  /// measurement: across 26 clinic photographs error correlates with tilt at
+  /// r = +0.479, averaging 18% below 30° and 56% above 40°. A wound extent lying
+  /// along the tilt is compressed by cos θ — −23% at 40°.
+  final double? tiltDeg;
+
+  /// Which printed label was used: the 15 mm small one, or the 20 mm standard.
+  final bool? usedSmallLabel;
+
   /// Where the analysis actually ran: 'online' (server) or 'offline' (phone).
   ///
   /// Recorded per result rather than read from the current mode at sync time,
@@ -71,9 +94,24 @@ class AnalysisResult {
     this.graphImagePath = 'assets/images/progress_graph.png',
     this.isFromModel = false,
     this.isCalibrated = false,
+    this.pixelsPerCm,
+    this.tiltDeg,
+    this.usedSmallLabel,
     this.analysedOn = 'offline',
     String? tissueType,
   }) : _legacyTissueType = tissueType;
+
+  /// Whether the photograph was taken square enough to the wound to trust.
+  ///
+  /// Thresholds are the measured ones, not round numbers: below 30° error
+  /// averages 18%, between 30° and 40° it is 40%, above 40° it is 56%.
+  CaptureAngle get captureAngle {
+    final t = tiltDeg;
+    if (t == null) return CaptureAngle.unknown;
+    if (t <= 30) return CaptureAngle.good;
+    if (t <= 40) return CaptureAngle.marginal;
+    return CaptureAngle.poor;
+  }
 
   /// The single tissue label, for the places that can show only one.
   ///
