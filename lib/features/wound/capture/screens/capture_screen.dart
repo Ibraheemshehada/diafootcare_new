@@ -12,6 +12,7 @@ import '../widgets/capture_tips_dialog.dart';
 import '../../../../core/services/analytics_service.dart';
 import '../../analysis/services/ai_service.dart';
 import 'preview_screen.dart';
+import 'live_capture_screen.dart';
 
 class CaptureScreen extends StatefulWidget {
   const CaptureScreen({super.key});
@@ -162,7 +163,16 @@ class _CaptureScreenState extends State<CaptureScreen> with WidgetsBindingObserv
                           child: ShutterButton(
                             disabled: vm.isBusy || !vm.isInitialized,
                             onPressed: () async {
-                              final shot = await vm.takePicture();
+                              // The guided camera, not the system one. It reads
+                              // the printed ring live and will not let a
+                              // photograph be taken past 40° of tilt, where
+                              // measured error triples — telling someone
+                              // afterwards is telling them to undress the wound
+                              // again, and nobody does.
+                              final shot = await Navigator.of(context).push<XFile>(
+                                MaterialPageRoute(
+                                    builder: (_) => const LiveCaptureScreen()),
+                              );
                               if (shot == null || !context.mounted) return;
                               Navigator.of(context).push(
                                 MaterialPageRoute(

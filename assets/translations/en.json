@@ -735,5 +735,19 @@
   "ai_no_wound_found": "No wound was found in this photo, so there is no size to report. Try again with the wound and the printed label both clearly in frame.",
   "ai_tilt_warning": "Photo taken at {}° — measurements from an angled photo read smaller than the wound really is.",
   "ai_overlay_title": "What the app measured",
-  "ai_overlay_hint": "The red area is what was measured; the green circle is the label it used for scale. Tap to enlarge."
+  "ai_overlay_hint": "The red area is what was measured; the green circle is the label it used for scale. Tap to enlarge.",
+  "live_title": "Take the photo",
+  "live_no_label": "Put the printed sticker next to the wound",
+  "live_too_angled": "Too tilted — hold the phone flat above the wound",
+  "live_almost": "Almost — hold it a little flatter",
+  "live_ready": "Good — you can take the photo",
+  "live_cond_label": "The sticker is in the picture",
+  "live_cond_flat": "The phone is flat above the wound",
+  "live_cond_round": "The printed circle looks round, not like an egg",
+  "live_take_photo": "Take photo",
+  "live_fix_first": "Hold the phone flatter",
+  "live_no_camera": "No camera was found on this phone.",
+  "live_camera_failed": "The camera could not start. You can choose a photo from your gallery instead.",
+  "live_capture_failed": "The photo could not be taken. Please try again.",
+  "live_use_guided": "Guided photo"
 }

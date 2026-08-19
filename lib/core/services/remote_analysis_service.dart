@@ -1,3 +1,5 @@
+import 'package:path/path.dart' as p_lib;
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:dio/dio.dart';
@@ -80,7 +82,8 @@ class RemoteAnalysisService {
         throw RemoteAnalysisException('Analysis failed. Please try again.');
       }
 
-      return _fromJson(Map<String, dynamic>.from(analysis));
+      return await _fromJsonWithOverlay(
+          Map<String, dynamic>.from(analysis), imagePath);
     } on RemoteAnalysisException {
       rethrow;
     } on DioException catch (e) {
@@ -106,12 +109,44 @@ class RemoteAnalysisService {
     return headline.contains('not') ? 0.35 : 0.85;
   }
 
-  AnalysisResult _fromJson(Map<String, dynamic> a) {
+  /// Saves the server's overlay beside the photograph, then builds the result.
+  ///
+  /// Online and offline modes must leave the same artefacts behind: the sync
+  /// path, the history and the dashboard all read one overlay file, and a scan
+  /// analysed on the server would otherwise have none — the clinician would see
+  /// what was measured for some scans and not others, with nothing to explain
+  /// the difference.
+  Future<AnalysisResult> _fromJsonWithOverlay(
+      Map<String, dynamic> a, String imagePath) async {
+    String? overlayPath;
+    final b64 = a['overlay_jpeg_b64'];
+    if (b64 is String && b64.isNotEmpty) {
+      try {
+        final dir = p_lib.dirname(imagePath);
+        final stem = p_lib.basenameWithoutExtension(imagePath);
+        final out = p_lib.join(dir, '${stem}_overlay.jpg');
+        await File(out).writeAsBytes(base64Decode(b64));
+        overlayPath = out;
+        debugPrint('🖼️  Server overlay saved -> $out');
+      } catch (e) {
+        // An overlay explains a result; it is not part of one.
+        debugPrint('⚠️  Could not save the server overlay: $e');
+      }
+    }
+    return _fromJson(a, overlayPath: overlayPath);
+  }
+
+  AnalysisResult _fromJson(Map<String, dynamic> a, {String? overlayPath}) {
     double d(String k) => (a[k] as num?)?.toDouble() ?? 0.0;
 
     return AnalysisResult(
       length: d('length'),
       width: d('width'),
+      overlayImagePath: overlayPath,
+      // The scale and the angle the server measured, so an online scan records
+      // the same qualifiers as one analysed on the phone.
+      pixelsPerCm: (a['pixels_per_cm'] as num?)?.toDouble(),
+      tiltDeg: (a['tilt_deg'] as num?)?.toDouble(),
       // Server sends the true segmented area as `area` (or `area_cm2` on older
       // builds). Fall back to the bounding-rectangle estimate (length × width)
       // only if neither is present.

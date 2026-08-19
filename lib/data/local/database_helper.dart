@@ -16,6 +16,14 @@ class DatabaseHelper {
   DatabaseHelper._();
   factory DatabaseHelper() => _instance;
 
+  /// Drops the cached handle so a test can open a second, different database.
+  ///
+  /// Only a test needs this: the app has exactly one database for its whole
+  /// life, and the schema-parity test has to hold a fresh one and a migrated
+  /// one side by side to compare them.
+  @visibleForTesting
+  static void resetForTest() => _db = null;
+
   Future<Database> get database async {
     _db ??= await initDB();
     return _db!;
@@ -73,6 +81,17 @@ class DatabaseHelper {
             infection TEXT,
             ischaemia TEXT,
             healingProgress REAL,
+            -- The raw P(infection) behind the yes/no, so a stored scan can be
+            -- re-triaged. Added by a migration in v21 and, until this was
+            -- fixed, never added here — so a FRESH INSTALL created a table
+            -- without it and every attempt to save a scan failed with
+            -- "table wounds has no column named infectionProbability".
+            infectionProbability REAL,
+            -- Wound photographs upload separately from the scan record, and
+            -- this column is that queue: 0 to send, 1 sent, 2 the local file
+            -- is gone. Same story as above — migration-only, so a fresh
+            -- install could not sync a photograph either.
+            image_synced INTEGER NOT NULL DEFAULT 0,
             createdAt INTEGER NOT NULL
           )
         ''');
