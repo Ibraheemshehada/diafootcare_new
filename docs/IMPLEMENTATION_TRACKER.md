@@ -1446,6 +1446,93 @@ number** — and the whole judgement rests on 12 validation wounds.
 
 ---
 
+### C38 · Shipped: the retrained model, ring calibration, the capture gate and the overlay ✅
+The largest single change since the project began, and the numbers behind each part.
+
+#### 1 · The retrained model ships
+
+Judged against **the file patients were actually using**, on the same wounds with the app's own
+post-processing (`compare_tflite.py`, `compare_label_confusion.py`):
+
+| | Deployed v1.1 | Shipped v1.2 |
+|---|---|---|
+| Mean absolute error, 11 wounds | 13.4% | **12.6%** (better on 7) |
+| Label measured as the wound, small magenta | **16 / 42 (38%)** | **0 / 42** |
+| P(wound) inside the label, 90th pct | 0.170 | **0.0021** |
+| Photographs fixed / broken | — | **16 / 0** |
+| Gate report | — | `passed: false` on the intersection bug (C37), `regressed: none` |
+
+The old model is archived at `assets/models/_archive/model1_wound_fp16_v1.1_2026-07-04.tflite`
+(sha `ce0e7b01…`) beside its gate report; the shipped one is sha `47124517…`. Manifest version on
+the server recomputes itself from the files — **`b3a989d67f3a`** — so replacing the file is the
+whole deployment.
+
+> ⚠️ **The binary is not in git.** The LFS budget is exhausted, so it lives locally and on the
+> server, which is where devices fetch it from — the models were never bundled in the APK.
+
+#### 2 · Ring calibration, in the app at last
+
+Until today nothing supplied a scale: the calibration screen was removed, so every measurement
+divided the frame by an assumed 12 cm and moved with how far the phone was held. That is the
+mechanism behind a real 1.4 cm wound being reported as 0.9 cm.
+
+`ring_detector.dart` is ported from the detector validated on 239 clinic photographs, and
+**checked against it rather than trusted**:
+
+| | |
+|---|---|
+| Rings found | **22 / 22** |
+| Diameter error vs reference | **median 0.4%** |
+| Tilt error | **0.7°** |
+| Label size misread | **0** — reading it wrong scales everything by 4/3 |
+| Scale across 29 distinct wounds | mean **<1%**, worst **3.6%** |
+
+Two photographs of 31 where the reference finds a ring and this port does not (`H2_P3_9`,
+`H1e_P5_28`). They fall back to uncalibrated and are flagged, which is the honest failure.
+
+#### 3 · The capture gate
+
+Checked **before** the analysis, not after: a patient told afterwards has already put the phone
+down and the wound is dressed again. Bands are the measured ones — 18% error below 30°, 40% from
+30–40°, **56% above 40°** — so above 40° it refuses.
+
+**Only a proven bad angle blocks.** A photograph with no label cannot be judged, so it warns and
+lets the patient through rather than trapping them behind a check that cannot see.
+
+The instruction is the counter-intuitive one: *the label follows the wound, the camera stays square
+to both* — tilting the label towards the lens measures a different surface. On screen it becomes
+four words: **the printed circle must look round, not like an egg.** Live tilt is shown, because a
+number that changes as you move is what teaches the movement.
+
+#### 4 · The overlay, in the app and on the dashboard
+
+Every wrong conclusion in this project was caught by looking at the mask rather than the figure —
+the swapped reference rows, the drape read as a ring, the label measured as granulation. Neither a
+patient nor a clinician could do that. Now both can: the measured region in red, the ring that gave
+it its scale in green, tappable to full screen in the app and the default view on the dashboard.
+
+#### 5 · A zero is no longer a measurement
+
+The model returns 0 when it finds nothing, which the label guard made more common — on 6 of 157
+photographs the sticker was all it found. **`0.00 cm` reads as a healed wound.** It now says no
+wound was found and what to do about it.
+
+#### Storage and sync
+
+Schema **v22** adds `overlayPath`, `pixelsPerCm`, `tiltDeg`; the server gains `overlay_path`,
+`pixels_per_cm`, `tilt_deg` plus `has_overlay` / `capture_angle` / `is_calibrated` accessors and a
+`GET /wound-scans/{uuid}/overlay` endpoint with the photograph's own authorisation. The overlay
+uploads in the same multipart request and is **optional**, so a scan whose overlay failed to render
+is not held back by a picture that only explains the result.
+
+**Verification:** `flutter analyze lib test` → **0 errors, 0 warnings**. `flutter test` →
+**130/130**. `npm run build` on the dashboard → clean. All PHP files pass `php -l`.
+
+**Not yet done:** none of this has run on a physical device. The next batch through
+`run_batch.py` is what tests it in the clinic.
+
+---
+
 ## 2. What is deliberately NOT done yet
 
 ### 🔜 Tomorrow — decide whether the fine-tuned model ships
