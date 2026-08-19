@@ -8,7 +8,7 @@ class DatabaseHelper {
   ///
   /// Exposed so tests assert against the same source of truth as the migration
   /// itself, instead of a literal that silently goes stale on the next bump.
-  static const int schemaVersion = 21;
+  static const int schemaVersion = 22;
 
   static final DatabaseHelper _instance = DatabaseHelper._();
   static Database? _db;
@@ -39,6 +39,18 @@ class DatabaseHelper {
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             date TEXT NOT NULL,
             imagePath TEXT NOT NULL,
+            -- The photograph with the measured region drawn on it. Kept beside
+            -- the original because a size with nothing behind it cannot be
+            -- checked: a clinician had no way to tell a correct measurement from
+            -- one taken off the printed calibration label, which happened in 16
+            -- of 42 small-label photographs.
+            overlayPath TEXT,
+            -- True scale from the printed ring, in original-image px per cm, and
+            -- how far the label plane was turned from the camera. Stored per
+            -- scan because they qualify the measurement: tilt above 40° triples
+            -- measured error, and without a ring the centimetres are estimates.
+            pixelsPerCm REAL,
+            tiltDeg REAL,
             length REAL NOT NULL,
             width REAL NOT NULL,
             depth REAL,
@@ -249,6 +261,22 @@ class DatabaseHelper {
             await db.execute('ALTER TABLE wounds ADD COLUMN tissueFindings TEXT');
           } catch (e) {
             debugPrint('Note: wounds.tissueFindings not added: $e');
+          }
+        }
+        if (oldVersion < 22) {
+          // The overlay, the scale and the angle. Each one answers a question a
+          // stored measurement could not: what was actually measured, what gave
+          // it its units, and whether the photograph was square enough to trust.
+          for (final sql in const [
+            'ALTER TABLE wounds ADD COLUMN overlayPath TEXT',
+            'ALTER TABLE wounds ADD COLUMN pixelsPerCm REAL',
+            'ALTER TABLE wounds ADD COLUMN tiltDeg REAL',
+          ]) {
+            try {
+              await db.execute(sql);
+            } catch (e) {
+              debugPrint('Note: $sql not applied: $e');
+            }
           }
         }
         if (oldVersion < 21) {

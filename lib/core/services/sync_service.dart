@@ -347,7 +347,7 @@ class SyncService {
     var uploaded = 0, failed = 0;
     final rows = await db.query(
       'wounds',
-      columns: ['local_uuid', 'imagePath'],
+      columns: ['local_uuid', 'imagePath', 'overlayPath'],
       where: 'pending_sync = 0 AND image_synced = 0 AND local_uuid IS NOT NULL',
       limit: _imageBatch,
     );
@@ -369,12 +369,24 @@ class SyncService {
       }
 
       try {
+        // The overlay travels with the photograph, in the same request. A
+        // clinician reading a scan on the dashboard needs to see what was
+        // measured, not only the number — the same reason it is shown in the
+        // app. Optional: records from before it existed, and any scan whose
+        // overlay failed to render, upload the photograph alone rather than
+        // being held back.
+        final overlay = r['overlayPath'] as String?;
+        final hasOverlay =
+            overlay != null && overlay.isNotEmpty && await File(overlay).exists();
         final form = FormData.fromMap({
           // Extension taken by hand rather than importing package:path — that
           // package is only a transitive dependency here, so relying on it
           // would break the moment a parent package dropped it.
           'image': await MultipartFile.fromFile(path,
               filename: '$uuid${_extensionOf(path)}'),
+          if (hasOverlay)
+            'overlay': await MultipartFile.fromFile(overlay,
+                filename: '${uuid}_overlay${_extensionOf(overlay)}'),
         });
         final res = await ApiClient.I.dio.post(
           '/wound-scans/$uuid/image',

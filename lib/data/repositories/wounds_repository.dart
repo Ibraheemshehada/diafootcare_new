@@ -26,6 +26,13 @@ class WoundsRepository {
         {
           'date': now.toIso8601String(),
           'imagePath': imagePath,
+          // The mask drawn over the photograph, and the two numbers that qualify
+          // the measurement: what gave it its units, and how square the camera
+          // was. Stored per scan because both change from photograph to
+          // photograph and both decide how much the centimetres are worth.
+          'overlayPath': result.overlayImagePath,
+          'pixelsPerCm': result.pixelsPerCm,
+          'tiltDeg': result.tiltDeg,
           'length': result.length,
           'width': result.width,
           // True segmented area (cm²), persisted so history, the trend chart and
