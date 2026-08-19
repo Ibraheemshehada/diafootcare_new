@@ -413,8 +413,23 @@ class SyncService {
   }
 
   /// File extension including the dot, or '.jpg' when the path has none.
+  ///
+  /// No regular expression here. This was RegExp(r'[/\]'), and in a raw
+  /// string that is a literal backslash before the closing bracket — so the
+  /// character class was never closed and the expression threw
+  /// `FormatException: Unterminated character class` on **every** call. The
+  /// result was that no wound photograph ever reached the server: each pass
+  /// caught the throw, logged it, and retried for ever.
+  ///
+  /// It compiled, passed analysis, and was invisible until the app ran on a
+  /// device. Two `lastIndexOf` calls cannot fail this way.
+  @visibleForTesting
+  static String extensionOfForTest(String path) => _extensionOf(path);
+
   static String _extensionOf(String path) {
-    final slash = path.lastIndexOf(RegExp(r'[/\]'));
+    final unix = path.lastIndexOf('/');
+    final win = path.lastIndexOf('\\');
+    final slash = unix > win ? unix : win;
     final dot = path.lastIndexOf('.');
     return (dot > slash && dot != -1) ? path.substring(dot) : '.jpg';
   }
