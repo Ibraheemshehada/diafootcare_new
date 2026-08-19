@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'dart:typed_data';
+import 'dart:ui' show FontFeature;
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -11,6 +12,7 @@ import 'package:path/path.dart' as path;
 import '../../analysis/screens/analysis_loading_screen.dart';
 import '../../analysis/screens/infection_checklist_screen.dart';
 import '../../analysis/services/infection_triage.dart';
+import '../services/capture_check.dart';
 
 class PreviewScreen extends StatefulWidget {
   final XFile file;
@@ -22,6 +24,12 @@ class PreviewScreen extends StatefulWidget {
 
 class _PreviewScreenState extends State<PreviewScreen> {
   Future<Uint8List> _bytes() => widget.file.readAsBytes();
+
+  /// Checked once, here, rather than after the analysis. A patient who has to be
+  /// told the photograph was too angled has already put the phone down by then,
+  /// and the wound is dressed again.
+  late final Future<CaptureCheck> _check =
+      const CaptureChecker().check(widget.file.path);
 
   Future<String> _saveImageToLocal() async {
     try {
@@ -81,12 +89,9 @@ class _PreviewScreenState extends State<PreviewScreen> {
               ),
             ),
             SizedBox(height: 14.h),
-            Text(
-              'preview_hint'.tr(),
-              style: t.textTheme.bodyMedium?.copyWith(
-                fontSize: 14.sp,
-                color: t.colorScheme.onSurface.withOpacity(.7),
-              ),
+            FutureBuilder<CaptureCheck>(
+              future: _check,
+              builder: (context, snap) => _AngleBanner(check: snap.data),
             ),
             SizedBox(height: 14.h),
             Row(
@@ -97,8 +102,17 @@ class _PreviewScreenState extends State<PreviewScreen> {
                     // target while letting the button grow when the user
                     // enlarges the system font. An exact height clipped labels.
                     constraints: BoxConstraints(minHeight: 48.h),
-                    child: ElevatedButton.icon(
-                      onPressed: () async {
+                    child: FutureBuilder<CaptureCheck>(
+                      future: _check,
+                      builder: (context, snap) {
+                        final blocked = snap.data?.blocks ?? false;
+                        final waiting = !snap.hasData;
+                        return ElevatedButton.icon(
+                      // Disabled while the check runs and refused when the ring
+                      // proves the angle is past 40°, where measured error
+                      // triples. Nothing is blocked on a guess: a photograph
+                      // with no ring in it cannot be judged, so it is allowed.
+                      onPressed: (blocked || waiting) ? null : () async {
                         // Show loading
                         if (mounted) {
                           showDialog(
@@ -145,11 +159,19 @@ class _PreviewScreenState extends State<PreviewScreen> {
                           ),
                         );
                       },
-                      icon: const Icon(Icons.bookmark_add_outlined),
+                      icon: Icon(waiting
+                          ? Icons.hourglass_empty
+                          : blocked
+                              ? Icons.block
+                              : Icons.bookmark_add_outlined),
                       label: Text(
-                        'save_and_continue'.tr(),
+                        waiting
+                            ? 'capture_checking'.tr()
+                            : 'save_and_continue'.tr(),
                         style: TextStyle(fontSize: 14.sp),
                       ),
+                        );
+                      },
                     ),
                   ),
                 ),
@@ -174,6 +196,113 @@ class _PreviewScreenState extends State<PreviewScreen> {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// The verdict on this photograph, and what to do about it.
+///
+/// Colour carries the meaning before the words do: green passes, amber is a
+/// nudge, red is a refusal. The tilt itself is shown because a number the
+/// patient can watch change is what teaches the movement — "hold it flatter"
+/// means nothing until 47° becomes 22°.
+class _AngleBanner extends StatelessWidget {
+  final CaptureCheck? check;
+  const _AngleBanner({required this.check});
+
+  @override
+  Widget build(BuildContext context) {
+    final t = Theme.of(context);
+    if (check == null) {
+      return Row(
+        children: [
+          SizedBox(
+            width: 16.w,
+            height: 16.w,
+            child: const CircularProgressIndicator(strokeWidth: 2),
+          ),
+          SizedBox(width: 10.w),
+          Text('capture_checking'.tr(),
+              style: t.textTheme.bodyMedium?.copyWith(fontSize: 13.sp)),
+        ],
+      );
+    }
+
+    final c = check!;
+    final (bg, fg, icon) = switch (c.verdict) {
+      CaptureVerdict.good => (
+          const Color(0xFFE8F5E9),
+          const Color(0xFF1B5E20),
+          Icons.check_circle_outline
+        ),
+      CaptureVerdict.marginal => (
+          const Color(0xFFFFF8E1),
+          const Color(0xFF8D6E00),
+          Icons.info_outline
+        ),
+      CaptureVerdict.tooAngled => (
+          const Color(0xFFFFEBEE),
+          const Color(0xFFB71C1C),
+          Icons.error_outline
+        ),
+      _ => (
+          const Color(0xFFF3F3F3),
+          const Color(0xFF555555),
+          Icons.help_outline
+        ),
+    };
+
+    return Container(
+      width: double.infinity,
+      padding: EdgeInsets.all(12.w),
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: BorderRadius.circular(12.r),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, color: fg, size: 20.sp),
+          SizedBox(width: 10.w),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        c.title,
+                        style: t.textTheme.titleSmall?.copyWith(
+                          fontSize: 14.sp,
+                          fontWeight: FontWeight.w700,
+                          color: fg,
+                        ),
+                      ),
+                    ),
+                    if (c.tiltDeg != null)
+                      Text(
+                        'capture_tilt_reading'
+                            .tr(args: [c.tiltDeg!.round().toString()]),
+                        style: t.textTheme.bodySmall?.copyWith(
+                          fontSize: 12.sp,
+                          color: fg,
+                          fontFeatures: const [FontFeature.tabularFigures()],
+                        ),
+                      ),
+                  ],
+                ),
+                SizedBox(height: 4.h),
+                Text(
+                  c.body,
+                  style: t.textTheme.bodySmall
+                      ?.copyWith(fontSize: 12.sp, color: fg, height: 1.45),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }

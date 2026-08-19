@@ -67,6 +67,14 @@ class AnalysisResult {
   /// Which printed label was used: the 15 mm small one, or the 20 mm standard.
   final bool? usedSmallLabel;
 
+  /// The photograph with the measured region drawn on it.
+  ///
+  /// A number with nothing behind it cannot be checked: a clinician had no way
+  /// to tell a correct measurement from one taken off the printed label, which
+  /// happened in 16 of 42 small-label photographs. Every wrong conclusion in
+  /// this project was caught by looking at the mask rather than the figure.
+  final String? overlayImagePath;
+
   /// Where the analysis actually ran: 'online' (server) or 'offline' (phone).
   ///
   /// Recorded per result rather than read from the current mode at sync time,
@@ -97,6 +105,7 @@ class AnalysisResult {
     this.pixelsPerCm,
     this.tiltDeg,
     this.usedSmallLabel,
+    this.overlayImagePath,
     this.analysedOn = 'offline',
     String? tissueType,
   }) : _legacyTissueType = tissueType;

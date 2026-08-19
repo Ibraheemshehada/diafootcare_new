@@ -8,6 +8,7 @@ import 'package:tflite_flutter/tflite_flutter.dart';
 import 'package:image/image.dart' as img;
 import '../viewmodel/analysis_result.dart';
 import 'ring_detector.dart';
+import 'overlay_renderer.dart';
 import '../../../../core/services/analysis_exception.dart';
 import '../../../../core/services/app_mode_service.dart';
 import '../../../../core/services/model_repository.dart';
@@ -447,6 +448,7 @@ class AiService {
       // Depth comes ONLY from the clinician's probe entry (see doc above).
       double length = 0, width = 0, areaCm2 = 0;
       _BoxPx? woundBox; // where Model 1 found the wound; feeds Model 3's crop
+      String? overlayPath; // the mask drawn over the photograph, for the record
       final double depth = manualDepthCm ?? 0.0;
       if (_model1Loaded) {
         final m = _runSegmentation(image, scale);
@@ -454,6 +456,14 @@ class AiService {
         width = m.widthCm;
         areaCm2 = m.areaCm2;
         woundBox = m.woundBox;
+        if (m.mask != null) {
+          overlayPath = await const OverlayRenderer().render(
+            source: image,
+            mask: m.mask!,
+            ring: ring,
+            forImagePath: imagePath,
+          );
+        }
         debugPrint('✅ Model 1: L=${length.toStringAsFixed(2)}cm '
             'W=${width.toStringAsFixed(2)}cm area=${areaCm2.toStringAsFixed(2)}cm² '
             'D=${manualDepthCm == null ? "not measured" : depth.toStringAsFixed(2)}');
@@ -514,6 +524,7 @@ class AiService {
         pixelsPerCm: scale,
         tiltDeg: ring?.tiltDeg,
         usedSmallLabel: ring?.isSmall,
+        overlayImagePath: overlayPath,
       );
     } catch (e, st) {
       debugPrint('❌ Inference error: $e\n$st');
@@ -600,10 +611,26 @@ class AiService {
     final ext = _pcaExtentPx(mask, comp, sx, sy);
     final areaPx = comp.area * sx * sy;
 
+    // Only the region that was measured, not every blob that survived
+    // thresholding — the overlay has to answer "what did it measure", and
+    // showing discarded fragments would answer a different question.
+    final measured = List.generate(
+      h,
+      (y) => List.generate(
+          w,
+          (x) =>
+              mask[y][x] &&
+              x >= comp.minX &&
+              x <= comp.maxX &&
+              y >= comp.minY &&
+              y <= comp.maxY),
+    );
+
     return _Measurements(
       ext.majorPx / ppc,
       ext.minorPx / ppc,
       areaPx / (ppc * ppc),
+      mask: measured,
       // Mask-space box -> original-image pixels, rounded outwards so the crop
       // never clips wound edge pixels.
       woundBox: _BoxPx(
@@ -1040,8 +1067,12 @@ class _Measurements {
   /// trained on — see [AiService._woundCrop].
   final _BoxPx? woundBox;
 
+  /// The measured region itself, in mask space, so the overlay can show exactly
+  /// what produced the number rather than a box around it.
+  final List<List<bool>>? mask;
+
   const _Measurements(this.lengthCm, this.widthCm, this.areaCm2,
-      {this.woundBox});
+      {this.woundBox, this.mask});
 }
 
 /// Axis-aligned box in original-image pixel space.

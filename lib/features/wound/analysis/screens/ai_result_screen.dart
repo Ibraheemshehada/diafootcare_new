@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -33,6 +34,12 @@ class AiResultScreen extends StatefulWidget {
 class _AiResultScreenState extends State<AiResultScreen> {
   List<WoundEntry>? _historyEntries;
   bool _loadingHistory = true;
+
+  /// The model reports 0 when it found no wound. Sub-millimetre is the same
+  /// thing: no ulcer is 0.4 mm across, so a figure that small is a failed
+  /// segmentation dressed as a measurement.
+  bool get _hasMeasurement =>
+      widget.result.length > 0.05 && widget.result.width > 0.0;
 
   @override
   void initState() {
@@ -104,6 +111,20 @@ class _AiResultScreenState extends State<AiResultScreen> {
             // (the trend) rather than an action that does not exist yet; it will
             // point at the calibration sticker once that ships.
             // See docs/ACCURACY_IMPROVEMENT_PLAN.md §2.
+            if (result.captureAngle == CaptureAngle.poor ||
+                result.captureAngle == CaptureAngle.marginal) ...[
+              // Tilt is recorded with the result, not only warned about at
+              // capture: whoever reads this later needs to know the photograph
+              // was taken at an angle where measured error triples.
+              _Banner(
+                icon: Icons.screen_rotation_alt_rounded,
+                color: AppColors.of(context).warning,
+                message: 'ai_tilt_warning'.tr(
+                    args: [(result.tiltDeg ?? 0).round().toString()]),
+              ),
+              SizedBox(height: 12.h),
+            ],
+
             if (!result.isCalibrated) ...[
               _Banner(
                 icon: Icons.straighten_rounded,
@@ -113,6 +134,19 @@ class _AiResultScreenState extends State<AiResultScreen> {
               SizedBox(height: 12.h),
             ],
 
+            // A zero measurement is not a measurement. The model returns 0 when
+            // it found no wound at all — and since the label guard shipped, that
+            // happens more often: on 6 of 157 clinic photographs the printed
+            // sticker was the only thing it found. "0.00 cm" reads as a healed
+            // wound; saying nothing was found is the truth and is safer.
+            if (!_hasMeasurement) ...[
+              _Banner(
+                icon: Icons.search_off_rounded,
+                color: AppColors.of(context).warning,
+                message: 'ai_no_wound_found'.tr(),
+              ),
+              SizedBox(height: 12.h),
+            ] else ...[
             _StatCard(
               icon: Icons.straighten,
               value: result.length,
@@ -137,6 +171,16 @@ class _AiResultScreenState extends State<AiResultScreen> {
               color: primary,
               unit: 'cm2'.tr(),
             ),
+            ],
+
+            // What the model actually saw. Until this existed the app reported
+            // a size with nothing behind it, and a clinician could not tell a
+            // correct measurement from one taken off the printed label — which
+            // happened in 16 of 42 small-label photographs.
+            if (result.overlayImagePath != null) ...[
+              SizedBox(height: 14.h),
+              _WoundOverlayCard(path: result.overlayImagePath!),
+            ],
 
             // The depth row was removed: a 2D photo cannot measure depth, and
             // the manual-entry step that used to supply it is gone from the
@@ -1198,6 +1242,76 @@ class _TriageCard extends StatelessWidget {
           ],
         ],
       ),
+    );
+  }
+}
+
+/// The photograph with the measured region drawn on it.
+///
+/// Tappable to full screen, because the whole point is to be looked at closely:
+/// an under-segmented boundary and a correct one differ by a few millimetres on
+/// a phone-sized thumbnail.
+class _WoundOverlayCard extends StatelessWidget {
+  final String path;
+  const _WoundOverlayCard({required this.path});
+
+  @override
+  Widget build(BuildContext context) {
+    final t = Theme.of(context);
+    final file = File(path);
+    if (!file.existsSync()) return const SizedBox.shrink();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'ai_overlay_title'.tr(),
+          style: t.textTheme.titleSmall
+              ?.copyWith(fontSize: 14.sp, fontWeight: FontWeight.w700),
+        ),
+        SizedBox(height: 4.h),
+        Text(
+          'ai_overlay_hint'.tr(),
+          style: t.textTheme.bodySmall?.copyWith(
+            fontSize: 12.sp,
+            color: t.colorScheme.onSurface.withValues(alpha: .7),
+          ),
+        ),
+        SizedBox(height: 8.h),
+        GestureDetector(
+          onTap: () => Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (_) => Scaffold(
+                backgroundColor: Colors.black,
+                appBar: AppBar(
+                  backgroundColor: Colors.black,
+                  foregroundColor: Colors.white,
+                  title: Text('ai_overlay_title'.tr(),
+                      style: TextStyle(fontSize: 16.sp)),
+                ),
+                body: Center(
+                  child: InteractiveViewer(
+                    maxScale: 6,
+                    child: Image.file(file),
+                  ),
+                ),
+              ),
+            ),
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(12.r),
+            child: Image.file(
+              file,
+              width: double.infinity,
+              fit: BoxFit.cover,
+              // Rebuilt per scan, so a cached decode from the previous wound
+              // would show the wrong photograph entirely.
+              key: ValueKey(path),
+              errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+            ),
+          ),
+        ),
+      ],
     );
   }
 }
