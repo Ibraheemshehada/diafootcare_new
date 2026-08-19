@@ -216,7 +216,7 @@ class _AiResultScreenState extends State<AiResultScreen> {
             ),
             if (result.tissueFindings.isNotEmpty) ...[
               SizedBox(height: 10.h),
-              _TissueBreakdown(findings: result.tissueFindings),
+              TissueBreakdown(findings: result.tissueFindings),
             ],
             SizedBox(height: 10.h),
             // Model 3. The bare 'Present'/'Not Present' row is replaced by the
@@ -1041,17 +1041,25 @@ class _Banner extends StatelessWidget {
   }
 }
 
-/// Every tissue class the model considered, with how confident it was.
+/// Every tissue class the model considered, and whether it found it.
 ///
-/// Shown under the summary because a clinician reading "Callus" deserves to
-/// know whether that was 0.53 against a 0.45 threshold or 0.98, and which other
-/// tissues were found alongside it. The classes that did not clear their
-/// threshold are shown too, greyed, so the absence is stated rather than
-/// implied by omission.
-class _TissueBreakdown extends StatelessWidget {
+/// The confidence figures used to be here — a bar and a percentage per class,
+/// with a note explaining that each class has its own tuned threshold. They
+/// were removed: clinicians and patients read "Necrosis 36%" as *some
+/// necrosis*, when it means *not necrosis*. A number under its threshold and a
+/// number over it look alike, and the one thing that separates them was the
+/// sentence nobody read.
+///
+/// So the finding is stated and the arithmetic behind it is not. Classes that
+/// were not found are still listed, greyed — absence stated rather than implied
+/// by omission, which is the part that was never confusing.
+///
+/// The probabilities are still recorded and still synced; they belong in the
+/// study data, not on a screen someone reads over a patient's foot.
+class TissueBreakdown extends StatelessWidget {
   final List<TissueFinding> findings;
 
-  const _TissueBreakdown({required this.findings});
+  const TissueBreakdown({super.key, required this.findings});
 
   @override
   Widget build(BuildContext context) {
@@ -1097,38 +1105,22 @@ class _TissueBreakdown extends StatelessWidget {
                     ),
                   ),
                 ),
-                SizedBox(
-                  width: 90.w,
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(4.r),
-                    child: LinearProgressIndicator(
-                      value: f.probability.clamp(0.0, 1.0),
-                      minHeight: 6.h,
-                      backgroundColor: theme.colorScheme.surfaceContainerHighest,
-                      color: f.isPresent
-                          ? theme.colorScheme.primary
-                          : theme.colorScheme.outlineVariant,
-                    ),
-                  ),
-                ),
-                SizedBox(width: 8.w),
-                SizedBox(
-                  width: 34.w,
-                  child: Text(
-                    '${(f.probability * 100).round()}%',
-                    textAlign: TextAlign.end,
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: f.isPresent
-                          ? theme.colorScheme.onSurface
-                          : theme.colorScheme.onSurfaceVariant,
-                    ),
+                // The verdict in words, so the row does not depend on reading
+                // an icon: "Found" / "Not found".
+                Text(
+                  (f.isPresent ? 'tissue_found' : 'tissue_not_found').tr(),
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    fontWeight: f.isPresent ? FontWeight.w600 : FontWeight.w400,
+                    color: f.isPresent
+                        ? theme.colorScheme.primary
+                        : theme.colorScheme.onSurfaceVariant,
                   ),
                 ),
               ],
             ),
             SizedBox(height: 8.h),
           ],
-          Text('tissue_threshold_note'.tr(),
+          Text('tissue_note'.tr(),
               style: theme.textTheme.bodySmall
                   ?.copyWith(color: theme.colorScheme.onSurfaceVariant)),
         ],
