@@ -109,6 +109,20 @@ class SyncService {
             'width_cm': width,
             'area_cm2': double.parse(area.toStringAsFixed(2)),
             'depth_cm': (r['depth'] as num?)?.toDouble(),
+            // How the centimetres were arrived at, and how square the camera
+            // was. The server has held these three columns since the overlay
+            // shipped and never received one of them, so the dashboard's angle
+            // and calibration badges read blank for every scan taken in the
+            // app — which is every scan a patient takes. A measurement at 45°
+            // carries about triple the error of one taken flat; whoever reads
+            // the number later has to be able to see which they have.
+            //
+            // There is no isCalibrated column: a scan is calibrated exactly
+            // when the ring was found and gave a scale, which is what
+            // pixelsPerCm being non-null means.
+            'pixels_per_cm': (r['pixelsPerCm'] as num?)?.toDouble(),
+            'tilt_deg': (r['tiltDeg'] as num?)?.toDouble(),
+            'is_calibrated': r['pixelsPerCm'] != null,
             // The server's tissue_json column was always meant to hold the
             // per-class answer; it only ever received the headline. Both go up
             // now, so the dashboard can show what the model actually found.
