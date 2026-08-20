@@ -1,9 +1,28 @@
+import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:camera/camera.dart';
 import 'package:image/image.dart' as img;
 
 import '../../analysis/services/ring_detector.dart';
+
+/// The pixel format to ask the camera for, per platform.
+///
+/// Not a preference — a correctness requirement. iOS accepts `yuv420`, but
+/// delivers it as a **two-plane** biplanar buffer (Y, then interleaved CbCr),
+/// while Android delivers three. [LiveFrameCheck._toImage] needs three, so a
+/// hardcoded `yuv420` meant every iOS frame was dropped: no ring, no angle, no
+/// guidance — and, because a missing label is treated as "cannot judge", a
+/// shutter that stayed enabled and said nothing. The feature would have looked
+/// present and done nothing at all.
+///
+/// BGRA is one plane, is what iOS gives natively, and is already handled.
+/// Split from [previewFormat] so both branches can be tested from either
+/// platform — the bug is invisible on the machine the app is developed on.
+ImageFormatGroup previewFormatFor({required bool isIOS}) =>
+    isIOS ? ImageFormatGroup.bgra8888 : ImageFormatGroup.yuv420;
+
+ImageFormatGroup get previewFormat => previewFormatFor(isIOS: Platform.isIOS);
 
 /// Reads the calibration ring out of a live camera frame.
 ///

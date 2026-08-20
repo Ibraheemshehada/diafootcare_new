@@ -73,7 +73,7 @@ class _LiveCaptureScreenState extends State<LiveCaptureScreen> {
         back,
         ResolutionPreset.medium,
         enableAudio: false,
-        imageFormatGroup: ImageFormatGroup.yuv420,
+        imageFormatGroup: previewFormat,
       );
       await c.initialize();
       await c.startImageStream(_onFrame);
