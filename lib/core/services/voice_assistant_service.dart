@@ -103,6 +103,12 @@ class VoiceAssistantService {
 
       if (voices.isNotEmpty) {
         voices.sort((a, b) {
+          // A name chosen by ear wins outright. Everything below it is a guess
+          // from metadata; this is the one thing in the ranking that comes from
+          // somebody having actually listened.
+          final byPreferred = _preferredRank('${a['name']}')
+              .compareTo(_preferredRank('${b['name']}'));
+          if (byPreferred != 0) return byPreferred;
           final byLocale = _localeRank('${a['locale']}', wanted)
               .compareTo(_localeRank('${b['locale']}', wanted));
           if (byLocale != 0) return byLocale;
@@ -142,6 +148,28 @@ class VoiceAssistantService {
     debugPrint('⚠️ TTS has no voice for $languageCode');
     selectedVoice = null;
     return false;
+  }
+
+  /// Voices picked by listening, best first.
+  ///
+  /// Everything else in the ranking reads metadata and hopes. On the test
+  /// device every Arabic voice reports `quality: high`, so quality separates
+  /// nothing and the winner among equals is whichever the engine happened to
+  /// list first — which is no better than the default this replaced.
+  ///
+  /// Add a name here after auditioning it with
+  /// integration_test/voice_audition_test.dart. A name that is not installed
+  /// on a given device is simply skipped, so this list is safe to carry
+  /// everywhere.
+  static const List<String> _preferred = [
+    // Nothing pinned yet. `ar-xa-x-arz-local` and `en-us-x-tpd-local` are what
+    // the metadata ranking currently chooses, not what anyone chose.
+  ];
+
+  /// Lower is better; voices not in the list sort after every one that is.
+  static int _preferredRank(String name) {
+    final i = _preferred.indexOf(name);
+    return i < 0 ? _preferred.length : i;
   }
 
   /// Lower is better; -1 means it does not match at all.
