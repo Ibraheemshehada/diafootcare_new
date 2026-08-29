@@ -239,6 +239,24 @@ class _AiResultScreenState extends State<AiResultScreen> {
               subtitle: 'blood_flow'.tr(),
               color: result.ischaemia == 'Impaired' ? warn : primary,
             ),
+            // Shown for every result, including "Adequate" — especially for
+            // "Adequate". Perfusion cannot be judged from a photograph: this
+            // model reads colour and texture, not pulses, not Doppler, not
+            // ankle pressures. A reassuring word here about a foot that is
+            // actually ischaemic is the most dangerous thing this screen can
+            // say, so the limit is stated every time rather than only when the
+            // answer is bad.
+            SizedBox(height: 8.h),
+            Padding(
+              padding: EdgeInsets.symmetric(horizontal: 4.w),
+              child: Text(
+                'blood_flow_disclaimer'.tr(),
+                style: t.textTheme.bodySmall?.copyWith(
+                  color: t.colorScheme.onSurfaceVariant,
+                  height: 1.4,
+                ),
+              ),
+            ),
 
             SizedBox(height: 20.h),
             _SectionTitle('progress_summary'.tr()),

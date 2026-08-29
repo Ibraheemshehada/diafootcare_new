@@ -42,12 +42,20 @@ class SpeakButton extends StatelessWidget {
           color: color ?? Theme.of(context).colorScheme.primary,
           icon: Icon(isSpeaking ? Icons.stop_circle_outlined
                                 : Icons.volume_up_outlined),
-          onPressed: () {
+          onPressed: () async {
             if (!isSpeaking && analyticsName != null) {
               AnalyticsService.I.logHelp('read_aloud:$analyticsName');
             }
-            VoiceAssistantService.I
+            final spoke = await VoiceAssistantService.I
                 .speak(text, languageCode: languageCode);
+            // Silence is the one outcome the button cannot express on its own.
+            // Without this the patient taps, hears nothing, and has no way to
+            // discover that the phone simply has no voice for their language.
+            if (!spoke && context.mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text('a11y_no_voice'.tr())),
+              );
+            }
           },
         );
       },

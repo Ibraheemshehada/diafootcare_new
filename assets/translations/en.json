@@ -689,11 +689,11 @@
     "11": "November",
     "12": "December"
   },
-  "tissue_granulation": "Granulation tissue (healthy healing)",
-  "tissue_slough": "Slough (soft yellow dead tissue)",
+  "tissue_granulation": "Granulation tissue (healthy pink tissue)",
+  "tissue_slough": "Slough (unhealthy yellow tissue)",
   "tissue_necrosis": "Necrosis (black dead tissue)",
-  "tissue_epithelial": "Epithelial tissue (new skin forming)",
-  "tissue_callus": "Callus (thickened hard skin)",
+  "tissue_epithelial": "Epithelial tissue (thin new skin)",
+  "tissue_callus": "Callous (thick skin around the wound)",
   "tissue_fibrin": "Fibrin",
   "tissue_unknown": "Not determined",
   "glucose_unit": "Unit",
@@ -751,5 +751,7 @@
   "live_no_camera": "No camera was found on this phone.",
   "live_camera_failed": "The camera could not start. You can choose a photo from your gallery instead.",
   "live_capture_failed": "The photo could not be taken. Please try again.",
-  "live_use_guided": "Guided photo"
+  "live_use_guided": "Guided photo",
+  "blood_flow_disclaimer": "* This result is indicative only. A clinical examination is required to confirm that blood flow to the foot is adequate.",
+  "a11y_no_voice": "Read-aloud is not available on this phone yet. Install a voice for your language in your phone settings, under Text-to-speech."
 }

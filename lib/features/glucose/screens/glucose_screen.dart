@@ -318,6 +318,26 @@ class _AddGlucoseDialogState extends State<_AddGlucoseDialog> {
     super.dispose();
   }
 
+  /// Switching units converts what is already typed instead of discarding it.
+  ///
+  /// Leaving the digits alone would silently change what they mean: 110 typed
+  /// as mg/dL becoming 110 mmol/L, which is not a survivable blood sugar and
+  /// would be stored as one. Converting keeps the reading the patient meant.
+  void _switchUnit(GlucoseUnit to) {
+    final from = GlucoseUnitPref.unit.value;
+    if (to == from) return;
+    final typed = ArabicNumerals.tryParseDouble(_ctrl.text);
+    GlucoseUnitPref.set(to);
+    if (typed != null && typed > 0) {
+      final converted = to.fromMgdl(from.toMgdl(typed));
+      // mmol/L is read to one decimal, mg/dL as a whole number.
+      _ctrl.text = to == GlucoseUnit.mmoll
+          ? converted.toStringAsFixed(1)
+          : converted.round().toString();
+    }
+    setState(() {});
+  }
+
   void _submit() {
     final u = GlucoseUnitPref.unit.value;
     final typed = ArabicNumerals.tryParseDouble(_ctrl.text);
@@ -358,6 +378,27 @@ class _AddGlucoseDialogState extends State<_AddGlucoseDialog> {
               border: const OutlineInputBorder(),
               labelText: 'glucose_value_label'.tr(),
               suffixText: GlucoseUnitPref.unit.value.label,
+            ),
+          ),
+          SizedBox(height: 12.h),
+          // The unit, changeable here rather than only from the menu behind
+          // this dialog. It was shown as a suffix and nowhere else, so a
+          // patient whose meter reads mmol/L had to close the dialog, find the
+          // menu, switch, and start again — and the likeliest outcome of not
+          // finding it is typing 6.2 into a field that means mg/dL.
+          ValueListenableBuilder<GlucoseUnit>(
+            valueListenable: GlucoseUnitPref.unit,
+            builder: (context, unit, _) => Row(
+              children: GlucoseUnit.values.map((u) {
+                return Padding(
+                  padding: EdgeInsetsDirectional.only(end: 8.w),
+                  child: ChoiceChip(
+                    label: Text(u.label),
+                    selected: u == unit,
+                    onSelected: (_) => _switchUnit(u),
+                  ),
+                );
+              }).toList(),
             ),
           ),
           SizedBox(height: 16.h),
