@@ -753,5 +753,8 @@
   "live_capture_failed": "The photo could not be taken. Please try again.",
   "live_use_guided": "Guided photo",
   "blood_flow_disclaimer": "* This result is indicative only. A clinical examination is required to confirm that blood flow to the foot is adequate.",
-  "a11y_no_voice": "Read-aloud is not available on this phone yet. Install a voice for your language in your phone settings, under Text-to-speech."
+  "a11y_no_voice": "Read-aloud is not available on this phone yet. Install a voice for your language in your phone settings, under Text-to-speech.",
+  "glucose_unit_label": "Unit — pick the one your meter shows",
+  "glucose_unit_example_mgdl": "e.g. 110",
+  "glucose_unit_example_mmoll": "e.g. 6.1"
 }

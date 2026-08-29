@@ -1,4 +1,5 @@
 import 'package:easy_localization/easy_localization.dart';
+import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -131,7 +132,7 @@ class GlucoseScreen extends StatelessWidget {
     final vm = context.read<GlucoseViewModel>();
     final result = await showDialog<_GlucoseInput>(
       context: context,
-      builder: (_) => const _AddGlucoseDialog(),
+      builder: (_) => const AddGlucoseDialog(),
     );
     if (result != null) {
       vm.add(value: result.value, tag: result.tag);
@@ -301,14 +302,19 @@ class _GlucoseInput {
   const _GlucoseInput(this.value, this.tag);
 }
 
-class _AddGlucoseDialog extends StatefulWidget {
-  const _AddGlucoseDialog();
+/// Public only so a test can pump it directly. The unit choice inside it is
+/// the difference between storing the reading a patient meant and storing one
+/// eighteen times larger, and that deserves a test that does not have to drive
+/// the whole screen to reach it.
+@visibleForTesting
+class AddGlucoseDialog extends StatefulWidget {
+  const AddGlucoseDialog({super.key});
 
   @override
-  State<_AddGlucoseDialog> createState() => _AddGlucoseDialogState();
+  State<AddGlucoseDialog> createState() => _AddGlucoseDialogState();
 }
 
-class _AddGlucoseDialogState extends State<_AddGlucoseDialog> {
+class _AddGlucoseDialogState extends State<AddGlucoseDialog> {
   final _ctrl = TextEditingController();
   String _tag = 'fasting';
 
@@ -365,40 +371,133 @@ class _AddGlucoseDialogState extends State<_AddGlucoseDialog> {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          TextField(
-            controller: _ctrl,
-            keyboardType:
-                const TextInputType.numberWithOptions(decimal: true),
-            inputFormatters: [
-              // Arabic keyboards emit ٠-٩, which this filter used to swallow as the
-              // patient typed. See ArabicNumerals.
-              ArabicNumerals.inputFormatter,
-            ],
-            decoration: InputDecoration(
-              border: const OutlineInputBorder(),
-              labelText: 'glucose_value_label'.tr(),
-              suffixText: GlucoseUnitPref.unit.value.label,
-            ),
+          // The unit comes first, before the number.
+          //
+          // It used to be a suffix inside the field and nothing else, so the
+          // only way to change it was to leave the dialog and find a menu
+          // behind it. A patient who does not find that menu types the reading
+          // from their meter into a field that means something else: 6.2
+          // entered as mg/dL is a fatal hypo that never happened, and 110
+          // entered as mmol/L is not survivable.
+          //
+          // So it is a choice made deliberately at the top, each option showing
+          // a typical reading — because "mmol/L" tells a patient nothing, and
+          // "e.g. 6.1" tells them immediately which one matches the number on
+          // their meter.
+          Text(
+            'glucose_unit_label'.tr(),
+            style: TextStyle(fontSize: 13.sp, fontWeight: FontWeight.w600),
           ),
-          SizedBox(height: 12.h),
-          // The unit, changeable here rather than only from the menu behind
-          // this dialog. It was shown as a suffix and nowhere else, so a
-          // patient whose meter reads mmol/L had to close the dialog, find the
-          // menu, switch, and start again — and the likeliest outcome of not
-          // finding it is typing 6.2 into a field that means mg/dL.
+          SizedBox(height: 8.h),
           ValueListenableBuilder<GlucoseUnit>(
             valueListenable: GlucoseUnitPref.unit,
             builder: (context, unit, _) => Row(
               children: GlucoseUnit.values.map((u) {
-                return Padding(
-                  padding: EdgeInsetsDirectional.only(end: 8.w),
-                  child: ChoiceChip(
-                    label: Text(u.label),
-                    selected: u == unit,
-                    onSelected: (_) => _switchUnit(u),
+                final selected = u == unit;
+                final scheme = Theme.of(context).colorScheme;
+                return Expanded(
+                  child: Padding(
+                    padding: EdgeInsetsDirectional.only(
+                        end: u == GlucoseUnit.values.first ? 8.w : 0),
+                    child: InkWell(
+                      onTap: () => _switchUnit(u),
+                      borderRadius: BorderRadius.circular(12.r),
+                      child: Semantics(
+                        selected: selected,
+                        button: true,
+                        child: Container(
+                          // Tall enough to hit reliably with an unsteady hand.
+                          constraints: BoxConstraints(minHeight: 64.h),
+                          padding: EdgeInsets.symmetric(
+                              vertical: 8.h, horizontal: 8.w),
+                          decoration: BoxDecoration(
+                            color: selected
+                                ? scheme.primary.withValues(alpha: 0.12)
+                                : Colors.transparent,
+                            border: Border.all(
+                              color: selected
+                                  ? scheme.primary
+                                  : scheme.outlineVariant,
+                              // Selection is carried by the border weight and
+                              // the tick as well as by colour.
+                              width: selected ? 2 : 1,
+                            ),
+                            borderRadius: BorderRadius.circular(12.r),
+                          ),
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  if (selected) ...[
+                                    Icon(Icons.check_circle,
+                                        size: 16.sp, color: scheme.primary),
+                                    SizedBox(width: 4.w),
+                                  ],
+                                  Flexible(
+                                    child: Text(
+                                      u.label,
+                                      textAlign: TextAlign.center,
+                                      style: TextStyle(
+                                        fontSize: 15.sp,
+                                        fontWeight: FontWeight.w700,
+                                        color: selected
+                                            ? scheme.primary
+                                            : scheme.onSurface,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              SizedBox(height: 2.h),
+                              Text(
+                                (u == GlucoseUnit.mgdl
+                                        ? 'glucose_unit_example_mgdl'
+                                        : 'glucose_unit_example_mmoll')
+                                    .tr(),
+                                textAlign: TextAlign.center,
+                                style: TextStyle(
+                                  fontSize: 11.sp,
+                                  color: scheme.onSurfaceVariant,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
                   ),
                 );
               }).toList(),
+            ),
+          ),
+          SizedBox(height: 16.h),
+          ValueListenableBuilder<GlucoseUnit>(
+            valueListenable: GlucoseUnitPref.unit,
+            builder: (context, unit, _) => TextField(
+              controller: _ctrl,
+              autofocus: true,
+              style: TextStyle(fontSize: 20.sp, fontWeight: FontWeight.w600),
+              keyboardType:
+                  const TextInputType.numberWithOptions(decimal: true),
+              inputFormatters: [
+                // Arabic keyboards emit ٠-٩, which this filter used to swallow
+                // as the patient typed. See ArabicNumerals.
+                ArabicNumerals.inputFormatter,
+              ],
+              decoration: InputDecoration(
+                border: const OutlineInputBorder(),
+                labelText: 'glucose_value_label'.tr(),
+                // Repeated here, so the unit is still in view at the moment the
+                // digits are being typed.
+                suffixText: unit.label,
+                suffixStyle: TextStyle(
+                  fontSize: 14.sp,
+                  fontWeight: FontWeight.w600,
+                  color: Theme.of(context).colorScheme.primary,
+                ),
+              ),
             ),
           ),
           SizedBox(height: 16.h),
