@@ -63,23 +63,113 @@ class VoiceAssistantService {
       await _tts.setPitch(1.0);
       _ready = true;
     }
-    // 'ar' and 'en' map to the closest installed voice.
-    final lang = languageCode == 'ar' ? 'ar-SA' : 'en-US';
-    if (_language != lang) {
-      final available = await _tts.isLanguageAvailable(lang);
-      if (available == true) {
-        await _tts.setLanguage(lang);
-        _language = lang;
-      } else {
-        // Do not fall through and speak anyway. The previous behaviour left
-        // whatever language was set before in place, so Arabic text was handed
-        // to an English voice, which reads it as noise.
-        debugPrint('⚠️ TTS language unavailable: $lang');
-        return false;
+    if (_language == languageCode) return true;
+    if (await _selectVoice(languageCode)) {
+      _language = languageCode;
+      return true;
+    }
+    // Do not fall through and speak anyway. Leaving whatever language was set
+    // before in place hands Arabic text to an English voice, which reads it as
+    // noise.
+    return false;
+  }
+
+  /// The voice actually in use, for diagnostics. Reported by the probe test.
+  String? selectedVoice;
+
+  /// Picks a voice rather than accepting whatever the engine defaults to.
+  ///
+  /// This used to ask for `ar-SA`, which is not a tag any Android engine
+  /// lists: Google ships Arabic as `ar` with voices named `ar-xa-x-ard-local`
+  /// and similar. `isLanguageAvailable('ar-SA')` still answered true, because
+  /// Android matches loosely, and the engine then chose for itself — which is
+  /// how a patient ends up with a voice nobody picked and nobody can explain.
+  ///
+  /// Ranked by, in order: how well the locale matches, then the quality the
+  /// engine itself reports, then an installed voice over one that streams.
+  /// The last is deliberate for this app: it is used offline in clinics, and a
+  /// better voice that goes silent without a connection is a worse voice.
+  Future<bool> _selectVoice(String languageCode) async {
+    final wanted = languageCode == 'ar'
+        ? const ['ar']
+        : const ['en-us', 'en-gb', 'en'];
+    try {
+      final raw = await _tts.getVoices;
+      final voices = (raw as List?)
+              ?.map((v) => Map<String, dynamic>.from(v as Map))
+              .where((v) => _localeRank('${v['locale']}', wanted) >= 0)
+              .toList() ??
+          [];
+
+      if (voices.isNotEmpty) {
+        voices.sort((a, b) {
+          final byLocale = _localeRank('${a['locale']}', wanted)
+              .compareTo(_localeRank('${b['locale']}', wanted));
+          if (byLocale != 0) return byLocale;
+          final byQuality = _qualityRank('${b['quality']}')
+              .compareTo(_qualityRank('${a['quality']}'));
+          if (byQuality != 0) return byQuality;
+          // '1' means the voice streams from Google's servers.
+          return '${a['network_required']}'.compareTo('${b['network_required']}');
+        });
+
+        final best = voices.first;
+        await _tts.setVoice({
+          'name': '${best['name']}',
+          'locale': '${best['locale']}',
+          // iOS matches on this first when it is present; Android ignores it.
+          if (best['identifier'] != null) 'identifier': '${best['identifier']}',
+        });
+        selectedVoice = '${best['name']} (${best['locale']}, '
+            'quality ${best['quality']})';
+        debugPrint('🔊 TTS voice: $selectedVoice');
+        return true;
+      }
+    } catch (e) {
+      // getVoices is not implemented everywhere; fall through to the language.
+      debugPrint('TTS voice list unavailable: $e');
+    }
+
+    // No voice list, or nothing matched: ask for the bare language tag, which
+    // every engine understands.
+    for (final tag in wanted) {
+      if (await _tts.isLanguageAvailable(tag) == true) {
+        await _tts.setLanguage(tag);
+        selectedVoice = 'language $tag';
+        return true;
       }
     }
-    return true;
+    debugPrint('⚠️ TTS has no voice for $languageCode');
+    selectedVoice = null;
+    return false;
   }
+
+  /// Lower is better; -1 means it does not match at all.
+  static int _localeRank(String locale, List<String> wanted) {
+    final l = locale.toLowerCase().replaceAll('_', '-');
+    for (var i = 0; i < wanted.length; i++) {
+      if (l == wanted[i]) return i;
+    }
+    for (var i = 0; i < wanted.length; i++) {
+      if (l.startsWith('${wanted[i].split('-').first}-') ||
+          l == wanted[i].split('-').first) {
+        return wanted.length + i;
+      }
+    }
+    return -1;
+  }
+
+  /// Android reports "very high".."very low"; Apple "premium"/"enhanced"/
+  /// "default". Higher is better; an unknown word sits in the middle rather
+  /// than at the bottom, so an unfamiliar engine is not penalised for wording.
+  static int _qualityRank(String q) => switch (q.toLowerCase()) {
+        'very high' || 'premium' => 5,
+        'high' || 'enhanced' => 4,
+        'normal' || 'default' => 3,
+        'low' => 1,
+        'very low' => 0,
+        _ => 2,
+      };
 
   /// Speak [text]. If the same text is already playing, this stops it (toggle).
   ///
@@ -108,6 +198,16 @@ class VoiceAssistantService {
       return false;
     }
   }
+
+  /// Seams for the ranking tests. The ranking is the whole of the decision and
+  /// it is pure arithmetic on what an engine reports, so it is worth testing
+  /// without a device attached.
+  @visibleForTesting
+  static int localeRankForTest(String locale, List<String> wanted) =>
+      _localeRank(locale, wanted);
+
+  @visibleForTesting
+  static int qualityRankForTest(String quality) => _qualityRank(quality);
 
   Future<void> stop() async {
     try {
