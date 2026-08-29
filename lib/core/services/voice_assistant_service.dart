@@ -32,6 +32,27 @@ class VoiceAssistantService {
         debugPrint('⚠️ TTS error: $msg');
         speaking.value = null;
       });
+
+      // iOS needs its audio session configured explicitly or speak() is
+      // silent: the app must claim the shared AVAudioSession, and the
+      // `playback` category makes speech audible even with the ring/silent
+      // switch on — elderly patients routinely keep the phone silenced, and a
+      // read-aloud they deliberately tapped should be heard regardless.
+      // Android and web neither need nor implement these calls, so they are
+      // guarded to iOS to avoid a MissingPluginException there.
+      if (!kIsWeb && defaultTargetPlatform == TargetPlatform.iOS) {
+        await _tts.setSharedInstance(true);
+        await _tts.setIosAudioCategory(
+          IosTextToSpeechAudioCategory.playback,
+          [IosTextToSpeechAudioCategoryOptions.duckOthers],
+        );
+      }
+
+      // Resolve speak() when the utterance *finishes* rather than when it
+      // starts, so the completion handler fires and the play/stop state stays
+      // in sync on iOS.
+      await _tts.awaitSpeakCompletion(true);
+
       // A slightly slower rate is easier for elderly listeners.
       await _tts.setSpeechRate(0.45);
       await _tts.setPitch(1.0);
