@@ -351,6 +351,88 @@
     float32. Model 1 used its own pipeline (resize to 384×384, divide by 255; the [-1, 1] rescale for MobileNetV2
     was baked into the exported graph). The same preprocessing was implemented identically in Dart and on the
     server, so a wound analysed on the phone and on the server produced the same result.</p>
+
+  <h3>3.6&nbsp;&nbsp;Dimensional calibration and the reference label</h3>
+  <p>Photographic measurement requires a metric reference within the field of view. In its absence the pipeline
+    assumes a fixed field width (<code>_assumedFrameCm = 12.0</code>), and reported dimensions then scale with the
+    ratio of true to assumed camera distance; in one recorded case a 1.4&nbsp;cm wound was reported as
+    0.9&nbsp;cm. Measurements obtained this way are flagged as <b>not calibrated</b> in the interface and in the
+    stored record. A printed reference label was therefore introduced and is placed adjacent to the wound at
+    acquisition.</p>
+
+  <figure>
+    <img src="figures/fig_calibration_label.png" alt="The DiaFootCare v5 reference label" style="max-width:78%">
+    <div class="cap">Figure 9. The DiaFootCare v5 reference label, photographed under clinical acquisition
+      conditions. The cyan annulus (2.0&nbsp;cm outer diameter) provides the metric reference; the printed ruler is
+      for clinician verification and is not used by the software.</div>
+  </figure>
+
+  <p><b>Label specification.</b> A cyan annulus of 2.0&nbsp;cm outer diameter, with a 1.5&nbsp;cm magenta variant
+    for small wounds and confined anatomical sites. An annulus was selected because the central aperture provides
+    the decisive discriminator against solid circular regions occurring in clinical photographs. Circular geometry
+    was selected because the projection of a circle yields both the scale and the viewing angle from a single
+    contour; fiducial markers (ArUco, QR) were evaluated and not adopted, as they require decode-quality print and
+    lighting and degrade discontinuously. Hue determines the assumed physical diameter, so the two hue bands are
+    widely separated to ensure unambiguous classification. The card is printed at 100% scale.</p>
+
+  <p><b>Detection.</b> Performed on the frame downscaled to 640&nbsp;px width. Candidate pixels are selected in HSV
+    space (cyan: hue 80–115, S&nbsp;≥&nbsp;60, V&nbsp;≥&nbsp;40; magenta: hue 145–175, S&nbsp;≥&nbsp;110,
+    V&nbsp;≥&nbsp;50), morphologically opened and closed, and grouped into connected components. Each component is
+    characterised by its second central moments, giving the principal-axis orientation
+    <code>θ = ½·arctan(2σ<sub>xy</sub> / (σ<sub>xx</sub> − σ<sub>yy</sub>))</code>; pixels are projected onto the
+    principal axes and the major and minor extents taken as the projected ranges. Four acceptance tests are
+    applied: circularity (minor/major&nbsp;≥&nbsp;0.5); frame share (0.02&nbsp;&lt;&nbsp;major/max(W,H)&nbsp;&lt;&nbsp;0.45);
+    central aperture (a disc of radius max(2, 0.15×minor) at the centroid must contain no more than 23.5% ink); and
+    fill ratio (0.12&nbsp;&lt;&nbsp;area/(π·(major/2)·(minor/2))&nbsp;&lt;&nbsp;0.95). Surviving candidates are ranked
+    by circularity.</p>
+
+  <p><b>Scale.</b> The scale follows directly from the detected major extent,
+    <code>pixels_per_cm = major<sub>px</sub> / d<sub>cm</sub></code>, where <i>d</i> is 2.0&nbsp;cm or 1.5&nbsp;cm
+    according to the detected hue. This is a ratio of measured to known length and requires no camera intrinsics,
+    focal length or per-device calibration, which permits a single reference to be used across all devices in a
+    study.</p>
+
+  <p><b>Viewing angle.</b> Under perspective projection a circle of diameter <i>d</i> inclined at angle <i>φ</i>
+    maps to an ellipse with <code>major = s·d</code> and <code>minor = s·d·cos φ</code>. The major axis is
+    therefore unforeshortened and the scale is invariant to inclination, while the inclination is recovered from
+    the same measurement as <code>φ = arccos(minor / major)</code>.</p>
+
+  <p><b>Acquisition guidance.</b> Because the inclination is recovered with the scale, it is available before the
+    photograph is taken. The acquisition screen evaluates the preview stream continuously, displays the current
+    inclination in degrees, and gates capture on it: acquisition proceeds below 30°, proceeds with a displayed
+    warning between 30° and 40°, and is declined beyond 40° — the range in which measurement error exceeds 50%
+    (§5.6). Where no reference label is detected the inclination cannot be determined and capture is permitted,
+    since acquisition without a reference remains valid and is recorded as uncalibrated. Post-capture assessment
+    applies the same thresholds.</p>
+
+  <p><b>Derivation of wound dimensions.</b> The segmentation mask is measured in original-image pixels using
+    anisotropic scale factors <code>s<sub>x</sub> = W<sub>orig</sub>/w<sub>mask</sub></code> and
+    <code>s<sub>y</sub> = H<sub>orig</sub>/h<sub>mask</sub></code>. Length and width are the principal-axis extents
+    of the mask, equivalent to a minimum-area rectangle, which avoids the over-measurement produced by an
+    axis-aligned bounding box for wounds lying obliquely in the frame. Area is derived from the segmented pixel
+    count rather than from the product of the two dimensions:
+    <code>L = major<sub>px</sub>/ppc</code>, <code>W = minor<sub>px</sub>/ppc</code>,
+    <code>A = n<sub>mask</sub>·s<sub>x</sub>·s<sub>y</sub>/ppc²</code>.</p>
+
+  <p><b>Measurement overlay.</b> Each analysis renders an image recording the region that was measured — the
+    segmentation mask with the detected annulus and its fitted ellipse — stored with the scan, synchronised to the
+    server and displayed in both clients. A dimension derived from tissue and one derived from the printed
+    reference are numerically indistinguishable; the overlay separates them without requiring the reviewer to
+    repeat the analysis, and preserves the segmentation as it stood at acquisition.</p>
+
+  <p><b>Exclusion of the reference label.</b> Because the label is deliberately within the field of view, the
+    segmentation stage must distinguish printed material from tissue. Two independent mechanisms are used. First,
+    Model 1 was fine-tuned on a clinical corpus of 31 distinct wounds across two hospitals with 61 manually
+    delineated reference outlines, produced to a fixed protocol (trace the wound-bed margin; exclude callus,
+    intact peri-wound skin and the reference label). Manual delineation was selected as the training target on
+    measured grounds: 9.6–11.8% error against clinician tape with ±5.8% test–retest agreement, against ±15.0% for
+    automatic masks. Training was performed on the Kaggle platform, initialised from the v1.1 weights with the
+    encoder frozen, the clinical corpus mixed with the original training data to preserve general performance.
+    Second, a model-independent post-processing test is applied: chromatic separation is not viable, as ink
+    fraction within granulation tissue spans 0.37–0.60 and overlaps the printed range, so the discriminating
+    property is the white substrate. A four-pixel collar is sampled around each candidate component and classified
+    as paper where S&nbsp;&lt;&nbsp;50 and V&nbsp;&gt;&nbsp;170 (0–255 scale); a component whose surround exceeds
+    40% paper is removed from the mask before measurement.</p>
 </section>
 
 <!-- ===================== 4. EXPERIMENTS ===================== -->
@@ -556,6 +638,45 @@
   <p>Because every threshold lies on a single ROC curve, no choice of threshold resolves this:
     sensitivity is only ever purchased with specificity. Improving both requires additional
     information, which motivated the multimodal triage described in §8.2.</p>
+
+
+  <h3>5.6&nbsp;&nbsp;Dimensional accuracy and label exclusion</h3>
+  <p>Dimensional accuracy was evaluated against clinician tape measurement on 31 distinct wounds acquired at two
+    hospitals under the study protocol. The calibration stage contributes ±1.8–5%; the residual error is
+    attributable to segmentation rather than to scale recovery.</p>
+
+  <table>
+    <thead><tr><th>Metric</th><th class="n">Model 1 v1.1</th><th class="n">Model 1 v1.2 (deployed)</th></tr></thead>
+    <tbody>
+      <tr><td>Reference labels segmented as wound (n&nbsp;=&nbsp;42)</td><td class="n">16</td><td class="n"><b>0</b></td></tr>
+      <tr><td>Clinical held-out Dice</td><td class="n">0.803</td><td class="n"><b>0.869</b></td></tr>
+      <tr><td>FUSeg validation Dice</td><td class="n">0.854</td><td class="n"><b>0.861</b></td></tr>
+      <tr><td>Mean error vs clinician tape</td><td class="n">13.3%</td><td class="n"><b>12.7%</b></td></tr>
+    </tbody>
+  </table>
+  <div class="cap">Table 10. Segmentation and measurement performance before and after clinical fine-tuning.</div>
+
+  <p>The deployed model segments no reference label in the evaluation set (0 of 42). FUSeg validation Dice
+    increased rather than decreased, indicating that the clinical improvement was not obtained at the expense of
+    general segmentation performance. Comparative error is evaluated over the intersection of wounds measurable by
+    both versions (n&nbsp;=&nbsp;11), giving 13.32% for v1.1 against 12.69% for v1.2; wounds measurable only by
+    v1.2 are reported separately and excluded from the paired mean.</p>
+
+  <table>
+    <thead><tr><th>Inclination</th><th class="n">Mean measurement error</th></tr></thead>
+    <tbody>
+      <tr><td>≤ 30°</td><td class="n">18.1%</td></tr>
+      <tr><td>30–40°</td><td class="n">39.6%</td></tr>
+      <tr><td>&gt; 40°</td><td class="n">55.8%</td></tr>
+    </tbody>
+  </table>
+  <div class="cap">Table 11. Measurement error by viewing angle; correlation between inclination and error
+    r&nbsp;=&nbsp;+0.479. These bands define the acquisition guard described in §3.6.</div>
+
+  <p>For context, manual delineation of the same wounds achieves 9.6–11.8% error, which indicates the practical
+    ceiling of the present training target. A mean error of 12.7% corresponds to approximately 4&nbsp;mm on a
+    3&nbsp;cm wound. The corpus of 31 wounds remains below the 30–50 wound target set for the study, and these
+    figures should be interpreted accordingly.</p>
 
 </section>
 
