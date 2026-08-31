@@ -236,7 +236,21 @@ directions rather than along a single axis.
 $$\text{progress} = \operatorname{clamp}_{0}^{100}\!\left(
 \frac{A_{baseline} - A_{now}}{A_{baseline}} \times 100 \right)$$
 
-### 4.4 Null results
+### 4.4 Measurement overlay
+
+Each analysis renders an image showing the region that was measured: the
+segmentation mask, and the detected reference annulus with its fitted ellipse.
+The overlay is stored with the scan, synchronised to the server and displayed in
+both the application and the clinical dashboard.
+
+It exists so that a reported dimension can be assessed rather than only read. A
+measurement taken from tissue and one taken from the printed label produce
+identical-looking numbers; the overlay distinguishes them without requiring the
+reviewer to reproduce the analysis. It is also the record of what the model
+segmented at the time the scan was taken, which a later re-analysis with a
+different model version cannot recover.
+
+### 4.5 Null results
 
 The model returns zero when no wound is segmented. Sub-millimetre extents are
 treated identically, since no ulcer measures 0.4 mm across. The interface
