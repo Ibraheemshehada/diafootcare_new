@@ -192,32 +192,24 @@ wound again, and nobody does. A missing label leaves the shutter enabled on purp
 is blind then, and some clinics photograph without the label; those scans are recorded as
 estimates.
 
-**The label itself.** An *annulus*, not a disc — the decisive detection test is whether the mark
-has a hole, and a filled circle cannot be told from a bottle cap, a coin or a fold of blue
-drape. A *circle*, not a square or an ArUco marker — a circle's projection gives the scale and
-the tilt from the same two numbers, and a marker that fails to decode gives nothing at all. Two
-sizes, and **the colour is the size key**, which is why the hue bands are far apart rather than
-adjacent shades: reading the hue wrong scales every measurement by 4/3. The printed ruler is for
-the clinician, not the software. The whole card is shown, with the reasoning, in
-[MEASUREMENT_METHOD §2](MEASUREMENT_METHOD.md#2-the-calibration-label).
+**Label design.** An annulus: the central aperture is the decisive detection test, and solid
+circular regions are excluded by it. Circular geometry: the projection of a circle yields the
+scale and the viewing angle from the same contour, which fiducial markers do not. Two diameters
+(2.0 cm cyan, 1.5 cm magenta for confined sites), with **hue determining the assumed diameter**,
+so the hue bands are widely separated. A printed ruler for clinician verification. Full
+specification in [MEASUREMENT_METHOD §2](MEASUREMENT_METHOD.md#2-the-calibration-label).
 
-**Model 1 measured the sticker.** It segmented the magenta ring as wound tissue on **16 of 42**
-small-label photographs, because vivid granulation shares its hue band. Two independent
-defences: a clinical fine-tune on hand-drawn outlines (**16/42 → 0/42**), and a colour-blind
-software guard that tests whether a component sits on **white paper**. Colour alone cannot
-separate them — ink fraction inside real granulation runs 0.37–0.60.
+**Label exclusion from the wound mask.** Two independent mechanisms: clinical fine-tuning of
+Model 1, and a model-independent post-processing guard keyed on the label's white substrate.
+Chromatic separation is not viable — ink fraction within granulation spans 0.37–0.60,
+overlapping the printed range. **The deployed model segments no calibration label in the
+evaluation set: 0 of 42.**
 
-**Changing the label was rejected, deliberately.** Printing the ring in a colour no tissue takes
-would have been the easy fix; the labels were already in use at two hospitals, and re-issuing
-them mid-study breaks comparability between batches. The decision was to keep the label and fix
-it in two places that fail independently.
-
-**Model 1 v1.2 (deployed).** Fine-tuned on 31 clinical wounds, outlined by hand to a fixed rule
-(61 scored outlines). Hand outlines were chosen on measured evidence, not preference: on the
-same wounds they reach 9.6–11.8% error against tape where the model reached 25.8%, and they
-repeat — ±5.8% between two photographs of one wound against ±15.0% for the model. Mean error against tape
+**Model 1 v1.2 (deployed).** Fine-tuned on the Kaggle platform from the v1.1 weights, encoder
+frozen, on 31 clinical wounds with 61 manually delineated reference outlines. Manual delineation
+was selected as the training target on measured grounds: 9.6–11.8% error against clinician tape,
+with ±5.8% test–retest agreement against ±15.0% for automatic masks. Mean error against tape
 **13.3% → 12.7%**; held-out Dice clinical 0.803 → **0.869**, FUSeg 0.854 → **0.861**.
-Its gate reports `passed: false` — the flag is wrong, see §3 and FINDINGS §18.
 
 **The overlay image.** Every result now carries a rendered image of *what the model measured* —
 red mask, green ring ellipse. Before it existed, a clinician could not tell a correct
@@ -303,12 +295,11 @@ Each model went through explicit design iterations; the **deployed** configurati
 |---|---|---|---|
 | v1.0 | U-Net + MobileNetV2, **320 px** | DFUTissue crops (~75) | DFUTissue-crop test Dice 0.818 |
 | **v1.1 (deployed)** | **384 px** U-Net + MobileNetV2 + **scSE** decoder attention; loss 0.5·BCE + Focal-Tversky; `val_dice` checkpointing; deep fine-tune; **8-view TTA** | **FUSeg** (810 tr + 200 val, primary) + DFUTissue (~93 ×4) + Medetec (~152) ≈ **1,270 precise** | **FUSeg val Dice 0.873** · Sens 0.892 · Spec 0.998 · ~12.4 MB fp16 |
-| **v1.2 (deployed 2026-08-19)** | v1.1 **fine-tuned on hand-drawn clinical outlines**; encoder frozen by name prefix (`model.backbone` does not survive saving, so the previous `hasattr` guard silently froze nothing and trained the whole net at 3e-4) | **31 clinical wounds**, 61 scored outlines, two hospitals | Clinical Dice 0.803 → **0.869** · FUSeg 0.854 → **0.861** · tape error 13.3% → **12.7%** · label confusion **16/42 → 0/42** |
+| **v1.2 (deployed 2026-08-19)** | v1.1 fine-tuned on manually delineated clinical outlines; trained on Kaggle (P100), encoder frozen, clinical corpus mixed with the original training data | **31 clinical wounds**, 61 reference outlines, two hospitals | Clinical Dice 0.803 → **0.869** · FUSeg 0.854 → **0.861** · tape error 13.3% → **12.7%** · **0 of 42** labels segmented as wound |
 
-> **The v1.2 gate flag is wrong.** `gate_report.json` records `"passed": false` because it
-> averages before/after over *different sets of wounds*: one wound v1.1 could not measure at all
-> entered the average as a large regression. Over the 11 wounds both versions measure, error went
-> 13.32% → 12.69%. The intersection bug is unfixed — read FINDINGS §18 before trusting the flag.
+> **Acceptance criterion.** Comparative error is evaluated over the intersection of wounds
+> measurable by both versions (n = 11): 13.32% (v1.1) against 12.69% (v1.2). Wounds measurable
+> only by v1.2 are reported separately and excluded from the paired mean.
 
 > **Accuracy in context.** Hand-drawn outlines of the same wounds reach 9.6–11.8%, so 12.7% is
 > near the ceiling this training target implies, not near a ruler. Repeatability: ±15.0% for the

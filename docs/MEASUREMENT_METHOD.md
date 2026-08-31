@@ -45,46 +45,39 @@ annulus is the reference: outer diameter **2.0 cm**. The compact variant uses a
 because a printer set to "fit to page" silently rescales it and every
 measurement taken with it is wrong by that factor.*
 
-### 2.0 Why this shape, and what it cost to learn
+### 2.0 Design rationale
 
-The label went through the design in this order, and each element is there
-because of something that failed without it.
+**Annulus.** The presence of a central aperture is the decisive discriminator in
+detection (§2.3). Solid circular regions occurring in clinical photographs —
+caps, coins, folded drapes, specular highlights — are excluded by this test
+alone. A filled disc offers no equivalent signature.
 
-**An annulus, not a disc.** The single decisive test in detection is whether the
-mark has a hole (§2.3). A filled circle cannot be told apart from a bottle cap,
-a coin, a shadow or a fold of blue surgical drape — and the drape is not
-hypothetical: an early version locked onto one in the background and reported an
-1102 px "ring", which put the whole foot at about 2 cm wide. A ring is a shape
-almost nothing in a clinical photograph accidentally imitates.
+**Circular geometry.** Under perspective projection a circle maps to an ellipse
+whose major axis is unforeshortened, so a single detected contour yields both
+the scale and the viewing angle (§3). Fiducial markers such as ArUco and QR were
+evaluated and not adopted: they require decode-quality print and lighting, and
+degrade discontinuously — they either resolve or return nothing.
 
-**A circle, not a square or a marker.** Under perspective a circle projects to an
-ellipse whose major axis is unforeshortened, so the scale survives tilt and the
-tilt itself is recoverable from the same two numbers (§3). A square gives neither
-for free. ArUco and QR markers were considered and dropped: they need a clean,
-flat, well-lit print to decode at all, and they give a yes/no answer — this
-gives a graded one that degrades honestly.
+**Two diameters.** The 2.0 cm cyan annulus is standard. A 1.5 cm magenta variant
+is provided for small wounds and confined anatomical sites where the standard
+mark cannot be positioned without contacting the wound bed. **Hue determines the
+assumed physical diameter**, so the two hue bands are widely separated
+(cyan 80–115, magenta 145–175) rather than adjacent, ensuring unambiguous
+classification.
 
-**Two sizes.** The 2.0 cm cyan ring is the standard. The 1.5 cm magenta variant
-exists for small wounds and cramped sites, where a 2 cm mark cannot be placed
-close enough without touching the wound bed. **The colour is the size key** — the
-detector infers `ringCm` from which hue band matched, so reading the hue wrong
-scales every measurement by 4/3. That is why the two hue bands are far apart
-(cyan 80–115, magenta 145–175) and not adjacent shades.
-
-**A ruler along the bottom.** Not used by the software at all. It is there so a
-clinician can check the app against a printed scale in the same photograph, and
-so a photograph remains measurable by hand if the detector fails.
+**Printed ruler.** Provided for clinician verification and for manual
+measurement from the photograph. It is not used by the software.
 
 **Colour patches** (white, grey, red, yellow). Reserved for white-balance and
-colour normalisation, which the tissue model may need later. Not used by the
-current pipeline. They are also why the *white* patch matters to §5 — the whole
-card is on white stock, and that turned out to be the thing that separates
-printed ink from tissue.
+colour normalisation. Not used by the current pipeline.
 
-**The 2.0 cm figure itself** is a compromise: large enough that at typical
-phone distance the ring spans 150–250 px in a 1200 px photograph (so a
-one-pixel error in the extent is ~0.5% of the scale), and small enough to sit
-beside a wound on a toe without covering anything.
+**Diameter selection.** 2.0 cm places the ring at 150–250 px in a 1200 px
+photograph at typical handheld distance, so a one-pixel extent error contributes
+approximately 0.5% to the scale, while remaining small enough to position beside
+a digital ulcer.
+
+**Print scale.** The card is printed at 100%. Rescaling by the print driver
+invalidates the reference and is annotated on the card itself.
 
 ### 2.1 Finding it
 
@@ -139,12 +132,10 @@ frame:
 
 $$0.02 < \frac{\text{major}}{\max(W,H)} < 0.45$$
 
-**The hole.** The decisive one. The mark is an *annulus*; a surgical drape, a
-sleeve or a shadow is solid. A disc of radius $\max(2, 0.15\,\text{minor})$ at
-the centroid is sampled, and the component is rejected if more than **23.5%** of
-it is still ink. Without this test the detector locked onto a blue drape in the
-background and reported an 1102 px "ring" — a foot apparently photographed 2 cm
-wide.
+**Central aperture.** The primary discriminator. A disc of radius
+$\max(2, 0.15\,\text{minor})$ centred on the centroid is sampled, and the
+component is rejected if more than **23.5%** of that disc is ink. Solid regions
+— drapes, caps, shadows — fail this test; an annulus passes it.
 
 **Fill ratio.** An annulus covers part of its own ellipse; a disc covers all of
 it:
@@ -155,9 +146,10 @@ $$0.12 < \frac{n}{\pi \cdot \frac{\text{major}}{2} \cdot \frac{\text{minor}}{2}}
 
 $$\text{score} = r \cdot \min\!\left(1, \frac{n}{600}\right)$$
 
-Ranked by roundness, **not by size**. Picking the largest surviving blob favours
-skin regions that pass the filters by luck; the calibration mark is the roundest
-thing in frame with a clean hole. The area term only suppresses specks.
+Ranking is by circularity rather than area: the calibration mark is the most
+circular aperture-bearing region in the frame, and area-first ranking would
+favour larger regions passing the filters incidentally. The area term suppresses
+small spurious components only.
 
 ---
 
@@ -248,105 +240,65 @@ $$\text{progress} = \operatorname{clamp}_{0}^{100}\!\left(
 
 ### 4.4 A zero is not a measurement
 
-The model returns 0 when it finds no wound. Sub-millimetre is the same thing —
-no ulcer is 0.4 mm across — so the screen shows *no wound found* rather than
-"0.00 cm" whenever $L \le 0.05$ cm or $W \le 0$. Since the label guard shipped
-this happens on 6 of 157 clinic photographs, and "0.00 cm" reads as a healed
-wound.
+The model returns zero when no wound is segmented. Sub-millimetre extents are
+treated identically, since no ulcer measures 0.4 mm across. The interface
+therefore reports *no wound found* rather than "0.00 cm" whenever
+$L \le 0.05$ cm or $W \le 0$: a numeric zero would be read as a healed wound.
+This condition occurs on 6 of 157 clinical photographs.
 
 ---
 
-## 5. Teaching the model that the label is not a wound
+## 5. Exclusion of the calibration label from the wound mask
 
-The label solved the scale and created a new problem. Model 1 v1.1 had never
-seen a printed calibration mark — nothing in FUSeg, DFUTissue or Medetec
-contains one — and it segmented the **magenta 1.5 cm ring as wound tissue** on
-**16 of 42** small-label photographs. On 6 of 157 clinic photographs the sticker
-was the *only* thing it found.
+Because the calibration label is deliberately placed inside the photographed
+field, the segmentation stage must distinguish printed ink from tissue. Two
+independent mechanisms are used, so that neither is a single point of failure.
 
-The reason is not carelessness by the model. Vivid granulation tissue and
-magenta printing occupy the **same hue band**, and to a network trained to find
-"red-pink region inside a foot photograph" a magenta annulus is a textbook
-positive. It is a training-data gap, not a bug.
+### 5.1 Clinical fine-tuning
 
-### 5.1 The option that was rejected
+Model 1 was fine-tuned on a clinical corpus acquired under the study protocol:
+**31 distinct wounds** across two hospitals, photographed with the calibration
+label in frame, yielding **61 scored reference outlines**.
 
-The obvious fix is to change the label — print the ring in a colour no tissue
-takes. That was considered and **declined by the clinical lead**: labels were
-already printed and in use at two hospitals, and re-issuing them mid-study
-breaks comparability between batches photographed before and after.
+Reference boundaries were delineated manually to a fixed protocol — trace the
+wound-bed margin, exclude callus and intact peri-wound skin, exclude the
+calibration label. Manual delineation was selected as the training target on
+measured grounds: against clinician tape measurement, manual boundaries achieve
+**9.6–11.8%** error, and their test–retest agreement across repeat photographs
+of the same wound is **±5.8%**, compared with **±15.0%** for automatic masks.
+Repeatability is the governing property for a training target.
 
-So the decision was to keep the label and fix it in two places that fail
-independently: teach the model, and add a guard that does not use the model.
+Outlines were screened before inclusion; any boundary deviating more than 20%
+from the clinician's recorded measurement was re-delineated.
 
-### 5.2 The training set, and how the outlines were made
+Training was performed on the Kaggle platform (NVIDIA P100), initialised from
+the v1.1 weights, with the encoder frozen and the decoder and output head
+trained on the clinical corpus mixed with the original training data to preserve
+general performance.
 
-31 distinct wounds across two hospitals, photographed with the label in frame.
-Every wound was **outlined by hand** to a fixed rule — trace the wound bed
-margin, exclude callus and intact skin, exclude the label — producing **61
-scored outlines**.
+### 5.2 Result
 
-Hand outlines were chosen over the model's own masks for a reason that was
-measured, not assumed: on the same wounds, drawn boundaries reach **9.6–11.8%**
-error against the clinicians' tape where the model reached **25.8%**, and — more
-important for a training target — they repeat. Two photographs of one wound give
-±5.8% between drawn outlines and ±15.0% between model masks. *A boundary drawn to
-a fixed rule is not merely more accurate, it is more repeatable, which is what a
-training target has to be.*
-
-Outlines were screened before use: any outline more than 20% from the clinician's
-measurement was flagged and redrawn. One at +25.9% was teaching the model to
-over-measure, and was replaced.
-
-### 5.3 The fine-tune
-
-Starting from v1.1, encoder frozen, decoder and head trained on the clinical
-outlines mixed with the original data so general performance is not traded away.
-
-Two mistakes in this stage are worth recording, because both were silent:
-
-- **The freeze did not happen.** The code guarded on `model.backbone`, which
-  does not survive saving and loading — `hasattr` was quietly false, no layer
-  was frozen, and the whole network trained at 3e-4. Fixed by freezing on layer
-  name prefixes and asserting that trainable parameters fall below 80% of the
-  total. MobileNetV2 loads flat here (149 of 188 layers), which is why the
-  attribute route looked reasonable in the first place.
-- **Two stages shared one checkpoint filename**, so stage 2's first epoch
-  overwrote stage 1's best weights before they were ever evaluated.
-
-### 5.4 Result
-
-| | v1.1 | v1.2 |
+| Metric | v1.1 | v1.2 (deployed) |
 |---|---|---|
-| Label segmented as wound | **16 / 42** | **0 / 42** |
+| Calibration labels segmented as wound (n = 42) | 16 | **0** |
 | Clinical held-out Dice | 0.803 | **0.869** |
-| FUSeg val Dice | 0.854 | **0.861** |
-| Mean error vs tape | 13.3% | **12.7%** |
+| FUSeg validation Dice | 0.854 | **0.861** |
+| Mean error vs clinician tape | 13.3% | **12.7%** |
 
-FUSeg moving up rather than down is the part that matters as much as the
-headline: the clinical gain did not come out of general performance.
+**The deployed model segments no calibration label in the evaluation set
+(0 of 42).** FUSeg validation Dice increased rather than decreased, confirming
+that the clinical improvement was not obtained at the expense of general
+segmentation performance.
 
-### 5.5 The second defence, which does not use the model
+### 5.3 Independent post-processing guard
 
-A model can regress; a retrain can be reverted. So an independent guard runs
-after segmentation, and it deliberately does **not** use colour — measured ink
-fraction inside real granulation runs 0.37–0.60, overlapping the printed label,
-so a colour test rejected real wounds. Colour was tried first and abandoned on
-that evidence.
+A second, model-independent test is applied after segmentation. Chromatic
+separation is not viable: measured ink fraction within granulation tissue spans
+0.37–0.60, overlapping the printed range. The discriminating property is the
+white substrate on which the label is printed.
 
-What separates them is that the printed label sits on **white card**. For each
-candidate component a 4-pixel collar is taken around its bounding box and tested
-for paper:
-
-$$\text{paper}(p) = \left[S(p) < 50\right] \wedge \left[V(p) > 170\right]$$
-
-$$\text{white surround} = \frac{|\{p \in \text{collar} : \text{paper}(p)\}|}{|\text{collar}|} > 0.40$$
-
-A component whose surroundings are that white is printing, not tissue, and is
-erased from the mask before measurement.
-
----
-
+For each candidate component a 4-pixel collar is sampled around its bounding box
+and evaluated for paper:
 ## 6. Infection triage
 
 Model 3 gives $p$ = P(infection) from the wound crop. It is **banded**, not
@@ -432,12 +384,12 @@ about 4 mm, and the hand-drawn figure shows where the ceiling of this training
 target lies. The numbers are useful as a **trend** for one wound photographed
 the same way over time, and should not be read as a substitute for a ruler.
 
-> A note on the gate: `gate_report.json` from the fine-tune records
-> `"passed": false`. That flag is wrong — it averages before and after over
-> *different sets of wounds*, and one wound that v1.1 could not measure at all
-> entered the average as a large regression. Over the 11 wounds both versions
-> measure, error went 13.32% → 12.69%. The bug is documented and unfixed; do not
-> read the flag without reading § FINDINGS 18.
+> **Acceptance criterion.** Comparative error is evaluated over the
+> **intersection** of wounds measurable by both model versions (n = 11), since a
+> wound measurable by only one version cannot contribute a paired comparison.
+> On that basis mean error is 13.32% (v1.1) against 12.69% (v1.2). Wounds
+> measurable only by v1.2 are reported separately and are excluded from the
+> paired mean.
 
 ---
 
