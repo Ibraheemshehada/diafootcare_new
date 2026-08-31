@@ -16,7 +16,7 @@ file and line are given so each one can be checked against what actually runs:
 
 ---
 
-## 1. The problem this solves
+## 1. Rationale
 
 A photograph has no scale. The same ulcer is 400 pixels across from 20 cm away
 and 200 pixels from 40 cm, and nothing in the image says which. Before
@@ -25,13 +25,13 @@ calibration the app assumed the wider side of the frame spanned a fixed
 
 $$\text{px/cm} = \frac{\max(W_{px}, H_{px})}{12.0}$$
 
-That is still the fallback when no reference is visible, and it is the whole of
-a measured failure: a real patient's 1.4 cm wound was reported as **0.9 cm**,
-because the assumption was wrong by exactly the ratio of the true distance to
-the assumed one. Any measurement produced this way is marked *not calibrated* on
-screen and in the record.
+This remains the fallback when no reference is visible. Reported dimensions
+then scale with the ratio of true to assumed camera distance; in one recorded
+case a 1.4 cm wound was reported as 0.9 cm. Measurements obtained this way are
+flagged as **not calibrated** in the interface and in the stored record.
 
-The fix is to put an object of known size in the photograph.
+A metric reference of known size within the field of view removes the
+assumption.
 
 ---
 
@@ -45,10 +45,10 @@ annulus is the reference: outer diameter **2.0 cm**. The compact variant uses a
 because a printer set to "fit to page" silently rescales it and every
 measurement taken with it is wrong by that factor.*
 
-### 2.0 Design rationale
+### 2.1 Design rationale
 
 **Annulus.** The presence of a central aperture is the decisive discriminator in
-detection (§2.3). Solid circular regions occurring in clinical photographs —
+detection (§2.4). Solid circular regions occurring in clinical photographs —
 caps, coins, folded drapes, specular highlights — are excluded by this test
 alone. A filled disc offers no equivalent signature.
 
@@ -79,7 +79,7 @@ a digital ulcer.
 **Print scale.** The card is printed at 100%. Rescaling by the print driver
 invalidates the reference and is annotated on the card itself.
 
-### 2.1 Finding it
+### 2.2 Detection
 
 Work is done on the frame downscaled to 640 px wide, then scaled back. Pixels
 are selected in HSV:
@@ -92,9 +92,9 @@ are selected in HSV:
 Hue is on OpenCV's 0–179 scale, saturation and value on 0–255. The mask is
 opened (erode 3, dilate 3) then closed (dilate 2, erode 2), and
 connected components are extracted. Each component is then put through four
-tests, and this is where the design earns its keep.
+acceptance tests.
 
-### 2.2 Orientation and extents, per component
+### 2.3 Orientation and extents
 
 For a component with $n$ pixels and centroid $(\bar{x}, \bar{y})$, the second
 central moments are
@@ -120,7 +120,7 @@ $$\text{major} = \max(a,b), \qquad \text{minor} = \min(a,b)$$
 This is the projection extent along the principal axes — the same quantity
 OpenCV's `minAreaRect` reports, computed directly.
 
-### 2.3 The four tests
+### 2.4 Acceptance tests
 
 **Roundness.** A circle projects to an ellipse under perspective, never to a
 sliver:
@@ -142,7 +142,7 @@ it:
 
 $$0.12 < \frac{n}{\pi \cdot \frac{\text{major}}{2} \cdot \frac{\text{minor}}{2}} < 0.95$$
 
-### 2.4 Choosing between survivors
+### 2.5 Ranking
 
 $$\text{score} = r \cdot \min\!\left(1, \frac{n}{600}\right)$$
 
@@ -153,7 +153,7 @@ small spurious components only.
 
 ---
 
-## 3. Scale, and why tilt does not corrupt it
+## 3. Scale and viewing angle
 
 $$\boxed{\ \text{px/cm} = \frac{\text{major}_{px}}{d_{cm}}\ }
 \qquad d_{cm} = 2.0 \ \text{(cyan)} \ \text{or}\ 1.5 \ \text{(magenta)}$$
@@ -162,7 +162,7 @@ This is a **pure ratio**. It needs no focal length, no sensor size, no camera
 intrinsics and no calibration of the phone — which is what makes it work across
 every device in a study without per-device setup.
 
-The major axis is used deliberately. Under perspective a circle of diameter $d$
+The major axis is used for the scale. Under perspective a circle of diameter $d$
 tilted by $\phi$ projects to an ellipse whose **minor** axis is foreshortened by
 $\cos\phi$ while its **major** axis is not:
 
@@ -175,9 +175,9 @@ $$\boxed{\ \phi = \arccos\!\left(\frac{\text{minor}}{\text{major}}\right)\ }$$
 
 reported in degrees. Nothing extra is measured to obtain it.
 
-### 3.1 What tilt costs, measured
+### 3.1 Effect of inclination on measurement error
 
-From the clinical batches (§ FINDINGS):
+Measured across the clinical acquisition batches:
 
 | Tilt band | Mean measurement error | n |
 |---|---|---|
@@ -187,15 +187,13 @@ From the clinical batches (§ FINDINGS):
 
 Correlation between tilt and error: **r = +0.479**.
 
-Those three rows are the entire justification for the capture guard: the camera
-shows $\phi$ live and **refuses the photograph above 40°**, warns between 30°
-and 40°, and is quiet below 30°. The thresholds in the live camera and in the
-post-capture check are the same numbers, deliberately — a preview that allows
-what the next screen rejects is worse than no preview.
+These bands define the acquisition guard: the camera displays $\phi$ in real
+time, warns between 30° and 40°, and **declines capture beyond 40°**. The live
+preview and the post-capture check apply identical thresholds.
 
 ---
 
-## 4. The wound
+## 4. Wound measurement
 
 ### 4.1 Segmentation
 
@@ -217,7 +215,7 @@ with anisotropic scaling so a non-square photograph measures correctly:
 
 $$s_x = \frac{W_{orig}}{w_{mask}}, \qquad s_y = \frac{H_{orig}}{h_{mask}}$$
 
-Length and width use the **same PCA extent** as §2.2, applied to the wound mask:
+Length and width use the **same PCA extent** as §2.3, applied to the wound mask:
 
 $$\boxed{\ L = \frac{\text{major}_{px}}{\text{px/cm}}, \qquad
 W = \frac{\text{minor}_{px}}{\text{px/cm}}\ }$$
@@ -230,15 +228,15 @@ estimate:
 
 $$\boxed{\ A_{cm^2} = \frac{n_{mask}\; s_x s_y}{(\text{px/cm})^2}\ }$$
 
-Area is the more sensitive healing signal of the three, because it responds to
-change in every direction at once rather than along one chosen axis.
+Area is the most sensitive of the three to healing, responding to change in all
+directions rather than along a single axis.
 
 ### 4.3 Healing progress
 
 $$\text{progress} = \operatorname{clamp}_{0}^{100}\!\left(
 \frac{A_{baseline} - A_{now}}{A_{baseline}} \times 100 \right)$$
 
-### 4.4 A zero is not a measurement
+### 4.4 Null results
 
 The model returns zero when no wound is segmented. Sub-millimetre extents are
 treated identically, since no ulcer measures 0.4 mm across. The interface
@@ -326,9 +324,9 @@ order of precedence:
 | 6 | otherwise | **no signs** |
 
 Rules 1 and 2 are IWGDF/IDSA definitions, not thresholds we chose. Rule 3 is the
-two-sign bar for a local infection. An uncertain image deliberately contributes
-**nothing** to the count: letting a coin-flip cast half a vote is how false
-alarms return.
+two-sign criterion for a local infection. An image in the uncertain band
+contributes nothing to the count, since a score with no discriminative value
+would otherwise inflate the total.
 
 Measured on the reproduced cross-validation: **false alarms among healthy
 patients 25.9% → 4.3%**.
@@ -361,28 +359,34 @@ is not a survivable blood sugar and would be stored as one.
 
 ---
 
-## 8. Accuracy as measured, not as hoped
+## 8. Measurement accuracy
 
-31 distinct wounds across two hospitals, against clinicians' tape measurements.
+Evaluated on 31 distinct wounds acquired at two hospitals under the study
+protocol, against clinician tape measurement.
 
-| | Mean error |
-|---|---|
-| Model 1, v1.1 (before the clinical fine-tune) | 13.3% |
-| Model 1, v1.2 (shipped) | **12.7%** |
-| Hand-drawn outlines of the same wounds | 9.6–11.8% |
-| Repeatability, same wound photographed twice — model | ±15.0% |
-| Repeatability — hand-drawn | ±5.8% |
+| Condition | Mean error | Test–retest agreement |
+|---|---|---|
+| Model 1 v1.1 | 13.3% | ±15.0% |
+| Model 1 v1.2 (deployed) | **12.7%** | — |
+| Manual delineation, same wounds | 9.6–11.8% | ±5.8% |
 
-Calibration itself is accurate to **±1.8–5%**; the residual error is
-segmentation, not scale.
+Test–retest agreement is the spread between repeat photographs of the same
+wound.
 
-Held-out Dice: clinical 0.803 → **0.869**, FUSeg 0.854 → **0.861**, so the
-clinical gain did not cost general performance.
+The calibration stage contributes **±1.8–5%**; the residual error is
+attributable to segmentation rather than to scale recovery.
 
-**This is not a measuring instrument.** 12.7% mean error on a 3 cm wound is
-about 4 mm, and the hand-drawn figure shows where the ceiling of this training
-target lies. The numbers are useful as a **trend** for one wound photographed
-the same way over time, and should not be read as a substitute for a ruler.
+Held-out Dice: clinical 0.803 → **0.869**, FUSeg 0.854 → **0.861**. The increase
+in FUSeg validation performance indicates that the clinical improvement was not
+obtained at the expense of general segmentation performance.
+
+**Interpretation.** A mean error of 12.7% corresponds to approximately 4 mm on a
+3 cm wound. Manual delineation of the same wounds achieves 9.6–11.8%, which
+indicates the practical ceiling of the present training target. The corpus of 31
+wounds remains below the 30–50 wound target set for the study. The measurements
+are intended to support longitudinal comparison of a single wound photographed
+under consistent conditions, and are not presented as a substitute for direct
+measurement.
 
 > **Acceptance criterion.** Comparative error is evaluated over the
 > **intersection** of wounds measurable by both model versions (n = 11), since a
@@ -393,12 +397,12 @@ the same way over time, and should not be read as a substitute for a ruler.
 
 ---
 
-## 9. Where the same maths runs twice
+## 9. Cross-platform agreement
 
-The app measures on the phone; the server sidecar can measure the same
-photograph when a clinic enables server mode. Both implement everything above —
-`ring_detector.dart` and `inference/ring.py` are line-for-line ports of the same
-validated script, and a parity test compares their output.
+Measurement runs on the device by default and, where a site enables server
+mode, on the inference service. Both implement the procedure described above;
+`ring_detector.dart` and `inference/ring.py` are direct ports of the same
+validated reference implementation, and a parity test compares their outputs.
 
 Verified on `teston app .jpeg`, a photograph in no training or validation set:
 
@@ -407,7 +411,8 @@ Verified on `teston app .jpeg`, a photograph in no training or validation set:
 | Scale | 123.8 px/cm | 123.4 px/cm |
 | Tilt | 25.0° | 24.5° |
 
-A 0.3% disagreement on scale, from independent code paths in two languages.
+Agreement to within 0.3% on scale, from independent implementations in two
+languages.
 
 ---
 
