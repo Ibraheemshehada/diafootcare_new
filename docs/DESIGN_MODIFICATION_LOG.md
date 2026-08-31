@@ -34,9 +34,12 @@ and the web / server tier — a Laravel API + Vue 3 dashboard + Python inference
 | **1.1.0+2** | R2–R5 | 2026-07-02 → 2026-07-30 | 3-model on-device pipeline, offline/online modes, sync, clinical suite, iOS-ready |
 | *(docs)* | R6 | 2026-07 → 2026-08 | Research documentation + full model-metric verification (no app-code change) |
 | **1.1.0+3** | R7 | 2026-08-05 → 2026-08-06 | Accuracy investigation: Model 3 wound-crop + IWGDF triage, image upload, Arabic input |
+| **1.2.0+4** | R8 | 2026-08-08 → 2026-08-19 | Calibration ring: real centimetres, retrained Model 1, capture-angle block, overlay image |
+| **1.2.1+5** | R9 | 2026-08-19 → 2026-08-20 | Scale and tilt reach the server; iOS camera format; admin analysis bench |
+| **1.2.2+6** | R10 | 2026-08-20 → 2026-08-29 | Clinical wording, perfusion caveat, glucose unit choice, read-aloud voice selection |
 
 Build numbers follow `major.minor.patch+build`. The local database schema advanced
-independently from **v1 → v19** across these rounds (see §4).
+independently from **v1 → v22** across these rounds (see §4).
 
 ---
 
@@ -171,6 +174,124 @@ sync is **upload-only** (a reinstalled patient opens an empty app); unauthentica
 return 500 instead of 401. **The iOS voice-assistant fix is *not* in this build** — it is
 scheduled for the next one.
 
+### Round 8 — Calibration, and measuring the right thing · 2026-08-08 → 2026-08-19 · `v1.2.0+4`
+The deferred fix from Round 7. A printed label with a **2.0 cm cyan annulus** (1.5 cm magenta on
+the compact label) gives the photograph a scale, so `pixelsPerCm = major_px / ring_cm` — a pure
+ratio needing no camera intrinsics, which is what lets one label work across every phone in a
+study. Full derivation, including why the *major* axis survives tilt, in
+[MEASUREMENT_METHOD](MEASUREMENT_METHOD.md).
+
+**Measured on real patients, at two hospitals, against clinicians' tape.**
+- Calibration itself is accurate to **±1.8–5%**. The residual error is segmentation, not scale.
+- Tilt is not a detail: mean error **18.1%** at ≤30°, **39.6%** at 30–40°, **55.8%** past 40°
+  (r = +0.479). Ten of 26 clinic photographs were past 40°.
+
+**Guided capture.** The camera reads the ring live, shows the angle in degrees, and **will not
+take the photograph past 40°**. Telling a patient afterwards is telling them to undress the
+wound again, and nobody does. A missing label leaves the shutter enabled on purpose — the check
+is blind then, and some clinics photograph without the label; those scans are recorded as
+estimates.
+
+**The label itself.** An *annulus*, not a disc — the decisive detection test is whether the mark
+has a hole, and a filled circle cannot be told from a bottle cap, a coin or a fold of blue
+drape. A *circle*, not a square or an ArUco marker — a circle's projection gives the scale and
+the tilt from the same two numbers, and a marker that fails to decode gives nothing at all. Two
+sizes, and **the colour is the size key**, which is why the hue bands are far apart rather than
+adjacent shades: reading the hue wrong scales every measurement by 4/3. The printed ruler is for
+the clinician, not the software. The whole card is shown, with the reasoning, in
+[MEASUREMENT_METHOD §2](MEASUREMENT_METHOD.md#2-the-calibration-label).
+
+**Model 1 measured the sticker.** It segmented the magenta ring as wound tissue on **16 of 42**
+small-label photographs, because vivid granulation shares its hue band. Two independent
+defences: a clinical fine-tune on hand-drawn outlines (**16/42 → 0/42**), and a colour-blind
+software guard that tests whether a component sits on **white paper**. Colour alone cannot
+separate them — ink fraction inside real granulation runs 0.37–0.60.
+
+**Changing the label was rejected, deliberately.** Printing the ring in a colour no tissue takes
+would have been the easy fix; the labels were already in use at two hospitals, and re-issuing
+them mid-study breaks comparability between batches. The decision was to keep the label and fix
+it in two places that fail independently.
+
+**Model 1 v1.2 (deployed).** Fine-tuned on 31 clinical wounds, outlined by hand to a fixed rule
+(61 scored outlines). Hand outlines were chosen on measured evidence, not preference: on the
+same wounds they reach 9.6–11.8% error against tape where the model reached 25.8%, and they
+repeat — ±5.8% between two photographs of one wound against ±15.0% for the model. Mean error against tape
+**13.3% → 12.7%**; held-out Dice clinical 0.803 → **0.869**, FUSeg 0.854 → **0.861**.
+Its gate reports `passed: false` — the flag is wrong, see §3 and FINDINGS §18.
+
+**The overlay image.** Every result now carries a rendered image of *what the model measured* —
+red mask, green ring ellipse. Before it existed, a clinician could not tell a correct
+measurement from one taken off the printed label. Stored, synced, and shown on the dashboard.
+
+**Two bugs found only by running on a device**
+- `RegExp(r'[/\]')` in the sync path — an unterminated character class that threw on **every**
+  image upload. No wound photograph had ever reached the server, for the life of the feature.
+- `CREATE TABLE wounds` had never been updated when columns arrived by migration, so a **fresh
+  install** could not save a scan at all (`no column infectionProbability`). Every upgrading
+  device — that is, every developer's phone — was fine. `PRAGMA user_version` said 22 in both
+  cases. A schema-parity test now compares a fresh database against a migrated one.
+
+Schema **v19 → v22**: `overlayPath`, `pixelsPerCm`, `tiltDeg`.
+
+---
+
+### Round 9 — The joint between phone and server · 2026-08-19 → 2026-08-20 · `v1.2.1+5`
+**The calibration never left the phone.** `wound_scans` had held `pixels_per_cm`, `tilt_deg` and
+`is_calibrated` since the overlay shipped, and the dashboard had badges built to read them.
+Nothing wrote them: the sync endpoint did not accept the fields and the app did not send them.
+Every scan a patient took arrived with a blank scale and a blank tilt, and the badges were
+decoration. Each side was complete on its own; only the joint was missing, and nothing had ever
+crossed it in a test. `integration_test/sync_to_server_test.dart` now walks sign-up → device
+registration → scan → sync → photograph → overlay against a **local** server.
+
+**iOS live guidance was dead on arrival.** The capture screen requested `ImageFormatGroup.yuv420`
+unconditionally. iOS accepts it and returns a **two-plane** biplanar buffer; Android returns
+three. The frame reader needs three and returns null otherwise, so every iOS frame would have
+been dropped — no ring, no angle, no guidance — while the shutter stayed enabled, because "no
+label in view" is treated as "cannot judge". The feature would have looked present and done
+nothing. iOS now gets `bgra8888`.
+
+**An admin analysis bench** (`/analysis-probe`, admin only). Checking what the models make of a
+photograph used to mean creating a patient, installing the app and taking a scan — which then
+sat in the study's own data as a real measurement of a real person. The bench forwards one
+upload to the sidecar and shows the answer, **persisting nothing**: no scan, no patient, no
+engagement event, no stored file. Asserted by test rather than trusted.
+
+---
+
+### Round 10 — Wording the clinicians asked for · 2026-08-20 → 2026-08-29 · `v1.2.2+6`
+**Tissue names in Arabic now say what the tissue looks like**, not what it is called.
+«نسيج متنخّر» is correct and means nothing to a patient reading it over their own foot;
+«نسيج أسود ميت» is the thing they can see. All five classes changed.
+
+**The perfusion caveat, on every result** — including "Adequate", especially "Adequate". The
+model reads colour and texture; it does not palpate a pulse, run a Doppler or take an ankle
+pressure. A reassuring word about a foot that is actually ischaemic is the most dangerous
+sentence this screen can produce.
+
+**Confidence figures came off the tissue card.** They read backwards in the clinic:
+"Necrosis 36%" against a 60% threshold means the model did **not** find necrosis, and was read
+as *some* necrosis. Thresholds are not uniform across classes (0.09–0.63), so the same
+percentage means different things on different rows. Each class now shows **Found** or
+**Not found**; the probabilities stay in the record and in the study data.
+
+**The glucose unit** was a suffix inside the field and nothing else — to change it you left the
+dialog, found a menu behind it, switched, and started again. It is now a visible choice above
+the number, each option showing a typical reading ("e.g. 110" / "e.g. 6.1"), and switching
+**converts what is already typed**: 110 mg/dL left as 110 mmol/L is not a survivable blood
+sugar and would have been stored as one.
+
+**Read-aloud failed silently and picked its own voice.** The service asked for `ar-SA`, a tag no
+Android engine lists — Google ships Arabic as `ar` with voices named `ar-xa-x-ard-local`.
+`isLanguageAvailable` answered true anyway, because Android matches loosely, and the engine then
+chose for itself; and when no voice existed the button flickered and said nothing. Voices are
+now ranked and set explicitly (locale, then reported quality, then installed over streaming —
+this app is used offline), and a failure tells the patient to install a voice.
+
+**A test that failed on working code.** The first infection assertion looked for
+"See a clinician" while the screen says "Please see your clinician". Assertions now compare
+against the translated strings; one written from memory sends someone hunting a bug in the app.
+
 ---
 
 ## 3. AI model design evolution (the "prototype" of the intelligence)
@@ -182,6 +303,17 @@ Each model went through explicit design iterations; the **deployed** configurati
 |---|---|---|---|
 | v1.0 | U-Net + MobileNetV2, **320 px** | DFUTissue crops (~75) | DFUTissue-crop test Dice 0.818 |
 | **v1.1 (deployed)** | **384 px** U-Net + MobileNetV2 + **scSE** decoder attention; loss 0.5·BCE + Focal-Tversky; `val_dice` checkpointing; deep fine-tune; **8-view TTA** | **FUSeg** (810 tr + 200 val, primary) + DFUTissue (~93 ×4) + Medetec (~152) ≈ **1,270 precise** | **FUSeg val Dice 0.873** · Sens 0.892 · Spec 0.998 · ~12.4 MB fp16 |
+| **v1.2 (deployed 2026-08-19)** | v1.1 **fine-tuned on hand-drawn clinical outlines**; encoder frozen by name prefix (`model.backbone` does not survive saving, so the previous `hasattr` guard silently froze nothing and trained the whole net at 3e-4) | **31 clinical wounds**, 61 scored outlines, two hospitals | Clinical Dice 0.803 → **0.869** · FUSeg 0.854 → **0.861** · tape error 13.3% → **12.7%** · label confusion **16/42 → 0/42** |
+
+> **The v1.2 gate flag is wrong.** `gate_report.json` records `"passed": false` because it
+> averages before/after over *different sets of wounds*: one wound v1.1 could not measure at all
+> entered the average as a large regression. Over the 11 wounds both versions measure, error went
+> 13.32% → 12.69%. The intersection bug is unfixed — read FINDINGS §18 before trusting the flag.
+
+> **Accuracy in context.** Hand-drawn outlines of the same wounds reach 9.6–11.8%, so 12.7% is
+> near the ceiling this training target implies, not near a ruler. Repeatability: ±15.0% for the
+> model, ±5.8% for a boundary drawn to a fixed rule. 31 wounds is short of the 30–50 target at
+> which these percentages become a result rather than a reading.
 
 ### Model 2 — Tissue classification
 | Iteration | Design | Result |
@@ -208,6 +340,17 @@ reaching **v19** (`DatabaseHelper.schemaVersion`). Key milestones:
 - **v16** `local_uuid` insert-trigger + backfill of missing ids (Round 4)
 - **v17** `wounds.tissueFindings` (per-class multi-label tissue) · **v18** `wounds.analysedOn`
 - **v19** `wounds.area` — true segmented area in cm² (Round 5); older rows stay NULL and fall back to length × width on read
+- **v20** wound photographs upload to the server (Round 7)
+- **v21–v22** `wounds.overlayPath`, `pixelsPerCm`, `tiltDeg` — what the model measured, and how it
+  was scaled (Round 8)
+
+> **A migration is only half a schema.** `CREATE TABLE wounds` was never updated as columns
+> arrived by `ALTER`, so a **fresh install** got a table without `infectionProbability` or
+> `image_synced`: every save failed and every sync pass threw, for new users only. Anyone
+> upgrading — every developer's own phone — was fine, and `PRAGMA user_version` reported the
+> current version in both cases. `test/schema_parity_test.dart` now walks the oldest shipped
+> shape through every migration and compares it, column by column, against a freshly created
+> database.
 
 Every step is additive and guarded (a failed `ALTER` cannot block the database from opening), so existing installs auto-migrate with no wipe.
 
@@ -230,6 +373,7 @@ Deployment topology and the online/offline decision are documented in the [Syste
 | Document | What it covers |
 |---|---|
 | [README](../README.md) | Project hub — overview, structure, links |
+| [MEASUREMENT_METHOD](MEASUREMENT_METHOD.md) | **The equations** — ring calibration, tilt, PCA extents, area, triage rule, unit conversion, with the measured accuracy |
 | [Full Documentation (PDF)](DaiFootCare_Full_Documentation.pdf) · [HTML](DaiFootCare_Full_Documentation.html) | Complete research doc: datasets, methodology, results, metric table |
 | [Models Documentation (PDF)](DaiFootCare_Models_Documentation.pdf) | Focused AI-models technical reference |
 | [System Documentation (HTML)](DaiFootCare_System_Documentation.html) | App + API + dashboard integration and deployment |

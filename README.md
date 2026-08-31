@@ -51,6 +51,7 @@ android/ ios/ web/ …     Platform projects
 | Document | Contents |
 |---|---|
 | **[Design-Modification Log](docs/DESIGN_MODIFICATION_LOG.md)** | **Version history & features changed between rounds (start here)** |
+| **[Measurement Method](docs/MEASUREMENT_METHOD.md)** | **The equations** — the calibration label, how pixels become centimetres, tilt, area, triage, and the measured accuracy |
 | [Full Documentation (PDF)](docs/DaiFootCare_Full_Documentation.pdf) · [HTML](docs/DaiFootCare_Full_Documentation.html) | Complete research doc: datasets, methodology, results, metric table |
 | [Models Documentation (PDF)](docs/DaiFootCare_Models_Documentation.pdf) | Focused AI-models technical reference |
 | [System Documentation (HTML)](docs/DaiFootCare_System_Documentation.html) | App + API + dashboard integration & deployment |
