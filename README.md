@@ -48,6 +48,11 @@ android/ ios/ web/ …     Platform projects
 ```
 
 ## Documentation
+
+**Start here: [docs/INDEX.md](docs/INDEX.md)** — the report in all three formats,
+what changed in every version, how the five repositories fit together, and how to
+regenerate the PDF.
+
 | Document | Contents |
 |---|---|
 | **[Design-Modification Log](docs/DESIGN_MODIFICATION_LOG.md)** | **Version history & features changed between rounds (start here)** |

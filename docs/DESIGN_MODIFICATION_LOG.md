@@ -363,6 +363,7 @@ Deployment topology and the online/offline decision are documented in the [Syste
 ## 6. Related documents (how everything links together)
 | Document | What it covers |
 |---|---|
+| **[INDEX](INDEX.md)** | **Documentation hub — the report, every version, the repository map, how to rebuild** |
 | [README](../README.md) | Project hub — overview, structure, links |
 | [MEASUREMENT_METHOD](MEASUREMENT_METHOD.md) | **The equations** — ring calibration, tilt, PCA extents, area, triage rule, unit conversion, with the measured accuracy |
 | [Full Documentation (PDF)](DaiFootCare_Full_Documentation.pdf) · [HTML](DaiFootCare_Full_Documentation.html) | Complete research doc: datasets, methodology, results, metric table |
