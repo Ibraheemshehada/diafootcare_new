@@ -13,7 +13,8 @@ MUTED = (0.357, 0.416, 0.447)  # #5b6a72
 LINE = (0.84, 0.87, 0.89)
 
 def stamp(src: str, dst: str, header_left: str = "DaiFootCare · AI Models Documentation",
-          header_right: str = "Technical Reference · v1.1") -> None:
+          header_right: str = "Technical Reference · v1.1",
+          title: str = "", subject: str = "") -> None:
     doc = fitz.open(src)
     n = doc.page_count
     for i, page in enumerate(doc):
@@ -34,10 +35,14 @@ def stamp(src: str, dst: str, header_left: str = "DaiFootCare · AI Models Docum
         page.insert_text(((w - tw) / 2, h - 22), foot,
                          fontname="helv", fontsize=8.3, color=MUTED)
     doc.set_metadata({
-        "title": "DaiFootCare — AI Models Documentation",
+        # Taken from the header text rather than hardcoded: this script renders
+        # more than one document, and a fixed title stamped the Models
+        # Documentation's name and version onto the Full Documentation.
+        "title": title or header_left.replace(" · ", " — "),
         "author": "DaiFootCare — doctoral research",
-        "subject": "On-Device Deep Learning for Diabetic-Foot-Ulcer Assessment "
-                   "(v1.1)",
+        "subject": subject or
+                   f"On-Device Deep Learning for Diabetic-Foot-Ulcer "
+                   f"Assessment ({header_right.split(' · ')[-1]})",
         "keywords": "DFU, segmentation, CLIP, tissue classification, infection, "
                     "ischaemia, TFLite",
     })
@@ -47,4 +52,6 @@ def stamp(src: str, dst: str, header_left: str = "DaiFootCare · AI Models Docum
 if __name__ == "__main__":
     hl = sys.argv[3] if len(sys.argv) > 3 else "DaiFootCare · AI Models Documentation"
     hr = sys.argv[4] if len(sys.argv) > 4 else "Technical Reference · v1.1"
-    stamp(sys.argv[1], sys.argv[2], hl, hr)
+    ti = sys.argv[5] if len(sys.argv) > 5 else ""
+    su = sys.argv[6] if len(sys.argv) > 6 else ""
+    stamp(sys.argv[1], sys.argv[2], hl, hr, ti, su)

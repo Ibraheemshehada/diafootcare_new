@@ -67,10 +67,10 @@
     clinical dashboard, and the current deployment and data-collection status.</p>
   <div style="height:10mm"></div>
   <div class="title-meta">
-    <div><strong>Version 1.1</strong> &nbsp;·&nbsp; 29 July 2026 &nbsp;·&nbsp; app build 1.1.0 (2)
+    <div><strong>Version 1.2</strong> &nbsp;·&nbsp; 31 August 2026 &nbsp;·&nbsp; app build 1.2.2 (6)
       &nbsp;·&nbsp; <span class="pill" style="background:var(--amber-tint);color:var(--amber)">Pre-release — not yet released to users</span></div>
     <div style="margin-top:.35em;font-size:9.4pt">Extends the three-model reference and the Word edition
-      (<code>D:\DF\DaiFootCare_Full_Documentation.docx</code>) with the full training and experimental detail.</div>
+      (<code>docs/DaiFootCare_Full_Documentation.docx</code>) with the full training and experimental detail.</div>
   </div>
 </section>
 
@@ -113,10 +113,11 @@
   <div class="callout limit">
     <span class="k">Corrected in this revision (Model 1)</span>
     <p>The Model 1 figures were re-verified against the deployed artefact and the training notebook. The earlier draft
-      described the <em>superseded 320px</em> model (~75 DFUTissue masks, test Dice 0.818). The <strong>deployed
-      model is the 384px v1.1 retrain</strong>: it adds <strong>FUSeg</strong> (810+200 whole-foot masks, the primary
-      validation) and Medetec, a precise pool of <strong>≈1,270 images</strong>, scSE decoder attention,
-      checkpointing by <em>val Dice</em>, and a headline <strong>FUSeg-validation Dice of 0.873</strong>. Sections 2,
+      described the <em>superseded 320px</em> model (~75 DFUTissue masks, test Dice 0.818). The <strong>384px v1.1
+      retrain</strong> adds <strong>FUSeg</strong> (810+200 whole-foot masks, the primary validation) and Medetec, a
+      precise pool of <strong>≈1,270 images</strong>, scSE decoder attention, checkpointing by <em>val Dice</em>, and
+      a headline <strong>FUSeg-validation Dice of 0.873</strong>. The <strong>deployed model is v1.2</strong>, which
+      fine-tunes v1.1 on the clinical corpus described in §3.6 and is evaluated in §5.6. Sections 2,
       3.2, 3.5, 5.1 and 8 have been updated accordingly.</p>
   </div>
 </section>
@@ -212,8 +213,10 @@
   <div class="callout note"><span class="k">Source of truth for this section</span>
     <p>These figures were verified against the deployed artefact and the training notebook
       (<code>model-1-kaggle-with res.ipynb</code>, Kaggle GPU, in <code>D:\Diafoot experments\model one</code>).
-      The shipped <code>model1_wound_fp16.tflite</code> reads its input shape directly as
-      <code>[1, 384, 384, 3]</code> and is 12,446,944 bytes, confirming the 384px v1.1 model.</p>
+      The v1.1 artefact reads its input shape directly as
+      <code>[1, 384, 384, 3]</code> and is 12,446,944 bytes, confirming the 384px architecture. The shipped
+      <code>model1_wound_fp16.tflite</code> is the v1.2 fine-tune of that network, 12,447,840 bytes, with the same
+      input shape.</p>
   </div>
   <h4>Data preparation and augmentation</h4>
   <p>The precise-mask training pool combined three sources: <strong>FUSeg</strong> (810 whole-foot training images
@@ -969,6 +972,6 @@
       103616.</li>
   </ol>
   <p style="text-align:center;color:var(--muted);margin-top:1.4em;font-size:9.4pt">
-    End of full research documentation — DiaFootCare v1.1. Companion Word edition:
-    <code>D:\DF\DaiFootCare_Full_Documentation.docx</code>.</p>
+    End of full research documentation — DiaFootCare v1.2. Companion Word edition:
+    <code>docs/DaiFootCare_Full_Documentation.docx</code>, tracked in the repository alongside this file.</p>
 </section>
