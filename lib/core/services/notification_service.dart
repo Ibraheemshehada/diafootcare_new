@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io' show Platform;
 import 'package:flutter/foundation.dart' show kIsWeb, debugPrint;
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:flutter_timezone/flutter_timezone.dart';
 import 'package:timezone/data/latest_all.dart' as tz;
 import 'package:timezone/timezone.dart' as tz;
 
@@ -45,13 +46,24 @@ class NotificationService {
     // ✅ Initialize tz database
     tz.initializeTimeZones();
 
-    // ✅ Use a valid, real timezone name
-    // For Gaza, Jerusalem, or nearby regions, use 'Asia/Jerusalem'
+    // Use the DEVICE's own timezone so a scheduled reminder fires at the time
+    // shown on the patient's clock, wherever they are. The previous build
+    // hard-coded 'Asia/Jerusalem', which observes daylight saving: for the Oman
+    // trial (Asia/Muscat, UTC+4, no DST) that made every medication reminder
+    // fire an hour off while Jerusalem was on DST — and two hours off in winter.
+    // Fallback is Asia/Muscat (the trial country), never a DST-observing zone,
+    // so even a detection failure keeps reminders on time for participants.
     try {
-      tz.setLocalLocation(tz.getLocation('Asia/Jerusalem'));
+      final String deviceTz = await FlutterTimezone.getLocalTimezone();
+      tz.setLocalLocation(tz.getLocation(deviceTz));
+      debugPrint('🕒 Notification timezone set to device zone: $deviceTz');
     } catch (e) {
-      // Fallback to UTC if anything goes wrong
-      tz.setLocalLocation(tz.getLocation('UTC'));
+      debugPrint('🕒 Device timezone lookup failed ($e); using Asia/Muscat');
+      try {
+        tz.setLocalLocation(tz.getLocation('Asia/Muscat'));
+      } catch (_) {
+        tz.setLocalLocation(tz.getLocation('UTC'));
+      }
     }
 
     const androidInit = AndroidInitializationSettings('@mipmap/ic_launcher');
